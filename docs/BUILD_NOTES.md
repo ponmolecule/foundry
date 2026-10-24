@@ -1952,3 +1952,15 @@ Product editor redesign for every product family (lending, funded-flow lending, 
 - Method names: "Existing loan mechanics" is now "Dollar originations · single runoff rate"; "Live production + balance-based repayment" is now "Loan production · separate payment and prepayment rates". Stored values are unchanged. Switching from loan production back to dollar originations still removes the production inputs, as before; the switch now asks first.
 - Fixes: the duplicate Measurement / Balance authoring / Starting balance fields that rendered below lending products are hidden (the balance-authoring block already carries them).
 - Tests: tests_r370_lending_layout and tests_r371_authoring_stability now open each section through the rail before checking it (same assertions); tests_r370 exits on failure instead of leaving the browser open. New tests_r392_product_rail (node + py). tests_r381_deposit_pricing and tests_r389_authoring open Pricing (and Balance, Other) through the rail before driving those controls; tests_r353_product_layout checks the hook that now continues into the rail decorator.
+
+## r393
+Customer acquisition redesign, in the layout used by the product editors. Presentation only: the same controls, handlers and stored fields; no engine change; no migration.
+
+- Engine strip: feeds and channels, acquisition spend for year 1 and for all years, AUC at the end of the horizon and new AUC across the horizon, all read from the last completed run. Customer counts are never summed across feeds, because each feed counts its own kind of customer.
+- Feed rail: "All feeds" plus one item per feed with its channel count, ending customers and AUC. "+ Create feed" opens the new feed with its settings showing. Arrow keys move between feeds. The selection follows the feed's series id, so it survives a rename or a reload.
+- All feeds: one comparison row per feed (customers by year, customer path, AUC, spend, blended CAC, attrition); feeds that carry no AUC say "count only". Selecting a row opens the feed.
+- Feed view: a settings band (opening customers, opening AUC, attrition, path and timing) with "Edit feed settings", which opens the existing feed name, opening book, help and attrition controls in place. Below it, a channel table with results for year 1 (new customers, share, new AUC, spend, CAC) and an Edit link per row; drag handles still reorder channels.
+- Editing a channel opens the existing driver editor directly beneath the table; the table stays visible and marks the row EDITING. Done closes it. Account adoption, channel attrition allocation and the audit roll-forward follow as before.
+- Results column: the feed's month-end customers or AUC with year-end figures and blended CAC; while a channel is open it shows that channel's new customers per month, by year, CAC and share.
+- Height: the workspace keeps a fixed minimum while browsing and grows while editing. Narrow widths (container-based) move the results column below and the rail across the top.
+- Tests: tests_r376_deferred opens feeds through the rail and creates a feed with "+ Create feed" (same assertions). New tests_r393_acquisition_layout (node + py).

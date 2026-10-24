@@ -17,13 +17,14 @@ for(const width of [1440,1024,768]){
 }
 await page.setViewportSize({width:1440,height:1100});await root.screenshot({path:'/tmp/r376-cac.png'});
 // Input nodes stay mounted across successful / failed readonly preview refreshes.
+await page.evaluate(()=>cacnSelect(0));   // r393: feeds are opened from the rail
 await page.evaluate(()=>{window._heldCac=document.querySelector('#card-cac input[aria-label="Feed name"]');lastRes=null;lastErrs=[{message:'Incomplete unrelated lending input'}];refreshConfigPreviews();});
 assert.strictEqual(await root.locator('.cac-audit-grid').count(),2);assert((await root.innerText()).includes('Last completed run'));assert(await page.evaluate(()=>window._heldCac===document.querySelector('#card-cac input[aria-label="Feed name"]')));
 await page.evaluate(f=>{lastRes=f.result;lastErrs=null;refreshConfigPreviews();},fixture);assert(!(await root.innerText()).includes('Last completed run'));
 // Stable disclosure identity and feed rename preserve last completed results.
-await root.locator('.cac-feed-disclosure').nth(1).locator('summary').first().click();
+await page.evaluate(()=>cacnSelect(1));
 await page.evaluate(()=>renameCacFeed('Advances','Renamed Advances'));assert.strictEqual(await root.locator('.cac-audit-grid').count(),2);
-await root.locator('.cac-feed-toolbar button').click();assert.strictEqual(await root.locator('details.cac-feed-disclosure[open]').count(),1);assert((await root.locator('details.cac-feed-disclosure[open]').innerText()).includes('first run'));
+await root.locator('.cacn-add').click();assert.strictEqual(await root.locator('.cacn-set:not([hidden])').count(),1);assert((await root.locator('.cacn-main').innerText()).includes('first run'));
 // All eligible flows are available without publication and missing channels get IDs.
 const opts=await page.evaluate(()=>_accountActivityOptions('transaction'));assert(opts.some(o=>o.label.includes('Sales')));
 // Expense source, exclusions and days controls work in the actual named component editor.

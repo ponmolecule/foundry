@@ -3272,6 +3272,73 @@ tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.ope
 .lfx.lnv .lnv-pane .lfx-b>.lfx-body{container-type:inline-size;container-name:lnvbody}
 @container lnvbody (max-width:720px){.lfx.lnv .loan-contract-grid{grid-template-columns:minmax(0,1fr)!important}}
 
+/* r393: customer acquisition · feed rail, comparison, feed workspace, inline channel editor */
+.cacn-gone{display:none!important}
+.cacn{margin-top:8px;container-type:inline-size;container-name:cacn}
+.cacn-es{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid #E3E1DC;border-radius:4px;background:#fff;overflow:hidden}
+.cacn-es>div{padding:10px 16px;border-right:1px solid #ECEBE7;display:flex;flex-direction:column;gap:3px;min-width:0}
+.cacn-es>div:last-child{border-right:0}
+.cacn-es span{font-size:9.5px;letter-spacing:.08em;font-weight:700;color:#76736C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cacn-es b{font-size:19px;font-weight:600;color:#1F1F1E;font-variant-numeric:tabular-nums;white-space:nowrap}.cacn-es b small{font-size:10.5px;font-weight:500;color:#76736C;margin-left:6px}
+.cacn-es .dk{background:#2C2C2C}.cacn-es .dk span{color:#C9A04E}.cacn-es .dk b{color:#fff}.cacn-es .dk b small{color:#C9C6BF}
+.cacn-cap{display:flex;justify-content:space-between;font-size:11px;color:#A3A09A;margin:6px 2px 0}
+.cacn-ws{display:grid;grid-template-columns:248px minmax(0,1fr);background:#fff;border:1px solid #E3E1DC;border-radius:4px;min-height:520px;margin-top:10px}
+.cacn-rail{background:#FAFAF8;border-right:1px solid #E3E1DC;padding:8px 0;display:flex;flex-direction:column;position:sticky;top:96px;align-self:start;max-height:calc(100vh - 110px);overflow:auto}
+.cacn-ri{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:26px 1fr;gap:0 6px;padding:8px 14px 8px 12px;border-left:3px solid transparent}
+.cacn-ri .n{font:600 10px var(--mono);color:#9A7330;padding-top:2px}.cacn-ri .t{font-size:12.5px;font-weight:600;color:#1F1F1E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cacn-ri .s{grid-column:2;font-size:11px;color:#76736C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cacn-ri:hover:not(.on){background:#F2F1ED}.cacn-ri:focus-visible{outline:2px solid #C9A04E;outline-offset:-2px}
+.cacn-ri.on{background:#2C2C2C;border-left-color:#C9A04E}.cacn-ri.on .t{color:#fff}.cacn-ri.on .s{color:#C9C6BF}.cacn-ri.on .n{color:#C9A04E}
+.cacn-rsep{font-size:9.5px;letter-spacing:.09em;font-weight:700;color:#A3A09A;padding:10px 15px 4px;border-top:1px solid #ECEBE7;margin-top:6px}
+.cacn-add{all:unset;cursor:pointer;margin:8px 15px;font-size:12px;font-weight:600;color:#9A7330}.cacn-add:hover{text-decoration:underline}
+.cacn-rfoot{margin-top:auto;padding:8px 15px 4px;font-size:10.5px;color:#A3A09A;border-top:1px solid #ECEBE7}
+.cacn-pane{display:grid;grid-template-columns:minmax(0,1fr) clamp(260px,26%,420px);min-width:0;align-items:start}
+.cacn-ws.all .cacn-pane{display:block;padding:16px 22px}
+.cacn-main{padding:14px 18px 18px;min-width:0}
+.cacn-ph{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:0 0 6px}.cacn-ph h3{margin:0;font-size:15px;font-weight:600;color:#1F1F1E}.cacn-ph h3 .no{font:600 11px var(--mono);color:#9A7330;margin-right:8px}.cacn-ph>span{font-size:11.5px;color:#76736C}
+.cacn-fx{font:11px/1.6 var(--mono);color:#4A4945;background:#FAFAF8;border-left:2px solid #C9A04E;padding:5px 9px;margin:0 0 12px;max-width:max-content}
+.cacn-band{display:flex;flex-wrap:wrap;align-items:stretch;min-height:50px;background:#FAFAF8;border:1px solid #E3E1DC;border-radius:4px;margin:0 0 12px}
+.cacn-band.open{border-radius:4px 4px 0 0;margin-bottom:0}
+.cacn-band>div{display:flex;flex-direction:column;justify-content:center;padding:6px 14px;border-right:1px solid #ECEBE7;min-width:0;flex:0 1 auto}
+.cacn-band span{font-size:10.5px;color:#76736C}.cacn-band b{font-size:12.5px;font-weight:600;color:#1F1F1E;line-height:1.35}.cacn-band span{white-space:nowrap}.cacn-band b i{font-style:normal;font-weight:500;color:#76736C}
+.cacn-band>div:nth-child(-n+2){flex:none}
+.cacn-band>div:nth-child(n+3){flex:1 1 0}
+.cacn-band>div.e{margin-left:auto;border-right:0;flex-direction:row;align-items:center;flex:none}
+.cacn-btn{font:600 11.5px var(--k-font,inherit);border:1px solid #CFCCC6;background:#fff;border-radius:3px;height:28px;padding:0 12px;color:#1F1F1E;cursor:pointer;white-space:nowrap}
+.cacn-btn.dk{background:#2C2C2C;color:#fff;border-color:#2C2C2C}
+.cacn-set{border:1px solid #E3E1DC;border-top:0;border-radius:0 0 4px 4px;padding:14px 16px;margin:0 0 12px;background:#fff}
+.cacn-set[hidden]{display:none!important}
+#card-cac .cacn-set .cac-feed-head{margin-bottom:10px}
+.cacn-tw{overflow-x:auto}
+.cacn-t{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.cacn-t th{font-size:9px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;color:#76736C;text-align:right;padding:7px 7px;border-bottom:1px solid #E3E1DC;white-space:nowrap}
+.cacn-t td{padding:8px 7px;border-bottom:1px solid #F0EFEB;text-align:right;white-space:nowrap;color:#1F1F1E}
+.cacn-t th:nth-child(-n+2),.cacn-t td:nth-child(-n+2){text-align:left}
+.cacn-t td.nm{font-weight:600}.cacn-t td.nm small{display:block;font-weight:400;font-size:10.5px;color:#A3A09A;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.cacn-t tbody tr{cursor:pointer}.cacn-t tbody tr:hover{background:#FAFAF8}
+.cacn-t tr.sel{background:#FBF6EA!important;box-shadow:inset 3px 0 0 #C9A04E}
+.cacn-t tfoot td{font-weight:600;border-top:1px solid #CFCCC6;border-bottom:0;background:#FAFAF8}
+.cacn-t .mut{color:#A3A09A;font-weight:400;font-style:italic}
+.cacn-t .grip{cursor:grab;color:#B9B6AF;width:14px;padding-right:0}
+.cacn-t .meth{color:#4A4945}
+.cacn-t .edt{font-size:9px;letter-spacing:.08em;font-weight:700;color:#9A7330;background:#F6EEDC;border-radius:8px;padding:1px 7px;margin-left:6px}
+.cacn-t .bar{display:inline-block;height:6px;background:#C9A04E;border-radius:1px;margin-left:6px;vertical-align:middle}
+.cacn-lnk{all:unset;cursor:pointer;font-size:11.5px;font-weight:600;color:#9A7330}.cacn-lnk:hover{text-decoration:underline}
+.cacn-chw{overflow-x:auto;margin:0 0 4px}
+#card-cac .cacn-editor{max-width:none;margin:10px 0 12px;border-color:#C9A04E}
+.cacn-done{display:flex;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid #ECEBE7;font-size:11.5px;color:#76736C}
+.cacn-ws .lfx-ro.cacn-ro{display:block;border-left:1px solid #E3E1DC;padding:16px 18px;position:sticky;top:96px;align-self:start;min-width:0;background:#fff}
+.cacn-roh{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin:0 0 8px}.cacn-roh>span{font-size:9.5px;letter-spacing:.08em;font-weight:700;color:#76736C}
+.cacn-seg{display:flex;border:1px solid #CFCCC6;border-radius:3px;overflow:hidden}.cacn-seg button{all:unset;cursor:pointer;font-size:11px;font-weight:600;padding:3px 10px;color:#4A4945}.cacn-seg button.on{background:#2C2C2C;color:#fff}
+.cacn-ro svg{width:100%;height:auto;display:block}
+.cacn-k{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#ECEBE7;border:1px solid #ECEBE7;margin-top:10px}
+.cacn-k>div{background:#fff;padding:7px 10px;display:flex;flex-direction:column}.cacn-k span{font-size:10.5px;color:#76736C}.cacn-k b{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.cacn-inc{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:#76736C;padding:7px 0;border-bottom:1px solid #F0EFEB}.cacn-inc b{color:#1F1F1E;font-weight:600}
+.cacn-empty{font-size:12px;color:#A3A09A;padding:24px 0}
+#card-cac .cacn-set .cac-feed-head{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 24px}
+@container cacn (max-width:1080px){.cacn-pane{grid-template-columns:minmax(0,1fr)}.cacn-ws .lfx-ro.cacn-ro{position:static;border-left:0;border-top:1px solid #E3E1DC}.cacn-es{grid-template-columns:repeat(3,minmax(0,1fr))}.cacn-es>div{border-bottom:1px solid #ECEBE7}}
+@container cacn (max-width:820px){.cacn-ws{grid-template-columns:minmax(0,1fr)}.cacn-rail{position:static;max-height:none;flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid #E3E1DC;padding:0}.cacn-ri{min-width:180px;flex:1 1 180px}.cacn-rsep,.cacn-rfoot{display:none}.cacn-add{align-self:center}.cacn-es{grid-template-columns:repeat(2,minmax(0,1fr))}#card-cac .cacn-set .cac-feed-head{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 24px}#card-cac .cacn-set .cac-feed-head>:first-child{grid-column:1/-1}}
+
 </style>
 </head>
 <body>
@@ -3826,7 +3893,7 @@ function fitInput(el){
 (function(){
   // r229: fit synchronously in the mutation callback (a microtask, before the browser paints), so a redrawn
   // control never shows its unfitted width for a frame. fitControls only changes styles, which the observer ignores.
-  const run=()=>{ if(typeof prdGroupSetup==='function') prdGroupSetup(); fitControls(); };   // r233: group Setup before fitting, both before paint
+  const run=()=>{ if(typeof prdGroupSetup==='function') prdGroupSetup(); if(typeof cacnDecorate==='function') cacnDecorate(); fitControls(); };   // r393: acquisition layout   // r233: group Setup before fitting, both before paint
   const start=()=>{ const c=document.getElementById('content'); if(!c) return setTimeout(start,200);
     new MutationObserver(run).observe(c,{childList:true,subtree:true}); run(); };
   start();
@@ -8351,6 +8418,119 @@ function lnvDecorate(card){
 // Engine-strip figures and chips open their section inside the rail layout instead of scrolling.
 if(typeof lfxOpenSection==='function'){const _lnvOpenFx=lfxOpenSection;lfxOpenSection=function(i,id){if(lnvGo('lending',i,id))return;return _lnvOpenFx(i,id);};}
 if(typeof lfgOpenSection==='function'){const _lnvOpenFg=lfgOpenSection;lfgOpenSection=function(fam,i,g){if(lnvGo(fam,i,g))return;return _lnvOpenFg(fam,i,g);};}
+
+// ===== r393: customer acquisition · feed rail, all-feeds comparison, feed workspace, inline channel editor =====
+// Presentation only. Feed settings, channel drivers, account adoption and the audit roll-forward are the controls
+// the card already renders; this re-seats them. Every figure is read from the engine result (lastRes).
+window._cacnSel=window._cacnSel||null;          // selected feed series_id, or null for All feeds
+const _cacnSet=new WeakMap(), _cacnEdit=new WeakMap(), _cacnView=new WeakMap();
+function _cacnFeeds(){return Object.entries(((cfg.assumptions||{}).cac_feeds)||{});}
+function _cacnRes(fn){const r=(typeof lastRes!=='undefined'&&lastRes)||null;return r&&r.customer_acquisition?r.customer_acquisition[fn]||null:null;}
+function _cacnN(v,d){return v==null||!isFinite(+v)?'—':(+v).toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0});}
+function _cacnM(v){if(v==null||!isFinite(+v))return '—';const a=Math.abs(+v);return a>=1000?'$'+(+v/1000).toFixed(1)+'M':'$'+_cacnN(v)+'k';}
+const CACN_METHOD={pool_conversion:'Pool × conversion',spend_cac:'Spend ÷ CAC',fte_productivity:'FTEs × productivity',explicit:'Explicit customers'};
+function _cacnAttr(fd){const s=((fd.driver_specs||{}).attrition_rate)||{source:'entered',trajectory:'flat',value:+fd.attrition_rate||0};
+  const m=_cacMode?_cacMode(s):(s.trajectory||'flat'),per=(m==='explicit'?(s.cadence||'year'):(s.period||'year'));
+  if(m==='explicit')return 'Explicit · '+((s.values||[]).length)+' values / '+per;
+  if(m==='growth')return (100*(+s.base||0)).toFixed(1)+'% / '+per+' · growth';
+  return (100*(+s.value||0)).toFixed(1)+'% / '+per;}
+function _cacnPath(fd){const p=fd.intra_period_path==='straight_line'?(fd.path_anchor==='quarter'?'Straight line between quarter-ends':'Straight line between year-ends'):'Monthly flows';
+  const t=fd.intra_period_path==='straight_line'?'':({spread:' · spread evenly',period_start:' · start of period',monthly_bucket:' · start of period'}[fd.attrition_timing]||' · end of period');return p+t;}
+function _cacnChart(arr,fmt){if(typeof _lfxSparkSvg!=='function'||!arr||arr.length<2)return '<div class="cacn-empty">Figures appear after the next complete run.</div>';return _lfxSparkSvg(arr,Math.min(12,arr.length),fmt||(v=>_cacnN(v)));}
+function _cacnStrip(){
+  const F=_cacnFeeds(),chN=F.reduce((s,[,f])=>s+((f.channels||[]).length),0);let sp1=0,spT=0,aucE=0,nAuc=0,have=false;
+  F.forEach(([fn])=>{const r=_cacnRes(fn),a=(r&&r.annual)||[];if(a.length){have=true;sp1+=+a[0].total_spend||0;a.forEach(x=>{spT+=+x.total_spend||0;nAuc+=+x.new_auc||0;});aucE+=+a[a.length-1].end_auc||0;}});
+  const Y=(()=>{const r=F.length?_cacnRes(F[0][0]):null;return r&&r.annual?r.annual.length:0;})(),c=(k,v,u)=>`<div><span>${k}</span><b>${v}<small>${u}</small></b></div>`;
+  return `<div class="cacn-es">${c('FEEDS · CHANNELS',F.length,`feeds · ${chN} channels`)}${c('ACQUISITION SPEND · Y1',have?_cacnN(sp1):'—','$000s')}${c('ACQUISITION SPEND · '+(Y>1?'Y1–Y'+Y:'ALL YEARS'),have?_cacnN(spT):'—','$000s')}${c('AUC · END Y'+(Y||'n'),have?_cacnN(aucE):'—','$000s, all feeds')}<div class="dk"><span>NEW AUC · ${Y>1?'Y1–Y'+Y:'ALL YEARS'}</span><b>${have?_cacnN(nAuc):'—'}<small>$000s</small></b></div></div><div class="cacn-cap"><span>Engine figures by model year. Customer counts are not summed across feeds: each feed counts its own kind of customer.</span><span>$000s</span></div>`;
+}
+function _cacnAllHtml(){
+  const F=_cacnFeeds();if(!F.length)return '<div class="cacn-empty">No acquisition feeds yet. Create one to start.</div>';
+  const Y=Math.max(0,...F.map(([fn])=>((_cacnRes(fn)||{}).annual||[]).length));const yrs=Array.from({length:Y},(_,k)=>k);
+  let h=`<div class="cacn-ph"><h3>All feeds</h3><span>One row per feed. Select a feed to edit it; figures refresh after each run.</span></div><div class="cacn-tw"><table class="cacn-t"><thead><tr><th>Feed</th><th>Channels</th>${yrs.map(k=>`<th>Customers · Y${k+1}</th>`).join('')}<th>Customer path</th><th>AUC · end Y1</th><th>AUC · end Y${Y||1}</th><th>Spend · Y1</th><th>Blended CAC · Y1</th><th>Attrition</th></tr></thead><tbody>`;
+  let a1=0,aY=0,s1=0;
+  F.forEach(([fn,fd],k)=>{const r=_cacnRes(fn),a=(r&&r.annual)||[];const cnt=!!a.length&&a.every(x=>!(+x.end_auc));if(a.length){a1+=+a[0].end_auc||0;aY+=+a[a.length-1].end_auc||0;s1+=+a[0].total_spend||0;}
+    h+=`<tr onclick="cacnSelect(${k})"><td class="nm">${esc(fn)}<small>${esc((fd.channels||[]).map(c=>c.name||'Unnamed channel').join(' · '))}</small></td><td>${(fd.channels||[]).length}</td>${yrs.map(y=>`<td>${a[y]?_cacnN(a[y].end_cust):'—'}</td>`).join('')}<td>${r&&typeof _sparkHtml==='function'?_sparkHtml(r.customerEndByMonth||[]):''}</td>${cnt?'<td class="mut">count only</td><td class="mut">count only</td>':`<td>${a[0]?_cacnN(a[0].end_auc):'—'}</td><td>${a.length?_cacnN(a[a.length-1].end_auc):'—'}</td>`}<td>${a[0]?_cacnN(a[0].total_spend):'—'}</td><td>${a[0]&&+a[0].blended_cac?'$'+_cacnN(a[0].blended_cac):'—'}</td><td>${esc(_cacnAttr(fd))}</td></tr>`;});
+  return h+`</tbody><tfoot><tr><td>All feeds</td><td>${F.reduce((s,[,f])=>s+((f.channels||[]).length),0)}</td><td class="mut" colspan="${Y+1}">not additive across feeds</td><td>${_cacnN(a1)}</td><td>${_cacnN(aY)}</td><td>${_cacnN(s1)}</td><td></td><td></td></tr></tfoot></table></div>`;
+}
+function _cacnChannelTable(fn,fd,editing){
+  const r=_cacnRes(fn),a0=((r&&r.annual)||[])[0]||null,tn=a0?+a0.new_cust||0:0;
+  let h=`<table class="cacn-t cacn-ch"><thead><tr><th></th><th>Channel · method</th><th>New customers · Y1</th><th>Share</th><th>New AUC · Y1</th><th>Spend · Y1</th><th>CAC · Y1</th><th></th></tr></thead><tbody>`;
+  (fd.channels||[]).forEach((ch,ci)=>{const x=a0&&(a0.channels||[])[ci],ed=editing===ci,sh=x&&tn?100*(+x.new_customers||0)/tn:null;
+    h+=`<tr class="${ed?'sel':''}" onclick="if(!event.target.closest('button,.grip'))cacnEdit(${ci})" ondragover="cacChannelDragOver(event,'${esc(fn)}',${ci})" ondragleave="cacChannelDragLeave(event)" ondrop="cacChannelDrop(event,'${esc(fn)}',${ci})"><td class="grip" draggable="true" title="Drag to reorder" ondragstart="cacChannelDragStart(event,'${esc(fn)}',${ci})" ondragend="cacChannelDragEnd(event)">⋮⋮</td><td class="nm">${esc(ch.name||'Unnamed channel')}${ed?' <span class="edt">EDITING</span>':''}<small>${CACN_METHOD[ch.method||'pool_conversion']||esc(ch.method)}</small></td><td>${x?_cacnN(x.new_customers):'—'}</td><td>${sh==null?'—':sh.toFixed(0)+'%'}</td><td>${x&&+x.new_auc?_cacnN(x.new_auc):'<span class="mut">—</span>'}</td><td>${x?_cacnN(x.spend):'—'}</td><td>${x&&+x.cac?'$'+_cacnN(x.cac):'—'}</td><td><button type="button" class="cacn-lnk" onclick="cacnEdit(${ci})">${ed?'Close ▴':'Edit ›'}</button></td></tr>`;});
+  if(!(fd.channels||[]).length)h+=`<tr class="none"><td></td><td colspan="7" class="mut">No channels yet. Add one below; each channel adds new customers through its own equation.</td></tr>`;
+  return h+`</tbody>${a0?`<tfoot><tr><td></td><td>Feed total</td><td>${_cacnN(tn)}</td><td>100%</td><td>${+a0.new_auc?_cacnN(a0.new_auc):'—'}</td><td>${_cacnN(a0.total_spend)}</td><td>${+a0.blended_cac?'$'+_cacnN(a0.blended_cac):'—'}</td><td></td></tr></tfoot>`:''}</table>`;
+}
+function _cacnRo(fn,fd,editing){
+  const r=_cacnRes(fn),a=(r&&r.annual)||[];
+  if(editing!=null){const ch=(fd.channels||[])[editing]||{},mo=((r&&r.monthly)||[]).map(m=>+(((m.channels||[])[editing]||{}).new_customers)||0),ys=a.map(x=>(x.channels||[])[editing]||{});
+    return `<div class="cacn-roh"><span>${esc((ch.name||'Channel').toUpperCase())} · NEW CUSTOMERS / MONTH</span></div>${_cacnChart(mo,v=>_cacnN(v,1))}<div class="cacn-k">${ys.slice(0,3).map((x,k)=>`<div><span>New · Y${k+1}</span><b>${_cacnN(x.new_customers)}</b></div>`).join('')}<div><span>CAC · Y1</span><b>${ys[0]&&+ys[0].cac?'$'+_cacnN(ys[0].cac):'—'}</b></div></div>${ys.length?`<div class="cacn-inc"><span>Spend · Y1 → Y${ys.length}</span><b>${_cacnN(ys[0].spend)} → ${_cacnN(ys[ys.length-1].spend)} $000s</b></div><div class="cacn-inc"><span>Share of feed new customers · Y1</span><b>${a[0]&&+a[0].new_cust?(100*(+ys[0].new_customers||0)/(+a[0].new_cust)).toFixed(0)+'%':'—'}</b></div>`:''}`;}
+  const v=_cacnView.get(fd)||'cust',ser=v==='auc'?(r&&r.aucEndByMonth):(r&&r.customerEndByMonth);
+  const seg=`<div class="cacn-seg">${[['cust','Customers'],['auc','AUC']].map(([k,l])=>`<button type="button" class="${v===k?'on':''}" onclick="cacnView('${k}')">${l}</button>`).join('')}</div>`;
+  return `<div class="cacn-roh"><span>${v==='auc'?'AUC · MONTH END · $000s':'CUSTOMERS · MONTH END'}</span>${seg}</div>${_cacnChart(ser||[])}<div class="cacn-k">${a.slice(0,3).map((x,k)=>`<div><span>End Y${k+1}</span><b>${_cacnN(v==='auc'?x.end_auc:x.end_cust)}</b></div>`).join('')}<div><span>Lost, Y1–Y${a.length||'n'}</span><b>${a.length?_cacnN(a.reduce((s,x)=>s+(+x.cust_lost||0),0)):'—'}</b></div></div>${a.length&&+a[0].blended_cac?`<div class="cacn-inc"><span>Blended CAC</span><b>$${_cacnN(a[0].blended_cac)} → $${_cacnN(a[a.length-1].blended_cac)}</b></div>`:''}`;
+}
+function _cacnSelected(){const F=_cacnFeeds();if(!window._cacnSel)return null;return F.find(([,f])=>f.series_id===window._cacnSel)||null;}
+function cacnSelect(k){const F=_cacnFeeds();window._cacnSeenAll=true;window._cacnSel=k==null||k<0?null:(((F[k]||[])[1])||{}).series_id||null;renderContent();}
+function cacnEdit(ci){const s=_cacnSelected();if(!s)return;const [fn,fd]=s;const cur=_cacnEdit.get(fd);
+  if(cur===ci){_cacnEdit.delete(fd);renderContent();return;}
+  _cacnEdit.set(fd,ci);const ch=(fd.channels||[])[ci];if(ch&&window['_cacChSel_'+fn]!==ch)window['_cacChSel_'+fn]=ch;renderContent();}
+function cacnSettings(){const s=_cacnSelected();if(!s)return;_cacnSet.set(s[1],!_cacnSet.get(s[1]));renderContent();}
+function cacnView(v){const s=_cacnSelected();if(!s)return;_cacnView.set(s[1],v);renderContent();}
+function cacnDecorate(){_cacnWrapAdd();
+  const card=document.getElementById('card-cac');if(!card||card.querySelector('.cacn'))return;
+  const details=[...card.querySelectorAll('details.cac-feed-card')];const F=_cacnFeeds();if(F.length&&!details.length)return;   // section collapsed
+  if(!F.length&&!card.querySelector('.cac-feed-toolbar'))return;
+  if(window._cacnSel&&!F.some(([,f])=>f.series_id===window._cacnSel))window._cacnSel=null;
+  if(window._cacnSel===null&&F.length===1&&!window._cacnSeenAll)window._cacnSel=F[0][1].series_id;
+  const sel=_cacnSelected(),root=document.createElement('div');root.className='cacn';
+  root.innerHTML=_cacnStrip();
+  const ws=document.createElement('div');ws.className='cacn-ws';root.appendChild(ws);
+  const rail=document.createElement('nav');rail.className='cacn-rail';rail.setAttribute('aria-label','Acquisition feeds');
+  rail.innerHTML=`<button type="button" class="cacn-ri all${sel?'':' on'}" onclick="window._cacnSeenAll=true;cacnSelect(-1)"><span class="n">≡</span><span class="t">All feeds</span><span class="s">Side-by-side comparison</span></button><div class="cacn-rsep">FEEDS</div>`+
+   F.map(([fn,fd],k)=>{const a=((_cacnRes(fn)||{}).annual)||[],L=a[a.length-1];return `<button type="button" class="cacn-ri${sel&&sel[1]===fd?' on':''}" onclick="cacnSelect(${k})"><span class="n">${String(k+1).padStart(2,'0')}</span><span class="t">${esc(fn)}</span><span class="s">${(fd.channels||[]).length} channel${(fd.channels||[]).length===1?'':'s'}${L?' · '+_cacnN(L.end_cust)+' customers Y'+a.length+(+L.end_auc?' · '+_cacnM(L.end_auc):''):''}</span></button>`;}).join('')+
+   `<button type="button" class="cacn-add" onclick="addCacFeed()">+ Create feed</button><div class="cacn-rfoot">↑ ↓ move between feeds</div>`;
+  rail.addEventListener('keydown',e=>{if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;e.preventDefault();const s=_cacnSelected(),k=s?F.findIndex(([,f])=>f===s[1]):-1,n=Math.max(-1,Math.min(F.length-1,k+(e.key==='ArrowDown'?1:-1)));window._cacnSeenAll=true;cacnSelect(n);requestAnimationFrame(()=>document.querySelector('.cacn-ri.on')?.focus({preventScroll:true}));});
+  ws.appendChild(rail);
+  const pane=document.createElement('div');pane.className='cacn-pane';ws.appendChild(pane);
+  if(!sel){pane.innerHTML=_cacnAllHtml();ws.classList.add('all');}
+  else{
+    const [fn,fd]=sel,k=F.findIndex(([,f])=>f===fd),det=details.find(d=>d.id==='cac-feed-'+fd.series_id)||details[k],content=det&&det.querySelector('.cac-feed-content');
+    const editing=_cacnEdit.has(fd)&&(fd.channels||[])[_cacnEdit.get(fd)]?_cacnEdit.get(fd):null;
+    const main=document.createElement('div');main.className='cacn-main';pane.appendChild(main);
+    const ro=document.createElement('aside');ro.className='lfx-ro cacn-ro';ro.innerHTML=_cacnRo(fn,fd,editing);pane.appendChild(ro);
+    main.innerHTML=`<div class="cacn-ph"><h3><span class="no">${String(k+1).padStart(2,'0')}</span>${esc(fn)}</h3><span>${(fd.channels||[]).length} channel${(fd.channels||[]).length===1?'':'s'} add new customers; attrition removes them.</span></div><div class="cacn-fx">customers[t] = customers[t−1] + Σ channel new customers − attrition</div>`;
+    const open=!!_cacnSet.get(fd);
+    const band=document.createElement('div');band.className='cacn-band'+(open?' open':'');
+    band.innerHTML=`<div><span>Opening customers</span><b>${_cacnN(fd.beginning_customers||0)}</b></div><div><span>Opening AUC</span><b>${_cacnN((+fd.beginning_auc||0)/1000)} <i>$000s</i></b></div><div><span>Attrition</span><b>${esc(_cacnAttr(fd))}</b></div><div><span>Path · timing</span><b>${esc(_cacnPath(fd))}</b></div><div class="e"><button type="button" class="cacn-btn${open?' dk':''}" onclick="cacnSettings()">${open?'Done':'Edit feed settings'}</button></div>`;
+    main.appendChild(band);
+    if(content){
+      const set=document.createElement('div');set.className='cacn-set';set.hidden=!open;
+      ['.cac-feed-head','details.cac-help','.cac-attr-box'].forEach(q=>{const el=content.querySelector(':scope>'+q)||content.querySelector(q);if(el)set.appendChild(el);});
+      main.appendChild(set);
+      const tbl=document.createElement('div');tbl.className='cacn-chw';tbl.innerHTML=_cacnChannelTable(fn,fd,editing);main.appendChild(tbl);
+      const md=content.querySelector('.cfg-md');
+      if(md){const det2=md.querySelector('.cfg-md-detail');if(det2&&editing!=null){det2.classList.add('cacn-editor');main.appendChild(det2);
+          const done=document.createElement('div');done.className='cacn-done';done.innerHTML=`<button type="button" class="cacn-btn dk" onclick="cacnEdit(${editing})">Done</button><span>Changes recompute the model; the table and chart update after the run.</span>`;det2.appendChild(done);}
+        md.classList.add('cacn-gone');}
+      [...content.children].forEach(el=>{if(!el.classList.contains('cacn-gone'))main.appendChild(el);});
+    }
+  }
+  details.forEach(d=>d.classList.add('cacn-gone'));
+  const bar=card.querySelector('.cac-feed-toolbar');(bar||card.querySelector('.cardhead')).after(root);if(bar)bar.classList.add('cacn-gone');
+  if(!sel){ws.style.minHeight='';}
+}
+function cacnRefresh(){const card=document.getElementById('card-cac');const old=card&&card.querySelector('.cacn');if(!old)return;
+  const s=_cacnSelected();
+  const es=old.querySelector('.cacn-es'),cap=old.querySelector('.cacn-cap');if(es&&cap){const t=document.createElement('div');t.innerHTML=_cacnStrip();es.replaceWith(t.children[0]);cap.replaceWith(t.children[0]);}
+  if(!s){const p=old.querySelector('.cacn-pane');if(p)p.innerHTML=_cacnAllHtml();return;}
+  const [fn,fd]=s,editing=_cacnEdit.has(fd)?_cacnEdit.get(fd):null;
+  const ro=old.querySelector('.cacn-ro');if(ro)ro.innerHTML=_cacnRo(fn,fd,editing);
+  const tw=old.querySelector('.cacn-chw');if(tw)tw.innerHTML=_cacnChannelTable(fn,fd,editing);
+}
+(function(){const o=typeof refreshCacSummaries==='function'?refreshCacSummaries:null;if(!o)return;
+  refreshCacSummaries=function(){const r=o.apply(this,arguments);try{cacnRefresh();}catch(_){}return r;};})();
+function _cacnWrapAdd(){const o=window.addCacFeed;if(typeof o!=='function'||o._cacn)return;
+  window.addCacFeed=function(){const before=new Set(_cacnFeeds().map(([,f])=>f));const r=o.apply(this,arguments);const nw=_cacnFeeds().find(([,f])=>!before.has(f));
+    if(nw){window._cacnSeenAll=true;window._cacnSel=nw[1].series_id;_cacnSet.set(nw[1],true);renderContent();requestAnimationFrame(()=>{const i=document.querySelector('.cacn-set .cac-feed-head input');if(i)i.focus({preventScroll:true});});}return r;};window.addCacFeed._cacn=true;}
 
 const _flowReportingOpen = new WeakMap();
 const _flowLegacyFeeOpen = new WeakMap();
