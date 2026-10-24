@@ -17,7 +17,7 @@ const state=()=>page.evaluate(()=>{const r=document.querySelector('.prd-card .lf
 for(const [fam,i,min] of [['lending',2,5],['deposit',0,4],['obs',0,3],['obs',1,1]]){
   await open(fam,i);const s=await state();assert(s,fam+' '+i+' has the rail layout');
   assert(s.rail.length>=min,fam+' rail lists its sections '+JSON.stringify(s.rail));assert.deepStrictEqual(s.visible,[s.on],fam+' shows exactly the active section');
-  assert(/PRODUCT SETTINGS/.test(s.band),fam+' product settings band');assert.strictEqual(s.drawerHidden,true,fam+' settings drawer starts closed');
+  assert(/Edit settings/.test(s.band),fam+' product settings band');   // r397: the caption box hides on narrow bandsassert.strictEqual(s.drawerHidden,true,fam+' settings drawer starts closed');
 }
 // 2. Rail navigation does not re-render the card and keeps one section visible; the workspace keeps its height.
 await open('lending',2);
