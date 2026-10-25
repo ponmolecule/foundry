@@ -22,8 +22,8 @@ const {chromium}=require('playwright'),assert=require('assert'),{execFileSync,sp
  assert.strictEqual((await (await context.request.get(root+'/api/v31/engagement/'+slug)).json()).assumptions.safety_marker,'newer');
  // A recovery checkpoint from yesterday is not labelled unsaved or automatically restored.
  await a.evaluate(({c,revision,slug})=>{localStorage.clear();localStorage.setItem('foundry-recovery-v1:analyst:older-tab',JSON.stringify({user:'analyst',at:Date.now()-86400000,origin:{slug,revision},config:c}));window._serverRecoveryCandidates=[];}, {c,revision:initial.revision,slug});
- await a.evaluate(()=>sessionSafety.offer());assert(await a.locator('#recoveryCopiesNotice').isVisible());assert.strictEqual(await a.locator('#sessionSafetyDialog[open]').count(),0);
- await a.locator('#recoveryCopiesNotice button').filter({hasText:'Review'}).click();await a.waitForFunction(()=>document.getElementById('sessionSafetyRestore')&&!document.getElementById('sessionSafetyRestore').disabled);
+ await a.evaluate(()=>sessionSafety.offer());assert.strictEqual(await a.locator('#recoveryCopiesNotice').count(),0);assert.strictEqual(await a.locator('#sessionSafetyDialog[open]').count(),0);
+ await a.evaluate(()=>sessionSafety.offer(true));await a.waitForFunction(()=>document.getElementById('sessionSafetyRestore')&&!document.getElementById('sessionSafetyRestore').disabled);
  assert((await a.locator('#recoveryCopyStatus').innerText()).includes('server version changed'));
  await a.evaluate(()=>{confirmDiscardUnsaved=()=>true;setTab=()=>{};});await a.locator('#sessionSafetyRestore').click();
  const recoveredName=await a.evaluate(()=>cfg.scenario_name);assert(recoveredName.includes('Recovery'));assert.notStrictEqual(recoveredName,c.scenario_name);assert.strictEqual(await a.evaluate(()=>window._saveHead),null);assert.strictEqual(await a.evaluate(()=>window._openSlug),null);
@@ -46,8 +46,8 @@ const {chromium}=require('playwright'),assert=require('assert'),{execFileSync,sp
  // Two unsaved pages have separate server recovery slots and checked updates within each slot.
  for(const [p,name] of [[a,'Scratch A'],[b,'Scratch B']])await p.evaluate(async name=>{cfg.scenario_name=name;_resetTransientAuthoringUi(cfg);LC.land('created',name);_pristineJSON=null;await autosaveNow()},name);
  let listing=await (await context.request.get(root+'/api/v31/engagements')).json();const drafts=listing.engagements.filter(x=>x.slug.startsWith('unsaved-engagement-crash-recovery-'));assert.strictEqual(drafts.length,2);const draftNames=[];for(const d of drafts)draftNames.push((await (await context.request.get(root+'/api/v31/engagement/'+d.slug)).json()).scenario_name);assert.deepStrictEqual(draftNames.sort(),['Scratch A','Scratch B']);await a.evaluate(async()=>{cfg.assumptions.scratch_marker=1;await autosaveNow()});listing=await (await context.request.get(root+'/api/v31/engagements')).json();assert.strictEqual(listing.engagements.filter(x=>x.slug.startsWith('unsaved-engagement-crash-recovery-')).length,2);
- // Reload/login offers a passive review only; no old copy silently lands in the editor.
- await a.reload();await a.waitForFunction(()=>window.AUTHED==='analyst'&&!!document.getElementById('recoveryCopiesNotice'));assert.strictEqual(await a.locator('#sessionSafetyDialog[open]').count(),0);assert(await a.evaluate(()=>!!cfg._blank_canvas));
- assert.deepStrictEqual(errors,[]);console.log('PASS real HTTP: two-tab conflict, input retention, passive recovery notice, server freshness comparison, isolated browser/server/history recovery, collision refusal, separate-copy save, import token invalidation and reload');
+ // Reload/login offers a no automatic review notice; no old copy silently lands in the editor.
+ await a.reload();await a.waitForFunction(()=>window.AUTHED==='analyst'&&cfg&&cfg._blank_canvas);assert.strictEqual(await a.locator('#sessionSafetyDialog[open]').count(),0);assert(await a.evaluate(()=>!!cfg._blank_canvas));
+ assert.deepStrictEqual(errors,[]);console.log('PASS real HTTP: two-tab conflict, input retention, on-demand recovery access, server freshness comparison, isolated browser/server/history recovery, collision refusal, separate-copy save, import token invalidation and reload');
  }finally{await browser.close();server.kill()}
 })().catch(e=>{console.error(e);process.exit(1)});
