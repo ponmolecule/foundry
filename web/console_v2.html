@@ -7179,8 +7179,7 @@ function _loanContractHtml(i,p,base){const c=p.loan_rollforward,b=base+'.loan_ro
  let h=wrap('balance',field('Production &amp; repayment method',`<div class="lfx-sel"><select onchange="loanContractEnable(${i},this.value==='contract')"><option value="legacy"${!c?' selected':''}>Dollar originations · single runoff rate</option><option value="contract"${c?' selected':''}>Loan production · separate payment and prepayment rates</option></select></div>`,true));
  if(!c)return h;
  const edit=(key,label,kind)=>field(label,`<div class="loan-contract-series">${_faSeriesEditor(b+'.'+key,c[key]||f(0),'',kind,false)}</div>`);
- const ids=new Set();Object.values((cfg.assumptions||{}).cac_feeds||{}).forEach(x=>{if(x.activity_series_ids?.new_customers)ids.add(x.activity_series_ids.new_customers);(x.channels||[]).forEach(ch=>{if(ch.activity_series_ids?.new_customers)ids.add(ch.activity_series_ids.new_customers);});});
- const opts=_accountActivityOptions('transaction').filter(x=>ids.has(x.series_id));
+ const opts=_accountActivityOptions('transaction').filter(x=>x.flow_kind==='new_customers');
  let production=field('Origination source',select(b+'.source',[['entered_count','Entered new-loan count'],['account_activity','Gross new-customer flow'],['entered_money','Entered monetary originations']],c.source),true);
  production+=c.source==='account_activity'?field('Gross new-customer flow',`<div class="lfx-sel"><select onchange="setPath('${b}.series_id',this.value);refresh()"><option value="">Select a flow</option>${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===c.series_id?' selected':''}>${esc(o.label)}</option>`).join('')}</select></div>`,true):c.source==='entered_count'?edit('count_spec','New loans per model period','count'):edit('amount_spec','Originations per model period','money');
  if(c.source!=='entered_money')production+=edit('loan_size_spec','Amount per new loan','dollars');
@@ -8704,8 +8703,8 @@ function _lbmNotice0(i,p){const mode=(typeof _loanBalanceMode==='function'?_loan
 
 // ===== r396: Remove feed · a labelled button that asks first and lists what links to the feed =====
 const _cacrmAsk=new WeakMap();
-function _cacrmIds(fd){const ids=[fd.series_id,fd.customer_count_series_id,...Object.values(fd.activity_series_ids||{})];
-  (fd.channels||[]).forEach(c=>{ids.push(...Object.values(c.activity_series_ids||{}),...Object.values(c.derived_series_ids||{}));});
+function _cacrmIds(fd){const ids=[fd.series_id,fd.customer_count_series_id,...Object.values(_cacFlowIds(fd,fd.customer_count_series_id||fd.series_id))];
+  (fd.channels||[]).forEach(c=>{ids.push(...Object.values(_cacFlowIds(c,c.derived_series_ids?.new_customers)),...Object.values(c.derived_series_ids||{}));});
   return [...new Set(ids.filter(x=>typeof x==='string'&&x))];}
 function _cacrmLinks(fn,fd){const A=cfg.assumptions||{},ids=_cacrmIds(fd),out=[],hit=o=>{const j=JSON.stringify(o);return ids.some(id=>j.includes('"'+id+'"'));};
   [['lending_products','Lending'],['deposit_products','Deposits'],['obs_exposures','Off-balance-sheet']].forEach(([k,lab])=>(A[k]||[]).forEach(p=>{if(p&&(p.managed_notional_source===fn||hit(p)))out.push(lab+' › '+(p.name||'unnamed'));}));
@@ -15726,8 +15725,20 @@ function _workforcePiecewiseEditorHtml(lc,j){
 // is either entered here (Flat / Growth / Explicit) or linked to a compatible series owned by
 // another module.  CAC never owns an Operating Expense or Workforce trajectory it merely consumes.
 function _activityPath(value=0){return {source:'entered',trajectory:'flat',value,period:'month'};}
+// r399: publication IDs are observations, not edits. Match ensure_flow_ids in
+// account_activity.py without adding activity_series_ids while menus are read.
+function _cacFlowIds(owner,seed){
+ const out={...(owner.activity_series_ids||{})};
+ for(const key of ['new_customers','lost_customers'])if(!out[key]&&seed)out[key]=String(seed)+'::'+key;
+ return out;
+}
 function _accountActivityOptions(basis){
- const out=[];_ensureLinkableSeriesIds();Object.entries((cfg.assumptions||{}).cac_feeds||{}).forEach(([fn,f])=>{if(basis==='transaction'&&(f.intra_period_path||'monthly_flows')==='monthly_flows'){Object.entries(f.activity_series_ids||{}).forEach(([k,id])=>out.push({series_id:id,label:fn+' › '+k.replaceAll('_',' ')}));(f.channels||[]).forEach(c=>Object.entries(c.activity_series_ids||{}).forEach(([k,id])=>out.push({series_id:id,label:fn+' › '+(c.name||'Channel')+' › '+k.replaceAll('_',' ')})));}});
+ const out=[];_ensureLinkableSeriesIds();
+ Object.entries((cfg.assumptions||{}).cac_feeds||{}).forEach(([fn,f])=>{
+  if(basis!=='transaction'||(f.intra_period_path||'monthly_flows')!=='monthly_flows')return;
+  Object.entries(_cacFlowIds(f,f.customer_count_series_id||f.series_id)).forEach(([k,id])=>out.push({series_id:id,label:fn+' › '+k.replaceAll('_',' '),flow_kind:k}));
+  (f.channels||[]).forEach(c=>Object.entries(_cacFlowIds(c,c.derived_series_ids?.new_customers)).forEach(([k,id])=>out.push({series_id:id,label:fn+' › '+(c.name||'Channel')+' › '+k.replaceAll('_',' '),flow_kind:k})));
+ });
  ((cfg.assumptions||{}).account_adoption||[]).forEach(x=>Object.entries(x.series_ids||{}).forEach(([k,id])=>{if((basis==='account')===(k==='count'))out.push({series_id:id,label:(x.name||'Subscribers')+' › '+({count:'Active subscribers',additions:x.mode==='gross_flows'?'Gross openings':'Reconciling additions',cancellations:x.mode==='gross_flows'?'Closures':'Reconciling cancellations',exits:'Customer attrition exits'}[k])});}));return out;
 }
 window.activityChannelOpening=function(fn,ci,v){cfg.assumptions.cac_feeds[fn].channels[ci].opening_customers=_pf(v);refresh();};
@@ -15736,7 +15747,7 @@ window.accountAdoptionMode=function(i,mode){const x=cfg.assumptions.account_adop
 function _accountAdoptionHtml(fn){
  const f=cfg.assumptions.cac_feeds[fn],xs=cfg.assumptions.account_adoption||[];let h=`<div class="cac-flow-status">${(f.intra_period_path||'monthly_flows')==='monthly_flows'?'Gross new-customer and attrition flows are available automatically.':'Straight-line stock interpolation: movements are net, not gross acquisitions or attrition. Gross-flow inputs are unavailable; existing stock links remain valid.'}</div><div class="crow" style="gap:8px;margin-top:6px"><button class="pillbtn" onclick="addAccountAdoption('${esc(fn)}')">+ Account adoption</button></div>`;
  if((f.intra_period_path||'monthly_flows')==='monthly_flows')h+='<details class="cac-help"><summary>Channel attrition allocation</summary><p>Channel losses use proportional attrition. Assign channel opening customers below to attribute the opening book; unassigned opening customers stay at feed level.</p><div class="cac-channel-opening-grid">';
- (f.channels||[]).forEach((c,ci)=>{if(c.activity_series_ids&&(f.intra_period_path||'monthly_flows')==='monthly_flows')h+=`<label class="wf-field"><span class="wf-field-label">${esc(c.name||'Channel')} · opening customers</span><input type="number" min="0" style="width:100px" value="${c.opening_customers||0}" onchange="activityChannelOpening('${esc(fn)}',${ci},this.value)"></label>`;});
+ (f.channels||[]).forEach((c,ci)=>{if((f.intra_period_path||'monthly_flows')==='monthly_flows')h+=`<label class="wf-field"><span class="wf-field-label">${esc(c.name||'Channel')} · opening customers</span><input type="number" min="0" style="width:100px" value="${c.opening_customers||0}" onchange="activityChannelOpening('${esc(fn)}',${ci},this.value)"></label>`;});
  if((f.intra_period_path||'monthly_flows')==='monthly_flows')h+='</div></details>';
  xs.forEach((x,i)=>{if(x.customer_source_id!==f.customer_count_series_id)return;const b='assumptions.account_adoption.'+i;h+=`<details class="cac-channel-card account-adoption-card" open><summary style="display:flex;align-items:center;gap:8px"><strong>${esc(x.name||'Account adoption')}</strong><span class="cu">${x.mode==='target_share'?'Target share':'Gross flows'} · ${_numInput(x.opening_subscribers||0,2)} opening</span><button class="cx" style="margin-left:auto" aria-label="Remove adoption source" onclick="event.preventDefault();cfg.assumptions.account_adoption.splice(${i},1);renderContent();refresh()">×</button></summary><div class="crow" style="gap:10px;margin-top:8px"><label class="wf-field" style="max-width:220px"><span class="wf-field-label">Source name</span><input value="${esc(x.name)}" onchange="setPath('${b}.name',this.value);refresh()"></label><label class="wf-field" style="max-width:220px"><span class="wf-field-label">Method</span><select data-nofit onchange="accountAdoptionMode(${i},this.value)"><option value="target_share"${x.mode==='target_share'?' selected':''}>Target adoption share</option><option value="gross_flows"${x.mode==='gross_flows'?' selected':''}>Gross openings / closures</option></select></label><label class="wf-field" style="max-width:140px"><span class="wf-field-label">Opening subscribers</span><input type="number" min="0" value="${x.opening_subscribers}" onchange="setPath('${b}.opening_subscribers',_pf(this.value));refresh()"></label></div>`;
  const fields=x.mode==='target_share'?[['target_share','Target share']]:[['new_customer_adoption','New-customer take-up'],['existing_customer_adoption','Existing non-holder adoption'],['closure_probability','Closure probability']];fields.forEach(([k,l])=>h+=_faSeriesEditor(b+'.'+k,x[k],l,'rate',x.mode==='gross_flows'));
@@ -15750,11 +15761,11 @@ function _ensureLinkableSeriesIds(){
   for(const key of ['deposit_products','lending_products'])for(const p of (cfg.assumptions||{})[key]||[])if(!p.source_catalog_id)p.source_catalog_id=_seriesId('product-source');
   const nd=(cfg.assumptions||{}).nie_detail||{};
   Object.values((cfg.assumptions||{}).cac_feeds||{}).forEach(fd=>{if(!fd)return;if(!fd.series_id)fd.series_id=_seriesId("cac-auc");if(!fd.customer_count_series_id)fd.customer_count_series_id=_seriesId("cac-count");if(!fd.owner_module)fd.owner_module="customer_acquisition";});
+  // Channel identities predate automatic flow publication; keep their existing
+  // creation behavior, but never persist derived publication maps on a read.
   Object.values((cfg.assumptions||{}).cac_feeds||{}).forEach(fd=>{
-    if(!fd||(fd.intra_period_path||'monthly_flows')!=='monthly_flows')return;
-    fd.activity_series_ids=fd.activity_series_ids||{};
-    ['new_customers','lost_customers'].forEach(k=>{if(!fd.activity_series_ids[k])fd.activity_series_ids[k]=fd.customer_count_series_id+'::'+k;});
-    (fd.channels||[]).forEach(ch=>{_cacEnsureDerivedIds(ch);ch.activity_series_ids=ch.activity_series_ids||{};['new_customers','lost_customers'].forEach(k=>{if(!ch.activity_series_ids[k])ch.activity_series_ids[k]=ch.derived_series_ids.new_customers+'::'+k;});});
+    if(fd&&(fd.intra_period_path||'monthly_flows')==='monthly_flows')
+      (fd.channels||[]).forEach(ch=>_cacEnsureDerivedIds(ch));
   });
   (nd.categories||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("opex");if(!x.owner_module)x.owner_module="operating_expense";});
   const _wf=nd.workforce||null;

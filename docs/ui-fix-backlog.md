@@ -61,3 +61,7 @@ Read-only Index to the right of Governance: six subject groups, search, 27 topic
 ## Index breadth and alphabetical access — implemented r391, not deployed
 
 r390's selective field guide omitted major authoring areas. r391 expands to 102 topics covering all requested areas, with dedicated Operating expenses, Workforce and Compensation subjects. Sixteen subjects are grouped into four landing areas; A–Z indexes topic and option labels, with direct opening of the matching explanation. Coverage checks bind all current application tabs and Configuration modules to articles and guard declared balance/acquisition/Lab option sets. The index remains read-only; no engagement input migration. Expanded source-selector simplification remains a separate deferred UI item.
+
+## r399 — Browse-only customer-flow publication metadata
+
+Fixed automatic `activity_series_ids` additions caused by browsing Customer Acquisition/source menus. Read derived IDs instead of adding publication maps; preserve custom IDs, gross-flow choices, channel opening inputs and remove-feed dependency checks. Validate both clean and already-edited states; no dirty-state rebaseline or diff suppression was added. Balance-model adoption remains a substantive change. Broader legacy identity normalization and leave-dialog/Governance presentation parity remain outside this focused fix. See RELEASE_r399.md.
