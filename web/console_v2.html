@@ -14263,7 +14263,9 @@ async function downloadUniversalTemplate(){
 window.downloadUniversalTemplate = downloadUniversalTemplate;
 function appStatus(kind, html){
   const el = document.getElementById("appStatus");
-  if(kind === null){ el.style.display = "none"; el.innerHTML = ""; return; }
+  const token=window._appStatusSeq=(window._appStatusSeq||0)+1;
+  el.dataset.statusToken=String(token);
+  if(kind === null){ el.style.display = "none"; el.innerHTML = ""; return token; }
   const pal = {busy: ["#565653", "#E1E0DE", "\u23f3"],
                 ok:   ["#506B55", "#E3E2E0", "\u2713"],
                 err:  ["#945A4B", "#E9E8E6", "\u2715"]}[kind];
@@ -14271,6 +14273,11 @@ function appStatus(kind, html){
     + "border-bottom:1px solid " + pal[0] + "55;background:" + pal[1] + ";color:#2A2A2A;line-height:1.5";
   el.innerHTML = `<span style="color:${pal[0]};font-weight:700">${pal[2]}</span><div style="flex:1">${html}</div>`
     + (kind === "busy" ? "" : `<a href="#" class="cx" style="color:#565653" onclick="appStatus(null);return false">\u00d7</a>`);
+  return token;
+}
+function clearAppStatusIfCurrent(token){
+ const el=document.getElementById('appStatus');
+ if(el&&el.dataset.statusToken===String(token))appStatus(null);
 }
 window.appStatus = appStatus;
 
@@ -14481,7 +14488,7 @@ async function openEngagement(slug){
   // diffs against _pristineJSON, which is set on every load. The user decides; nothing is lost silently.
   if(hasUnsavedWork() && LC.state()==="NEW-UNSAVED" && await _identicalToSaved()){ /* r294: same as a saved engagement: nothing to lose */ }
   else if(hasUnsavedWork()){ _showGuard(slug); return; }
-  await _openEngagementNow(slug);
+  return await _openEngagementNow(slug);
 }
 // r294: a never-saved (recovered or created) configuration that is IDENTICAL to a saved engagement is not unsaved
 // work. Re-mark it as that saved engagement (clean) so no guard appears; returns true when it matched.
@@ -14518,6 +14525,8 @@ function _lcSettleAfterOpen(){
   }, ms));
 }
 async function _openEngagementNow(slug){
+  const openingNotice=appStatus("busy","Opening engagement\u2026");
+  try{
   // Cancel any autosave armed while editing the OUTGOING engagement: without this, a timer
   // scheduled on engagement A can fire a few seconds later — after cfg has already been swapped
   // to engagement B — writing B's state (or a half-swapped state) into the shared autosave slot.
@@ -14551,6 +14560,10 @@ async function _openEngagementNow(slug){
     appStatus("err", "<b>This engagement is a chassis (v1) configuration.</b> It runs on the Console (link in the ribbon); wizard-built engagements open there until the unified results view ships.");
     return false;
   }
+  }catch(e){
+    appStatus('err','<b>Could not open the engagement.</b> '+esc(e.message||String(e)));return false;
+  }finally{clearAppStatusIfCurrent(openingNotice);}
+
 }
 async function toggleEngMenu(){
   const m = document.getElementById("engMenu");
@@ -14610,11 +14623,7 @@ function paintEngMenu(){
 window.toggleEngMenu = toggleEngMenu;
 async function engMenuOpen(slug){
   document.getElementById("engMenu").style.display = "none";
-  appStatus("busy", "Opening engagement\u2026");
-  const opened=await openEngagement(slug);
-  if(!opened||_isRecoverySlug(slug))return;
-  const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || slug;
-  appStatus("ok", `<b>Now working on \u201c${esc(name)}\u201d</b> \u2014 opened from the engagement store.`);
+  return await openEngagement(slug);
 }
 window.engMenuOpen = engMenuOpen;
 // Delete an engagement from inside the chevron. Reuses the existing delEngagement (confirm + DELETE +
