@@ -3097,7 +3097,8 @@ tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.ope
 @media(max-width:1180px){#chevBox{margin-left:8px}.ver-chip{max-width:min(380px,30vw)}}
 #engMenuBtn{color:#dfb367!important;text-decoration:none}
 .eng-grp-h{display:flex;align-items:baseline;gap:8px;padding:8px 10px 3px;font-size:12px;font-weight:600;color:#2A2A2A;border-top:1px solid #E5E5E3}
-.eng-grp-h:first-of-type{border-top:0}.eng-grp-h span{margin-left:auto;font-size:10.5px;font-weight:400;color:#8B8B88}
+.eng-grp-h:first-of-type{border-top:0}.eng-grp-h{min-width:0;overflow-wrap:anywhere}.eng-grp-h span{margin-left:auto;flex:0 0 auto;font-size:10.5px;font-weight:400;color:#8B8B88}
+.eng-menu-version{display:block;white-space:normal;overflow-wrap:anywhere;line-height:1.4}.eng-menu-slug{display:block;font-size:10px;color:#565653;font-family:var(--mono);overflow-wrap:anywhere;line-height:1.4}
 .ver-dlg-wrap{position:fixed;inset:0;background:rgba(20,20,20,.45);display:none;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:10000}
 .ver-dlg{background:#2a2a2a;border:1px solid #4d4c4a;border-radius:8px;box-shadow:0 18px 48px rgba(0,0,0,.35);width:380px;padding:16px 18px;color:#e9e6df}
 .ver-dlg h4{margin:0 0 10px;font-size:15px;color:#fff}
@@ -3501,7 +3502,7 @@ tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.ope
       <span id="versionChip" class="ver-chip base" role="button" tabindex="0" title="Version: click to rename" onclick="verChipEdit()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();verChipEdit()}">Base</span>
       <input class="scenario-name-inline" id="scenarioName" placeholder="scenario / variant" title="Scenario name — a named variant of this bank (e.g. Base, Rate Shock)" onchange="cfg.scenario_name=_engNameFor(this.value);syncBankLabel();scheduleAutosave()" onblur="verChipDone()" onkeydown="if(event.key==='Enter'){this.blur()}else if(event.key==='Escape'){this.value=_versionOf(cfg.scenario_name,_engBank());this.blur()}">
       <a href="#" id="engMenuBtn" onclick="toggleEngMenu();return false" title="Saved engagements">▼</a>
-      <div id="engMenu" style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:auto;width:min(373px,calc(100vw - 16px));box-sizing:border-box;max-height:340px;overflow:auto;background:#2A2A2A;border:1px solid #4D4C4A;border-radius:3px;box-shadow:0 10px 28px rgba(42,42,42,.5);z-index:60;padding:6px"></div>
+      <div id="engMenu" style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:auto;width:min(640px,calc(100vw - 16px));box-sizing:border-box;max-height:340px;overflow:auto;background:#2A2A2A;border:1px solid #4D4C4A;border-radius:3px;box-shadow:0 10px 28px rgba(42,42,42,.5);z-index:60;padding:6px"></div>
     </span>
     <span id="changeBadge" style="display:none;margin-left:6px;color:#A2A19E;font-size:11px;font-weight:500" title="Save state of the current engagement">Unsaved</span>
     <button id="saveBtn" type="button" class="hdr-save" style="display:none" onclick="quickSave()">Save</button>
@@ -14612,7 +14613,7 @@ function paintEngMenu(){
     // delEngagement(slug) (same robust path as Start/Reset: confirm, DELETE, baseline cleanup,
     // store refresh) with stopPropagation so a delete click never also opens the engagement.
     h += `<div style="display:flex;align-items:center" onmouseover="this.style.background='#F2F1EF'" onmouseout="this.style.background=''">`
-      + `<a href="#" onclick="engMenuOpen('${e.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 4px 7px 20px;border-radius:3px 0 0 6px;text-decoration:none;color:${active?"#A3772A":"#2A2A2A"};font-size:12px;flex:1;min-width:0"><span style="width:6px;height:6px;border-radius:50%;background:${active?"#A3772A":"#E5E5E3"};flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.name||e.slug)}">${esc(_versionOf(e.name, e.bank_display||e.bank)||'Base')}</span><span style="display:block;font-size:10px;color:#565653;font-family:var(--mono)">${esc(e.slug)}</span></span>${active?'<span style="font-size:9.5px">current</span>':''}</a>`
+      + `<a href="#" onclick="engMenuOpen('${e.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 4px 7px 20px;border-radius:3px 0 0 6px;text-decoration:none;color:${active?"#A3772A":"#2A2A2A"};font-size:12px;flex:1;min-width:0"><span style="width:6px;height:6px;border-radius:50%;background:${active?"#A3772A":"#E5E5E3"};flex:0 0 6px"></span><span style="flex:1;min-width:0"><span class="eng-menu-version" title="${esc(e.name||e.slug)}">${esc(_versionOf(e.name, e.bank_display||e.bank)||'Base')}</span><span class="eng-menu-slug">${esc(e.slug)}</span></span>${active?'<span style="font-size:9.5px">current</span>':''}</a>`
       + `<a href="#" title="Delete this engagement" onclick="engMenuDelete('${e.slug}');return false" style="flex:0 0 auto;padding:7px 10px;color:#646461;text-decoration:none;font-size:13px;border-radius:0 6px 6px 0" onmouseover="this.style.color='#945A4B'" onmouseout="this.style.color='#646461'">\u2715</a>`
       + `</div>`;
   }); });

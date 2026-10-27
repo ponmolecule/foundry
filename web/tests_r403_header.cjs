@@ -19,7 +19,7 @@ for(const width of [1600,1180,1024,768]){
  await page.setViewportSize({width,height:900});await page.evaluate(()=>{document.getElementById('engMenu').style.display='none';});await page.locator('#engMenuBtn').click();
  const r=await page.evaluate(()=>{const rect=id=>{let r=document.getElementById(id).getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,top:r.top,bottom:r.bottom};};return {menu:rect('engMenu'),chip:rect('versionChip'),bank:rect('bankLabel'),box:rect('chevBox'),button:rect('engMenuBtn'),save:rect('saveBtn'),width:innerWidth};});
  assert(r.menu.left>=7&&r.menu.right<=width-7,JSON.stringify(r));assert(r.menu.top>=r.box.bottom,JSON.stringify(r));assert(r.button.right<=width,JSON.stringify(r));
- if(width===1600){await page.screenshot({path:'/workspace/scratch/370303911165/header-r403.png'});assert(Math.abs(r.menu.width-373)<1,JSON.stringify(r));assert(Math.abs(r.menu.left-r.chip.left)<2,JSON.stringify(r));assert(r.box.left>210,JSON.stringify(r));}
+ if(width===1600){await page.screenshot({path:'/workspace/scratch/370303911165/header-r403.png'});assert(Math.abs(r.menu.width-640)<1,JSON.stringify(r));assert(Math.abs(r.menu.left-r.chip.left)<2,JSON.stringify(r));assert(r.box.left>210,JSON.stringify(r));}
  await page.locator('#engMenuBtn').click();
 }
 await page.setViewportSize({width:1600,height:900});await page.locator('#versionChip').click();const edit=await page.locator('#scenarioName').boundingBox();assert(edit.width>=339&&edit.width<=353,JSON.stringify(edit));await page.locator('#scenarioName').press('Escape');
