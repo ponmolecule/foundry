@@ -2080,6 +2080,11 @@ table.prd-grid td.nm{font-weight:600}
 .lending-section-actions button{font:500 11px var(--k-font,inherit);padding:5px 10px;border:1px solid #CFCFCA;border-radius:4px;background:#FFFFFF;color:#44443E;cursor:pointer}
 .lending-section-actions button:hover{background:#F0F0EA}.lending-section-actions button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .st-sec{display:contents}
+/* Keep controls beside explanatory text aligned with their labels. The general
+   field style stretches labels to fill a grid row, which creates a large gap
+   when a neighboring field has a longer note. */
+.st-body .st-sec>.fld{align-self:start;justify-content:flex-start}
+.st-body .st-sec>.fld>label{flex:0 0 auto}
 .st-body[data-st-tab="activity"] .st-sec:not([data-st="activity"]),
 .st-body[data-st-tab="pricing"] .st-sec:not([data-st="pricing"]),
 .st-body[data-st-tab="timing"] .st-sec:not([data-st="timing"]),
