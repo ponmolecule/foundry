@@ -380,7 +380,7 @@ _FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
 _FEE_SOURCES = {"constant", "own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "stream_ref", "fee_stream_quantity", "bank_aggregate", "cost_pool", "customer_acquisition_count", "account_activity"}
 _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
 _FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped", "cost_recovery"}
-_FEE_COST_KINDS = {"none", "per_unit", "per_account", "periodic_amount_opex", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"}
+_FEE_COST_KINDS = {"none", "per_unit", "per_account", "periodic_amount_opex", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex", "pct_of_balance_opex"}
 _FEE_NATURAL_PERIODS = {"month", "quarter", "year", "model_period"}
 _FEE_TRANSACTION_PRICING_BASES = {"per_unit", "pct_of_throughput"}
 
@@ -782,6 +782,8 @@ def _validate_fee_stream_shape(stream):
             raise ValueError("fee stream_ref source requires driver.ref")
     if src == "managed_notional" and drv.get("measure", "period_average") not in {"period_average", "period_end"}:
         raise ValueError("managed-notional measure must be period_average or period_end")
+    if src == "own_balance" and drv.get("measure", "period_average") not in {"period_average", "period_end"}:
+        raise ValueError("own balance measure must be period_average or period_end")
     if src == "cost_pool":
         if basis != "transaction":
             raise ValueError("fee cost_pool source is supported only on transaction basis")
@@ -829,6 +831,8 @@ def _validate_fee_stream_shape(stream):
         raise ValueError("fee cost kind 'per_unit' is supported only on transaction basis")
     if ck == "pct_of_throughput_opex" and basis != "transaction":
         raise ValueError("fee cost kind 'pct_of_throughput_opex' is supported only on transaction basis")
+    if ck == "pct_of_balance_opex" and (basis != "balance" or src != "own_balance"):
+        raise ValueError("balance operating cost requires a balance stream sourced from the product's own balance")
     if ck == "periodic_amount_opex" and basis != "flat":
         raise ValueError("fee cost kind 'periodic_amount_opex' is supported only on flat basis")
     _cp = cost.get("params") or {}
@@ -864,7 +868,7 @@ def _validate_fee_stream_shape(stream):
                 raise ValueError("fee cost multiplier value must be nonnegative")
         elif ck in {"periodic_amount_opex", "per_account"} and (not math.isfinite(fval) or fval < 0.0):
             raise ValueError("fee periodic product cost amount must be nonnegative")
-        elif ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"} and not 0.0 <= fval <= 1.0:
+        elif ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex", "pct_of_balance_opex"} and not 0.0 <= fval <= 1.0:
             raise ValueError(f"fee cost kind {ck!r} factor value must be between 0 and 1")
         if traj == "growth" and not fp.get("growth_spec"):
             raise ValueError(f"fee cost {noun} growth trajectory requires growth_spec")
@@ -881,7 +885,7 @@ def _validate_fee_stream_shape(stream):
                     raise ValueError("fee cost multiplier schedule values must be nonnegative")
             elif ck in {"periodic_amount_opex", "per_account"} and any(not math.isfinite(v) or v < 0.0 for v in vals):
                 raise ValueError("fee periodic product cost schedule values must be nonnegative")
-            elif ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"} and any(v < 0.0 or v > 1.0 for v in vals):
+            elif ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex", "pct_of_balance_opex"} and any(v < 0.0 or v > 1.0 for v in vals):
                 raise ValueError("fee percentage cost factor schedule values must be between 0 and 1")
 
     if _factor_path is not None:
@@ -890,7 +894,7 @@ def _validate_fee_stream_shape(stream):
         _validate_cost_path(_multiplier_path, multiplier=True)
 
     # The scalar remains the legacy Flat fallback when no first-class factor_path exists.
-    if ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"} and _factor_path is None:
+    if ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex", "pct_of_balance_opex"} and _factor_path is None:
         try:
             _pct = float(_cp.get("pct") or 0.0)
         except (TypeError, ValueError):
@@ -1130,6 +1134,10 @@ def fee_stream_q(stream, q, ctx, ppy=4):
 
     def _source_base():
         if src == "own_balance":
+            if drv.get("measure", "period_average") == "period_end":
+                if "own_balance_end" not in (ctx or {}):
+                    raise ValueError("period-end own balance is unavailable for this product")
+                return float(ctx["own_balance_end"] or 0.0)
             return float((ctx or {}).get("own_balance") or 0.0)
         if src == "distributed_balance":
             if "distributed_balance" not in (ctx or {}):
@@ -1418,6 +1426,13 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         pct = base_path_pct * mult
         effective_cost_factor = pct
         opcost = qty * pct             # -> fee-product NIE; gross income preserved
+    elif ck == "pct_of_balance_opex" and basis == "balance":
+        base_pct = float(cp.get("pct") or 0.0)
+        base_path_pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_pct)
+                         if factor_path is not None else base_pct)
+        direct_cost_factor = base_path_pct
+        effective_cost_factor = base_path_pct * mult
+        opcost = qty * effective_cost_factor / float(ppy)
 
     # Revenue/contra classification is explicit rather than inferred from a user's sign.
     # A contra stream is authored as a positive economic amount and posted as a reduction

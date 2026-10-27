@@ -308,7 +308,7 @@ def _ftp_view(res, cfg, ppy=4):
                   for q in range(n))
         sign = -1.0 if p["family"] == "lending" else (1.0 if p["family"] == "deposit" else 0.0)
         comp = {k: sum((p[k][q] or 0) for q in range(min(n, len(p.get(k) or []))))
-                for k in ("interest", "fees", "opex", "co", "gos", "servNet")}
+                for k in ("interest", "fees", "opex", "passCost", "co", "gos", "servNet")}
         ii = sum((x or 0) for x in (p.get("intInc") or [])[:n]) or max(comp["interest"], 0.0)
         ie = sum((x or 0) for x in (p.get("intExp") or [])[:n]) or max(-comp["interest"], 0.0)
         bal = p.get("bal") or [0.0]
@@ -319,14 +319,14 @@ def _ftp_view(res, cfg, ppy=4):
             wi = sub_n if len(whc) == np + 1 else max(0, sub_n - 1)
             bal_q12 += whc[wi] if wi < len(whc) else whc[-1]
         avg_bal = sum((p["avg"][q] or 0) for q in range(n)) / n if n else 0.0
-        econ = comp["interest"] + comp["fees"] - comp["opex"] - comp["co"] + comp["gos"] + comp["servNet"]
+        econ = comp["interest"] + comp["fees"] - comp["opex"] - comp["passCost"] - comp["co"] + comp["gos"] + comp["servNet"]
         contrib = econ + sign * ftp
         rows.append({"name": p["name"], "family": p["family"],
                      "avg_balance": round(avg_bal, 2), "q12_balance": round(bal_q12, 2),
                      "interest_income": round(ii, 2), "interest_expense": round(ie, 2),
                      "revenue": round(ii + comp["fees"] + comp["gos"] + comp["servNet"], 2),
                      "interest": round(comp["interest"], 2), "fees": round(comp["fees"], 2),
-                     "credit_costs": round(comp["co"], 2), "opex": round(comp["opex"], 2),
+                     "credit_costs": round(comp["co"], 2), "opex": round(comp["opex"] + comp["passCost"], 2),
                      "gos_servicing": round(comp["gos"] + comp["servNet"], 2),
                      "economics": round(econ, 2), "ftp": round(sign * ftp, 2),
                      "contribution": round(contrib, 2)})
