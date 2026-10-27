@@ -782,8 +782,8 @@ def _validate_fee_stream_shape(stream):
             raise ValueError("fee stream_ref source requires driver.ref")
     if src == "managed_notional" and drv.get("measure", "period_average") not in {"period_average", "period_end"}:
         raise ValueError("managed-notional measure must be period_average or period_end")
-    if src == "own_balance" and drv.get("measure", "period_average") not in {"period_average", "period_end"}:
-        raise ValueError("own balance measure must be period_average or period_end")
+    if src == "own_balance" and drv.get("measure", "period_average") not in {"period_begin", "period_average", "period_end"}:
+        raise ValueError("own balance measure must be period_begin, period_average or period_end")
     if src == "cost_pool":
         if basis != "transaction":
             raise ValueError("fee cost_pool source is supported only on transaction basis")
@@ -1134,6 +1134,10 @@ def fee_stream_q(stream, q, ctx, ppy=4):
 
     def _source_base():
         if src == "own_balance":
+            if drv.get("measure", "period_average") == "period_begin":
+                if "own_balance_begin" not in (ctx or {}):
+                    raise ValueError("period-begin own balance is unavailable for this product")
+                return float(ctx["own_balance_begin"] or 0.0)
             if drv.get("measure", "period_average") == "period_end":
                 if "own_balance_end" not in (ctx or {}):
                     raise ValueError("period-end own balance is unavailable for this product")

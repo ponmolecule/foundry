@@ -158,7 +158,7 @@ def _validate_profile_fees(p,a,n,ppy,output,context):
     if not p.get('fee_streams'):return
     from .income_modules import product_fee_streams_q
     activity,counts=monthly_sources(a,n,ppy,context)
-    operands={'own_balance':[x['average'] for x in output['monthly']],'own_balance_end':[x['ending'] for x in output['monthly']],'distributed_balance':[x['distributed'] for x in output['monthly']],'product_funded_flow':output['monthly_funded_volume']}
+    operands={'own_balance':[x['average'] for x in output['monthly']],'own_balance_begin':[x['beginning'] for x in output['monthly']],'own_balance_end':[x['ending'] for x in output['monthly']],'distributed_balance':[x['distributed'] for x in output['monthly']],'product_funded_flow':output['monthly_funded_volume']}
     def check(value):
         if isinstance(value,dict):
             if value.get('period')=='model_period' or value.get('cadence')=='model_period':raise ValueError('Profile fee paths require natural Month / Quarter / Year units')
@@ -277,7 +277,7 @@ def _project(p,a,n,ppy,linked,context=None):
     if p.get('fee_streams'):
         from .income_modules import product_fee_streams_q
         activity,counts=monthly_sources(a,n,ppy,context)
-        operands={'own_balance':[x['average'] for x in monthly],'own_balance_end':[x['ending'] for x in monthly],'distributed_balance':[x['distributed'] for x in monthly],'product_funded_flow':funded}
+        operands={'own_balance':[x['average'] for x in monthly],'own_balance_begin':[x['beginning'] for x in monthly],'own_balance_end':[x['ending'] for x in monthly],'distributed_balance':[x['distributed'] for x in monthly],'product_funded_flow':funded}
         def check_periods(value):
             if isinstance(value,dict):
                 if value.get('period')=='model_period' or value.get('cadence')=='model_period':raise ValueError('Profile fee paths require natural Month / Quarter / Year units')

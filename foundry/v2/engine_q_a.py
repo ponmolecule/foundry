@@ -724,7 +724,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
             p["_ie"].append(apply_minimum(_calculated_interest, p.get('_minimum_interest'), q-1))
             if '_minimum_interest' in p:
                 p['_interest_before_minimum'].append(_calculated_interest)
-            _pf_inc, _pf_cost = _project_fee_streams(p, q, {"own_balance": avg, "own_balance_end": end,
+            _pf_inc, _pf_cost = _project_fee_streams(p, q, {"own_balance": avg, "own_balance_begin": beg, "own_balance_end": end,
                                                             "distributed_balance": 0.0,
                                                             "managed_notional": _mn_avg[q - 1],
                                                             "managed_notional_end": _mn_end[q - 1],
@@ -972,8 +972,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 _interest_basis = p["_repayment_profile"]["interest_basis"][q-1]
                 p["_interest_basis"][-1] = _interest_basis
             p["_ii"].append(_contract_row["interest"] if _contract_row is not None else _interest_basis * r / ppyf); p["_ie"].append(0.0)
-            _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg, "own_balance_end": end,
-                                                            **({"_profile_monthly_operands": {"own_balance":[x['average'] for x in p['_repayment_profile']['monthly']], "own_balance_end":[x['ending'] for x in p['_repayment_profile']['monthly']], "distributed_balance":[x['distributed'] for x in p['_repayment_profile']['monthly']], "product_funded_flow":p['_repayment_profile']['monthly_funded_volume']}} if p.get('_repayment_profile') is not None else {}),
+            _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg, "own_balance_begin": beg, "own_balance_end": end,
+                                                            **({"_profile_monthly_operands": {"own_balance":[x['average'] for x in p['_repayment_profile']['monthly']], "own_balance_begin":[x['beginning'] for x in p['_repayment_profile']['monthly']], "own_balance_end":[x['ending'] for x in p['_repayment_profile']['monthly']], "distributed_balance":[x['distributed'] for x in p['_repayment_profile']['monthly']], "product_funded_flow":p['_repayment_profile']['monthly_funded_volume']}} if p.get('_repayment_profile') is not None else {}),
                                                             **({"product_funded_flow": _linked_level["funded_volume"][q - 1]}
                                                                if _linked_level and "funded_volume" in _linked_level else {}),
                                                             **({"distributed_balance": _linked_level["distributed_balance"][q - 1]}
@@ -1377,7 +1377,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 _dp["_ie"][q] = apply_minimum(_calculated_interest, _dp.get('_minimum_interest'), q-1)
                 if '_minimum_interest' in _dp:
                     _dp['_interest_before_minimum'][q-1] = _calculated_interest
-                _inc, _cost = product_fee_streams_q(_dp, q, {"own_balance": _avg, "own_balance_end": _retained,
+                _inc, _cost = product_fee_streams_q(_dp, q, {"own_balance": _avg, "own_balance_begin": _beg, "own_balance_end": _retained,
                     "distributed_balance": _swept, "managed_notional": _dp["_mn_avg"][q - 1],
                     "managed_notional_end": _dp["_mn_end"][q - 1],
                     "cost_pool": _cost_pool_ctx(q), "customer_acquisition_count": _cac_customer_count_ctx(q), "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,

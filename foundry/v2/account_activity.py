@@ -213,6 +213,8 @@ def monthly_fee(stream,q,ctx,ppy,evaluator,*,force=False):
             if params.get('schedule') or params.get('level_schedule',{}).get('period')=='model_period':raise ValueError('Monthly account-cost chains require natural-period schedules, not legacy model-period schedules')
         elif src in {'own_balance','distributed_balance','product_funded_flow'} and ctx.get('_profile_monthly_operands') is not None:
             c[src] = ctx['_profile_monthly_operands'][src][mi]
+            if src == 'own_balance' and 'own_balance_begin' in ctx['_profile_monthly_operands']:
+                c['own_balance_begin'] = ctx['_profile_monthly_operands']['own_balance_begin'][mi]
             if src == 'own_balance' and 'own_balance_end' in ctx['_profile_monthly_operands']:
                 c['own_balance_end'] = ctx['_profile_monthly_operands']['own_balance_end'][mi]
         elif src not in {'stream_ref','fee_stream_quantity'}:raise ValueError('This source has no canonical monthly path for this calculation')
