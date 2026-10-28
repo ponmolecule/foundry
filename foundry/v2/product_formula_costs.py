@@ -93,10 +93,14 @@ def move_formula(cfg, collection, product_index, category_id, component_id):
             return any((k in {'series_id','ref','source_id'} and v==category_id) or referenced(v) for k,v in node.items())
         return isinstance(node,list) and any(referenced(v) for v in node)
     if referenced(a):raise ValueError('This expense category is referenced elsewhere. Moving its formula would change those consumers.')
+    name=formula.get('name') or cat.get('name') or 'Product expense'
+    if any(str(x.get('name') or '').strip().casefold()==str(name).strip().casefold()
+           for x in p.get('fee_streams') or []):
+        raise ValueError('A stream named "'+name+'" already exists in this product. Moving creates its own stream. Inspect the existing stream and remove it only if it is an unwanted blank formula, or rename it before moving. Nothing was moved.')
     policy=(a.get('nie_detail') or {}).get('gross_up_eligibility') or {}
     eligible=formula.get('gross_up_eligible',cat.get('gross_up_eligible',policy.get('categories',True)))
     sid='product-formula-'+uuid.uuid4().hex
-    s={'name':formula.get('name') or cat.get('name') or 'Product expense', 'basis':'flat',
+    s={'name':name, 'basis':'flat',
        'quantity_series_id':sid,'driver':{'source':'constant','trajectory':'flat','params':{}},
        'rate':{'behavior':'flat','params':{'amount_per_period':0}},'timing':{'start_period':1},
        'cost':{'kind':KIND,'gross_up_eligible':eligible,'params':{'formula':copy.deepcopy(formula)}},
