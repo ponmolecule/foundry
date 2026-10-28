@@ -1528,6 +1528,49 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .product-formula-create-actions .btn-gold:disabled{background:#eeeae2;color:#9b978d;border-color:#e1ddd4;cursor:not-allowed;opacity:1}
 .product-formula-create-dialog .product-formula-create-error{color:#9f5340;margin:12px 0 0}
 
+
+
+#content #card-sec #fsx-s4 .sec-selected-book{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 24px;max-width:680px;align-items:start;padding:12px 0!important}
+#content #card-sec #fsx-s4 .sec-selected-book::before{content:attr(data-book-kind) " · Scheduled activity";grid-column:1/-1;color:#a3772a;font-size:12px;font-weight:600;padding-bottom:8px}
+#content #card-sec #fsx-s4 .sec-selected-book .sec-book-label{display:block!important;white-space:normal;margin-bottom:7px;font-size:12px!important}
+#content #card-sec #fsx-s4 .sec-selected-book input{box-sizing:border-box;height:36px!important;padding:8px!important;border:1px solid #ddd8cc!important;border-radius:5px!important;background:#fff!important}
+#content #card-sec #fsx-s4 .sec-selected-book .sec-book-delete{justify-self:end;grid-column:1/-1}
+@media(max-width:650px){#content #card-sec #fsx-s4 .sec-selected-book{grid-template-columns:1fr}}
+
+/* r413: one inventory for both saved securities methods. */
+#content #card-sec .sec-inventory{min-width:0}
+#content #card-sec .sec-inventory-bar{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:24px}
+#content #card-sec .sec-inventory h3{margin:0 0 8px;font-size:16px}
+#content #card-sec .sec-inventory p{line-height:1.55;color:#77736c;margin:8px 0 20px}
+#content #card-sec .sec-inventory-bar button{flex-shrink:0}
+#content #card-sec .sec-inventory-filters{display:grid;grid-template-columns:minmax(180px,1.6fr) repeat(2,minmax(130px,1fr));gap:16px;margin-bottom:20px}
+#content #card-sec .sec-inventory-filters label{display:flex;flex-direction:column;gap:7px;color:#77736c;font-size:12px;min-width:0}
+#content #card-sec .sec-inventory-filters input,#content #card-sec .sec-inventory-filters select{width:100%!important;min-width:0!important;box-sizing:border-box;height:40px!important;line-height:20px!important;text-align:left!important;padding:9px 10px;border:1px solid #dcd9d1;border-radius:5px;background:#fff;color:#292824;font:inherit}
+#content #card-sec .sec-inventory-scroll{overflow-x:auto;border:1px solid #e4e1d9;border-radius:7px;margin-bottom:22px}
+#content #card-sec .sec-inventory table{width:100%;border-collapse:collapse;font-size:12px}
+#content #card-sec .sec-inventory th{text-align:left;color:#7c766b;background:#f7f6f2;font-size:11px;font-weight:600;padding:13px 14px;border-bottom:1px solid #e4e1d9;white-space:nowrap}
+#content #card-sec .sec-inventory td{padding:16px 14px;border-bottom:1px solid #eeece5;vertical-align:middle}
+#content #card-sec .sec-inventory tr:last-child td{border-bottom:0}
+#content #card-sec .sec-inventory .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#content #card-sec .sec-inventory-name{background:none;border:0;padding:0;text-align:left;color:#292824;font:inherit;font-weight:600;cursor:pointer}
+#content #card-sec .sec-inventory-name:hover{color:#9f752e;text-decoration:underline}
+#content #card-sec .sec-inventory small{display:block;color:#898377;font-size:11px;margin-top:5px}
+#content #card-sec .sec-inventory-drafts{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:20px 0}
+#content #card-sec .sec-inventory [hidden],#content #card-sec .sec-book-editor[hidden],#content #card-sec .sec-managed-portfolio[hidden]{display:none!important}
+#content #card-sec .sec-editor-return{display:flex;align-items:center;flex-wrap:wrap;gap:16px;padding-bottom:18px;margin-bottom:20px;border-bottom:1px solid #e5e2da}
+#content #card-sec .sec-editor-return span{font-size:12px;color:#898377;line-height:1.5}
+.sec-create-dialog{position:fixed;inset:0;margin:auto;max-height:calc(100vh - 40px);overflow:auto;width:540px;max-width:calc(100vw - 40px);box-sizing:border-box;border:1px solid #d8d1c4;border-radius:12px;padding:30px;background:#fffefa;color:#292824;box-shadow:0 18px 70px #0003}
+.sec-create-dialog::backdrop{background:#15151366}
+.sec-create-dialog h2{font-size:20px;margin:0 0 12px}.sec-create-dialog p{font-size:13px;line-height:1.6;color:#797368;margin:12px 0 20px}
+.sec-create-dialog label{display:flex;flex-direction:column;gap:8px;font-size:12px;color:#797368;margin-bottom:18px;min-width:0}
+.sec-create-dialog input,.sec-create-dialog select{width:100%;box-sizing:border-box;min-width:0;border:1px solid #d8d1c4;border-radius:5px;padding:10px;background:white;color:#292824;font:inherit;font-size:14px}
+.sec-create-dialog .sec-create-pair{display:grid;grid-template-columns:1fr 1.4fr;gap:16px}
+.sec-create-dialog footer{display:flex;justify-content:flex-end;gap:12px;margin-top:24px;padding-top:20px;border-top:1px solid #e5e2da}
+.sec-create-dialog button{padding:9px 15px;border-radius:5px;cursor:pointer}.sec-create-dialog [data-cancel]{background:white;color:#292824;border:1px solid #d8d1c4}
+.sec-create-dialog button:disabled{background:#e9e6df!important;color:#969085!important;cursor:default}
+.sec-create-dialog .sec-create-error{color:#a34532}.sec-create-dialog [hidden]{display:none!important}
+@media(max-width:900px){#content #card-sec .sec-inventory-filters{grid-template-columns:1fr}#content #card-sec .sec-inventory-bar{flex-direction:column}.sec-create-dialog .sec-create-pair{grid-template-columns:1fr}}
+
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -3038,10 +3081,10 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
 .fsx-b .sec-book-delete{align-self:center;justify-self:center;color:#b9b3a8;text-decoration:none}
 .fsx-b .sec-book-editor+.sec-book-editor{border-top:1px solid #ecebe6!important}
 /* AOCI as a single row after the books */
-#fsx-s4 .fsx-b>.sec-major-section{display:grid!important;grid-template-columns:230px minmax(0,1fr);align-items:center;column-gap:12px;border-top:1px solid #e2e0d9!important;margin-top:14px!important;padding-top:10px!important}
-#fsx-s4 .fsx-b>.sec-major-section>.cmut:first-of-type{display:block!important;font-size:12.5px;font-weight:500;color:#1d1c1a;margin:0!important}
-#fsx-s4 .fsx-b>.sec-major-section>.crow{display:flex!important;align-items:center;gap:8px;border:0!important;margin:0!important;padding:0!important;min-height:36px}
-#fsx-s4 .fsx-b>.sec-major-section>.cmut:last-child{grid-column:1/-1;font-size:11.5px;color:#8a867d;margin:4px 0 0!important}
+#fsx-s8 .fsx-b>.sec-major-section{display:grid!important;grid-template-columns:230px minmax(0,1fr);align-items:center;column-gap:12px;border-top:1px solid #e2e0d9!important;margin-top:14px!important;padding-top:10px!important}
+#fsx-s8 .fsx-b>.sec-major-section>.cmut:first-of-type{display:block!important;font-size:12.5px;font-weight:500;color:#1d1c1a;margin:0!important}
+#fsx-s8 .fsx-b>.sec-major-section>.crow{display:flex!important;align-items:center;gap:8px;border:0!important;margin:0!important;padding:0!important;min-height:36px}
+#fsx-s8 .fsx-b>.sec-major-section>.cmut:last-child{grid-column:1/-1;font-size:11.5px;color:#8a867d;margin:4px 0 0!important}
 /* rows and series span the card */
 .fsx-b .crow,.fsx-b .sec-managed-series,.fsx-b .sec-managed-series-row{width:auto!important;max-width:none!important}
 
@@ -3052,8 +3095,8 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
 #content .fsx-b .sec-book-editor input.sec-book-name,#content .fsx-b input.sec-managed-portfolio-title,#content .fsx-b input.sec-managed-sleeve-name{text-align:left!important}
 #content .fsx-b input.sec-managed-portfolio-title,#content .fsx-b input.sec-managed-sleeve-name{width:auto!important;min-width:280px!important;font-weight:600}
 #content .fsx-b .sec-managed-portfolio{background:#fff!important;border:1px solid #e2e0d9!important;border-radius:8px!important}
-#content #fsx-s4 .fsx-b>.sec-major-section{padding-left:0!important;padding-right:0!important}
-#content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
+#content #fsx-s8 .fsx-b>.sec-major-section{padding-left:0!important;padding-right:0!important}
+#content #fsx-s8 .fsx-b>.sec-major-section>*{margin-left:0!important}
 
 
 /* r310: Guide Me Apply plan */
@@ -3667,7 +3710,7 @@ function cfgBuildSubnav(){
   row.insertAdjacentElement('afterend',nav);
 }
 window.cfgSelectModule=function(key,quiet){
-  if(_CFG_MODS.indexOf(key)<0)return;window._cfgModule=key;try{sessionStorage.setItem('foundry.cfgModule',key);}catch(e){}
+  if(_CFG_MODS.indexOf(key)<0)return;const priorModule=window._cfgModule;window._cfgModule=key;try{sessionStorage.setItem('foundry.cfgModule',key);}catch(e){}if((key!=='sec'&&window._secRenderedReadOnly)||(key==='sec'&&priorModule!=='sec'&&!window._secRenderedReadOnly)){window._secRenderedReadOnly=false;renderContent();return;}
   const g=document.querySelector('.cfggrid');if(g)g.setAttribute('data-cfg-selected',key);
   document.querySelectorAll('.cfg-mod').forEach(el=>{const on=el.getAttribute('data-cfg-mod')===key;el.classList.toggle('sel',on);el.setAttribute('aria-current',on?'true':'false');});
   cfgBuildSubnav();cfgMountSwitch();if(typeof cfgCrumb==='function')cfgCrumb();
@@ -12898,6 +12941,64 @@ function _fdWrapSheet(c, tab){
     if(!clipped){ const w=document.createElement('div'); w.className='fd-scroll'; t.before(w); w.appendChild(t); }
   });
 }
+// Presentation and deliberate creation only. Existing book/portfolio contracts stay intact.
+function _secInventoryRows(){
+ const a=cfg.assumptions,rows=[];
+ for(const [key,cls] of [['securities_afs','AFS'],['securities_htm','HTM']])
+  (a[key]||[]).forEach((s,i)=>rows.push({kind:key,i,name:s.name||cls,cls,method:'Scheduled activity',portfolio:'Independent holding',opening:+s.opening||0,yield:((+s.yield_ann||0)*100).toFixed(2)+'%'}));
+ (a.managed_securities_portfolios||[]).forEach((p,i)=>(p.sleeves||[]).forEach((s,j)=>{
+  const y=s.yield_spec||{},yieldText=(s.yield_source||'entered')==='curve_library'?String(s.curve_name||'Curve').toUpperCase():(y.trajectory||'flat')==='flat'?((+(y.value??s.yield_ann)||0)*100).toFixed(2)+'%':(y.trajectory==='growth'?'Growth':'Schedule');
+  rows.push({kind:'managed',i,j,name:s.name||'Security',cls:String(s.classification||'AFS').toUpperCase(),method:'Target allocation',portfolio:p.name||'Portfolio',opening:+s.opening||0,yield:yieldText});
+ }));return rows;
+}
+function _secInventoryHtml(){
+ const rows=_secInventoryRows(),ps=cfg.assumptions.managed_securities_portfolios||[];
+ return `<div class="sec-inventory"><div class="sec-inventory-bar"><div><h3>All securities</h3><p>Find every AFS and HTM holding here. Select a holding to edit its existing balance method.</p></div><button class="btn-gold" onclick="secInventoryCreate()">+ Add security</button></div><div class="sec-inventory-filters"><label>Search<input type="search" aria-label="Search securities" placeholder="Name or portfolio" value="${esc(window._secInventoryQuery||'')}" oninput="window._secInventoryQuery=this.value;secInventoryFilter()"></label><label>Classification<select aria-label="Filter security classification" onchange="window._secInventoryClass=this.value;secInventoryFilter()">${[['','All classifications'],['AFS','AFS'],['HTM','HTM']].map(([v,l])=>`<option value="${v}"${(window._secInventoryClass||'')===v?' selected':''}>${l}</option>`).join('')}</select></label><label>Balance method<select aria-label="Filter security method" onchange="window._secInventoryMethod=this.value;secInventoryFilter()">${[['','All balance methods'],['Scheduled activity','Scheduled activity'],['Target allocation','Target allocation']].map(([v,l])=>`<option value="${v}"${(window._secInventoryMethod||'')===v?' selected':''}>${l}</option>`).join('')}</select></label></div><div class="sec-inventory-scroll"><table><thead><tr><th>Security</th><th>Class</th><th>Balance method / portfolio</th><th class="num">Opening ($000s)</th><th class="num">Annual yield</th><th></th></tr></thead><tbody>${rows.map((r,n)=>`<tr data-security-row data-search="${esc((r.name+' '+r.portfolio).toLowerCase())}" data-class="${esc(r.cls)}" data-method="${r.method}"><td><button class="sec-inventory-name" onclick="secInventoryEdit('${r.kind}',${r.i},${r.j??-1})">${esc(r.name)}</button></td><td><span class="cfg-pill">${esc(r.cls)}</span></td><td>${r.method}<small>${esc(r.portfolio)}</small></td><td class="num">${fmtComma(r.opening/1000)}</td><td class="num">${esc(r.yield)}</td><td><button class="pillbtn" aria-label="Edit security ${esc(r.name)}" onclick="secInventoryEdit('${r.kind}',${r.i},${r.j??-1})">Edit</button></td></tr>`).join('')}</tbody></table></div><p class="sec-inventory-empty"${rows.length?' hidden':''}>${rows.length?'No securities match these filters.':'No securities entered. Add a security to choose its balance method.'}</p>${ps.filter(p=>!(p.sleeves||[]).length).length?`<div class="sec-inventory-drafts"><b>Portfolios without securities</b>${ps.map((p,i)=>!(p.sleeves||[]).length?`<button class="pillbtn" onclick="secInventoryPortfolio(${i})">${esc(p.name||'Portfolio')} · Edit</button>`:'').join('')}</div>`:''}<p class="cmut">AFS / HTM is the accounting classification. The balance method controls how holdings change. Both methods use the shared AOCI settings for AFS holdings.</p><button class="btn-plain" onclick="fsxGo('s8')">View AOCI settings →</button></div>`;
+}
+window.secInventoryFilter=function(){
+ const root=document.querySelector('.sec-inventory');if(!root)return;let count=0;
+ root.querySelectorAll('[data-security-row]').forEach(r=>{const show=(!window._secInventoryQuery||r.dataset.search.includes(window._secInventoryQuery.toLowerCase()))&&(!window._secInventoryClass||r.dataset.class===window._secInventoryClass)&&(!window._secInventoryMethod||r.dataset.method===window._secInventoryMethod);r.hidden=!show;if(show)count++;});
+ root.querySelector('.sec-inventory-empty').hidden=!!count;
+};
+window.secInventoryPortfolio=function(i){window._secInventoryFocusPortfolio=i;window._fsxActive='s5';window._fsxOpen.s5=true;renderContent();};
+window.secInventoryEdit=function(kind,i,j){
+ window._secInventoryFocusPortfolio=kind==='managed'?i:null;window._secInventoryFocusBook=kind==='managed'?null:{kind,i};
+ if(kind==='managed'){
+  const p=(cfg.assumptions.managed_securities_portfolios||[])[i];if(!p||!p.sleeves?.[j])return;
+  window['_secSlSel'+i]=p.sleeves[j];window['_secSlSeen'+i]=new WeakSet(p.sleeves);window['_secSlSeen'+i+'Init']=true;
+ }
+ window._fsxActive=kind==='managed'?'s5':'s4';window._fsxOpen[window._fsxActive]=true;renderContent();
+};
+window.secInventoryCreate=function(method,cls,portfolio){
+ if(document.getElementById('secInventoryCreate'))return;
+ const original=cfg,signature=JSON.stringify(cfg),dialog=document.createElement('dialog');dialog.id='secInventoryCreate';dialog.className='sec-create-dialog';dialog.setAttribute('aria-labelledby','secCreateTitle');
+ const ps=cfg.assumptions.managed_securities_portfolios||[];
+ dialog.innerHTML=`<form><h2 id="secCreateTitle">Add security</h2><p>Choose its accounting classification and how its balance will be modeled.</p><label>Security name<input name="securityName" required autocomplete="off" placeholder="Name the holding"></label><div class="sec-create-pair"><label>Classification<select name="classification"><option value="AFS">AFS</option><option value="HTM">HTM</option></select></label><label>Balance method<select name="method"><option value="scheduled">Scheduled activity</option><option value="target">Target allocation</option></select></label></div><p data-method-note></p><div data-portfolio><label>Portfolio<select name="portfolio"><option value="new">Create a new portfolio</option>${ps.map((p,i)=>`<option value="${i}">${esc(p.name||'Portfolio')}</option>`).join('')}</select></label><label data-new-portfolio>New portfolio name<input name="portfolioName" autocomplete="off" placeholder="Name the portfolio"></label></div><p class="sec-create-error" role="alert" hidden></p><footer><button class="pillbtn" type="button" data-cancel>Cancel</button><button class="btn-gold" type="submit" disabled>Add security</button></footer></form>`;
+ const form=dialog.querySelector('form'),name=form.elements.securityName,met=form.elements.method,port=form.elements.portfolio,pname=form.elements.portfolioName,classification=form.elements.classification,error=dialog.querySelector('[role=alert]');
+ met.value=method==='target'?'target':'scheduled';classification.value=cls==='HTM'?'HTM':'AFS';if(Number.isInteger(portfolio)&&ps[portfolio])port.value=String(portfolio);
+ const update=()=>{const target=met.value==='target';dialog.querySelector('[data-portfolio]').hidden=!target;dialog.querySelector('[data-new-portfolio]').hidden=port.value!=='new';dialog.querySelector('[data-method-note]').textContent=target?'Holdings follow a portfolio target, with allocations, yields and balancing purchases or sales.':'Enter opening holdings, purchases, growth and runoff. The holding uses the existing scheduled-book calculation.';form.querySelector('[type=submit]').disabled=!name.value.trim()||(target&&port.value==='new'&&!pname.value.trim());error.hidden=true;};
+ form.addEventListener('input',update);form.addEventListener('change',update);dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();
+ form.onsubmit=e=>{
+  e.preventDefault();update();if(form.querySelector('[type=submit]').disabled)return;
+  if(cfg!==original||JSON.stringify(cfg)!==signature){error.textContent='The engagement changed. Cancel and reopen Add security.';error.hidden=false;return;}
+  const nm=name.value.trim(),target=met.value==='target',a=cfg.assumptions,kind=classification.value==='HTM'?'securities_htm':'securities_afs';
+  const owner=target?(port.value==='new'?null:(a.managed_securities_portfolios||[])[+port.value]):null;
+  if(target&&port.value!=='new'&&!owner){error.textContent='The selected portfolio is no longer available.';error.hidden=false;return;}
+  const siblings=target?(owner?.sleeves||[]):(a[kind]||[]);
+  if(siblings.some(s=>String(s.name||'').trim().toLowerCase()===nm.toLowerCase())){error.textContent='A security with this name already exists here. Choose another name or edit the existing holding.';error.hidden=false;return;}
+  if(target&&port.value==='new'&&(a.managed_securities_portfolios||[]).some(p=>String(p.name||'').trim().toLowerCase()===pname.value.trim().toLowerCase())){error.textContent='That portfolio name already exists. Select it from the portfolio list.';error.hidden=false;return;}
+  form.querySelector('[type=submit]').disabled=true;
+  if(target){
+   let p=owner;if(!p){p={name:pname.value.trim(),series_id:_seriesId('managed-sec'),target_source:{kind:'bank_balance_sheet',series_id:'bank.balance_sheet.equity.end',timing:'prior_period',prior_initialization:'zero'},target_ratio_spec:_secSeriesDefault(0),sleeves:[]};(a.managed_securities_portfolios=a.managed_securities_portfolios||[]).push(p);}
+   const st={name:nm,series_id:_seriesId('managed-sec-sleeve'),classification:classification.value,opening:0,risk_weight:.2,allocation_spec:_secSeriesDefault(owner?0:1),maturity_rate_spec:_secSeriesDefault(0,_nativeFlowPeriod()),yield_source:'entered',yield_spec:_secSeriesDefault(0)};
+   (p.sleeves=p.sleeves||[]).push(st);const i=a.managed_securities_portfolios.indexOf(p);dialog.close();secInventoryEdit('managed',i,p.sleeves.length-1);
+  }else{
+   const st={name:nm,opening:0,purchases_per_period:0,growth_per_period:0,runoff_per_period:0,yield_ann:0};(a[kind]=a[kind]||[]).push(st);dialog.close();secInventoryEdit(kind,a[kind].length-1,-1);
+  }refresh();
+ };
+ dialog.addEventListener('close',()=>dialog.remove());document.body.appendChild(dialog);update();dialog.showModal();name.focus();
+};
+
 // r283: Securities & balances presented as five collapsible sections (Claude Design). The existing, already-wired
 // blocks are MOVED into the sections unchanged, so every handler keeps working. Closed by default.
 window._fsxOpen=window._fsxOpen||{};
@@ -12905,11 +13006,15 @@ const _FSX=[['s1','01','Funding allocation','Where funding beyond loans and secu
   ['s2','02','Interest-bearing balances','Named balances, reusable sources and explicit accounting treatments.','FUNDING'],
   ['s6','03a','Other assets','Named non-earning balances, including receivables, from entered levels or linked drivers.','ASSETS'],
   ['s3','03','Other liabilities','A flat period-end balance, or one built from named Formula / level components.','LIABILITIES'],
-  ['s4','04','Securities books & AOCI','Simple books with opening balances, monthly purchases, growth and runoff; AOCI on AFS holdings.','INVESTMENTS'],
-  ['s5','05','Managed portfolios','Target balances allocated across securities; maturities and balancing trades set each ending balance.','INVESTMENTS']];
+  ['s7','04','Securities','Every AFS and HTM holding, with its balance method and portfolio in one place.','INVESTMENTS'],
+  ['s8','05','AOCI settings','Shared valuation sensitivity for AFS holdings from either balance method. HTM holdings are unaffected.','INVESTMENTS'],
+  ['s4','04','Securities · Scheduled activity','Opening holdings, purchases, growth and runoff. Existing book settings are preserved.','INVESTMENTS'],
+  ['s5','04','Securities · Target allocation','Portfolio targets, allocations and balancing trades. Existing portfolio settings are preserved.','INVESTMENTS']];
 function _fsxNum(v,d){ v=+v||0; return v.toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
 function _fsxSummary(k,root){   // root: the block (first render) or the whole section (refresh)
   const a=(cfgRef()||{}).assumptions||{}, out=[];
+  if(k==='s7'){const rows=_secInventoryRows();return [['Holdings',String(rows.length)],['AFS',String(rows.filter(x=>x.cls==='AFS').length)],['HTM',String(rows.filter(x=>x.cls==='HTM').length)],['Opening ($000s)',_fsxNum(rows.reduce((n,x)=>n+x.opening,0)/1000)]];}
+  if(k==='s8')return [['AFS sensitivity',((+a.aoci_sensitivity_annual||0)*100).toFixed(1)+'% / yr']];
   if(k==='s6'){const m=a.other_assets_model||{};out.push(['Mode',_oaMode()==='flat'?'Flat':'Formula / level']);out.push(['Components',(m.components||[]).length]);}
   if(k==='s1'){
     out.push(['Unallocated',a.surplus_allocation_policy==='residual_securities'?'Residual securities':'Hold in cash']);
@@ -12954,7 +13059,7 @@ function _presentSecuritiesPage(){
   const active=_fsxActiveKey();
   const shell=document.createElement('div'); shell.className='fsx fsx-focused';
   let rail='<nav class="fsx-rail"><div class="fsx-mi">MODEL INPUTS</div>', g='';
-  _FSX.forEach(([k,n,t,,grp])=>{ if(grp!==g){ rail+=`<div class="fsx-g">${grp}</div>`; g=grp; } rail+=`<a href="#" class="fsx-it${active===k?' on':''}" aria-current="${active===k?'page':'false'}" data-k="${k}" onclick="fsxGo('${k}');return false"><i>${n}</i>${esc(t)}</a>`; });
+  _FSX.filter(x=>!['s4','s5'].includes(x[0])).forEach(([k,n,t,,grp])=>{ if(grp!==g){ rail+=`<div class="fsx-g">${grp}</div>`; g=grp; } rail+=`<a href="#" class="fsx-it${(active===k||k==='s7'&&['s4','s5'].includes(active))?' on':''}" aria-current="${(active===k||k==='s7'&&['s4','s5'].includes(active))?'page':'false'}" data-k="${k}" onclick="fsxGo('${k}');return false"><i>${n}</i>${esc(t)}</a>`; });
   rail+='</nav>';
   let main='<div class="fsx-main"><div class="fsx-top"><p class="fsx-intro">Amounts in $000s unless noted. Per-unit amounts are dollars. Series support flat values, growth paths and explicit schedules.</p></div>';
 
@@ -12968,8 +13073,12 @@ function _presentSecuritiesPage(){
   if(B.ib){ const lab=B.ib.querySelector('.sec-managed-sleeve-head label'); if(lab){ lab.classList.add('fsx-include'); [...lab.childNodes].forEach(n=>{ if(n.nodeType===3&&n.textContent.trim()) n.textContent=' Include in model'; }); ctl('s2').appendChild(lab); } body('s2').appendChild(B.ib); }
   if(B.oa){ const mode=B.oa.querySelector(':scope>.nie-mode'); if(mode) ctl('s6').appendChild(mode); body('s6').appendChild(B.oa); }
   if(B.ol){ const mode=B.ol.querySelector(':scope>.nie-mode'); if(mode) ctl('s3').appendChild(mode); body('s3').appendChild(B.ol); }
-  if(B.books) body('s4').appendChild(B.books); if(B.aoci) body('s4').appendChild(B.aoci);
+  if(B.books) body('s4').appendChild(B.books); if(B.aoci) body('s8').appendChild(B.aoci);
+  body('s7').innerHTML=_secInventoryHtml();
+  for(const key of ['s4','s5'])body(key).insertAdjacentHTML('afterbegin','<div class="sec-editor-return"><button class="btn-plain" onclick="fsxGo(\'s7\')">← All securities</button><span>Editing the saved balance method. AFS / HTM is shown on each holding.</span></div>');
   if(B.mp) body('s5').appendChild(B.mp);
+  const focus=window._secInventoryFocusPortfolio;if(active==='s5'&&Number.isInteger(focus)){body('s5').querySelectorAll('.sec-managed-portfolio').forEach((el,i)=>{el.hidden=i!==focus;});}
+  const book=window._secInventoryFocusBook;if(active==='s4'&&book){let n=0;body('s4').querySelectorAll('.sec-book-editor').forEach(el=>{const match=el.dataset.bookKind===(book.kind==='securities_afs'?'AFS':'HTM');el.hidden=!match||n!==book.i;el.classList.toggle('sec-selected-book',!el.hidden);if(match)n++;});}
   const postingNotes={
     s1:'Balance sheet: remaining funds are allocated to cash, residual securities or borrowing under this policy. Income statement: configured yields and funding costs feed net interest income.',
     s2:'Balance sheet: treatment follows each component’s balance source and destination; an income basis alone does not create another asset. Income statement: each component’s selected income destination controls posting.',
@@ -12980,7 +13089,7 @@ function _presentSecuritiesPage(){
   };
   Object.entries(postingNotes).forEach(([k,txt])=>{const note=document.createElement('p');note.className='cmut fsx-posting-note';note.style.cssText='margin:16px 0 0;padding-top:10px;border-top:1px solid var(--border,#ddd);line-height:1.5';note.textContent=txt;body(k).appendChild(note);});
   if(tst) tst.remove(); if(fp) fp.remove();
-  card.appendChild(shell);
+  card.appendChild(shell);secInventoryFilter();
   try{ _fsxBands(card); }catch(e){ if(window.lastErrs) window.lastErrs.push(e); }   // r288: band layout (presentation only)
 }
 function _fsxRefresh(sec){ const k=sec&&sec.dataset.k, box=sec&&sec.querySelector('.fsx-sum'); if(!k||!box) return;
@@ -13104,7 +13213,7 @@ function _fsxActiveKey(){const keys=_FSX.map(x=>x[0]);if(!keys.includes(window._
 window.fsxToggle=function(k){if(k!==_fsxActiveKey()){fsxGo(k);return;}window._fsxOpen[k]=!window._fsxOpen[k];const sec=document.getElementById('fsx-'+k);if(sec){sec.classList.toggle('open',!!window._fsxOpen[k]);sec.querySelector('.fsx-h').setAttribute('aria-expanded',!!window._fsxOpen[k]);}if(typeof fitControls==='function')fitControls();};
 // Compatibility for callers: expansion is scoped to the active editor.
 window.fsxAll=function(open){const k=_fsxActiveKey();window._fsxOpen[k]=!!open;const sec=document.getElementById('fsx-'+k);if(sec){sec.classList.toggle('open',!!open);sec.querySelector('.fsx-h').setAttribute('aria-expanded',!!open);}if(typeof fitControls==='function')fitControls();};
-window.fsxGo=function(k){if(!_FSX.some(x=>x[0]===k))return;window._fsxActive=k;window._fsxOpen[k]=true;_FSX.forEach(([id])=>{const sec=document.getElementById('fsx-'+id);if(sec){sec.hidden=id!==k;sec.classList.toggle('open',!!window._fsxOpen[id]);sec.querySelector('.fsx-h').setAttribute('aria-expanded',!!window._fsxOpen[id]);}const it=document.querySelector(`.fsx-it[data-k="${id}"]`);if(it){it.classList.toggle('on',id===k);it.setAttribute('aria-current',id===k?'page':'false');}});if(typeof fitControls==='function')fitControls();};
+window.fsxGo=function(k){if(!_FSX.some(x=>x[0]===k))return;if(k==='s7'){const root=document.querySelector('#fsx-s7 .fsx-b');if(root){root.innerHTML=_secInventoryHtml();secInventoryFilter();_fsxRefresh(document.getElementById('fsx-s7'));}}window._fsxActive=k;window._fsxOpen[k]=true;_FSX.forEach(([id])=>{const sec=document.getElementById('fsx-'+id);if(sec){sec.hidden=id!==k;sec.classList.toggle('open',!!window._fsxOpen[id]);sec.querySelector('.fsx-h').setAttribute('aria-expanded',!!window._fsxOpen[id]);}const it=document.querySelector(`.fsx-it[data-k="${id}"]`);if(it){const selected=id===k||id==='s7'&&['s4','s5'].includes(k);it.classList.toggle('on',selected);it.setAttribute('aria-current',selected?'page':'false');}});if(typeof fitControls==='function')fitControls();};
 
 
 let _renderedAuthoringTab=null, _renderedAuthoringCfg=null, _consumedPasteId=null;
@@ -15826,9 +15935,10 @@ window.secAociToggle = function(){
     a.securities_afs = []; a.securities_htm = []; a.managed_securities_portfolios = []; a.aoci_sensitivity_annual = 0;
     delete (window._cfgSectionOpen||{}).secaoci;
   } else {
-    (a.securities_afs=a.securities_afs||[]).push({name:"AFS",opening:0,purchases_per_period:0,growth_per_period:0,runoff_per_period:0,yield_ann:0});
-    a.aoci_sensitivity_annual = 0.005;
-    window._cfgSectionOpen=window._cfgSectionOpen||{}; window._cfgSectionOpen.secaoci=true;
+    // Opening the workspace is navigation; only Add security authors a holding.
+    window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.secaoci=true;
+    window._cfgModule='sec';window._fsxActive='s7';window._fsxOpen.s7=true;
+    renderContent();return;
   }
   renderGlobals(); renderContent(); refresh();
 };
@@ -15944,6 +16054,7 @@ var CAC_METHODS = [["pool_conversion","Pool × conversion"],["spend_cac","Spend 
 function CACYEARS(){ return MODELYEARS(); }
 function _cacPow(base,g,y){ return (+base||0)*Math.pow(1+(+g||0),Math.max(0,(+y||1)-1)); }
 function _ensureLinkableSeriesIds(){
+  if(window._secReadOnlyRender)return;
   for(const key of ['deposit_products','lending_products'])for(const p of (cfg.assumptions||{})[key]||[])if(!p.source_catalog_id)p.source_catalog_id=_seriesId('product-source');
   const nd=(cfg.assumptions||{}).nie_detail||{};
   Object.values((cfg.assumptions||{}).cac_feeds||{}).forEach(fd=>{if(!fd)return;if(!fd.series_id)fd.series_id=_seriesId("cac-auc");if(!fd.customer_count_series_id)fd.customer_count_series_id=_seriesId("cac-count");if(!fd.owner_module)fd.owner_module="customer_acquisition";});
@@ -16806,7 +16917,7 @@ function structuresSectionsHtml(){
   }
   const _secCardCounts=_secAociCounts(A), _secCardHasContent=_secAociActive(A), _secCardOpen=_cfgSectionIsOpen("secaoci",_secCardHasContent);
   const _secCardSummary=[_secCardCounts.simple?(_secCardCounts.simple+" simple book"+(_secCardCounts.simple===1?"":"s")):"",_secCardCounts.managed?(_secCardCounts.managed+" managed portfolio"+(_secCardCounts.managed===1?"":"s")+(_secCardCounts.sleeves?" · "+_secCardCounts.sleeves+" securit"+(_secCardCounts.sleeves===1?"y":"ies"):"")):"",A.aoci_sensitivity_annual?"AOCI active":""].filter(Boolean).join(" · ");
-  h += `</div><div class="cfgcard cflex" id="card-sec"><div class="cardhead" style="justify-content:space-between;align-items:flex-start;gap:12px"><div style="display:flex;align-items:flex-start;gap:14px;min-width:0;flex:1"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div>${(!_secCardOpen&&_secCardHasContent)?`<div class="nie-section-summary">${esc(_secCardSummary||"Securities configuration loaded")} · expand to inspect or edit</div>`:''}</span></div><button class="nie-section-toggle" onclick="cfgSectionSetOpen('secaoci',${_secCardOpen?'false':'true'})">${_secCardOpen?'Collapse':'Expand'}</button></div>`;
+  h += `</div><div class="cfgcard cflex" id="card-sec"><div class="cardhead" style="justify-content:space-between;align-items:flex-start;gap:12px"><div style="display:flex;align-items:flex-start;gap:14px;min-width:0;flex:1"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities &amp; AOCI</div><div class="cd">Find all securities, edit their balance methods and configure shared AOCI settings.</div>${(!_secCardOpen&&_secCardHasContent)?`<div class="nie-section-summary">${esc(_secCardSummary||"Securities configuration loaded")} · expand to inspect or edit</div>`:''}</span></div><button class="nie-section-toggle" onclick="cfgSectionSetOpen('secaoci',${_secCardOpen?'false':'true'})">${_secCardOpen?'Collapse':'Expand'}</button></div>`;
   if(_secCardOpen){
   {
     let _sb = `<div class="cfg-setting-group"><h3>Simple securities books</h3><p class="cfg-group-note">Opening balances, additions and runoff per ${PLAB('full')}.</p>`;
@@ -16816,7 +16927,7 @@ function structuresSectionsHtml(){
     (cfg.assumptions.securities_htm||[]).forEach((b,i)=>{
       _sb += `<div class="sec-book-editor" data-book-kind="HTM"><div class="sec-book-line sec-book-line-top"><label class="sec-book-field"><span class="sec-book-label">Name</span><span class="sec-book-value"><input class="sec-book-name" title="${esc(b.name||'HTM')}" value="${esc(b.name||"HTM")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"></span></label><label class="sec-book-field"><span class="sec-book-label">Opening balance</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_htm[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label></div><div class="sec-book-line sec-book-line-bottom"><label class="sec-book-field"><span class="sec-book-label">Yield</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Purchases</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.purchases_per_period||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_htm[${i}].purchases_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label><label class="sec-book-field"><span class="sec-book-label">Growth</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.growth_per_period||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].growth_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Runoff</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.runoff_per_period||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].runoff_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><a href="#" class="cx sec-book-delete" aria-label="Remove HTM book" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div></div>`;
     });
-    _sb += '<button class="pillbtn" onclick="secAdd(0)">+ Add AFS book</button> <button class="pillbtn" style="margin-left:6px" onclick="secAdd(1)">+ Add HTM book</button>';
+    _sb += '<button class="pillbtn" onclick="secInventoryCreate(\'scheduled\',\'AFS\')">+ Add AFS security</button> <button class="pillbtn" style="margin-left:6px" onclick="secInventoryCreate(\'scheduled\',\'HTM\')">+ Add HTM security</button>';
     _sb += '</div><div class="sec-managed-wrap sec-major-section"><div class="sec-major-title">Managed portfolios</div><div class="cmut">Set a target balance, then allocate it across securities. Maturities and balancing purchases or sales determine each ending balance.</div>';
     (_managedSecPortfolios()).forEach((mp,mi)=>{
       const tp=`assumptions.managed_securities_portfolios.${mi}.target_ratio_spec`, ts=mp.target_ratio_spec||_secSeriesDefault(mp.target_ratio||0);
@@ -16851,9 +16962,9 @@ function structuresSectionsHtml(){
         _sb += `</tbody></table></div><div class="cfg-md-foot">${_slMeta.length} securit${_slMeta.length===1?'y':'ies'} in this portfolio. Select a row to edit it.</div></div>`;
         _sb += `<div class="cfg-md-detail"><div class="cfg-md-head"><b>${esc((_slMeta[_slSel]||{}).name||'')}</b><span>Security ${_slSel+1} of ${_slMeta.length}</span></div><div class="cfg-md-body">${_slCards[_slSel]||''}</div></div></div>`;
       }
-      _sb += `<button class="pillbtn" style="margin-top:7px" onclick="secManagedAddSleeve(${mi})">+ Add security</button></div>`;
+      _sb += `<button class="pillbtn" style="margin-top:7px" onclick="secInventoryCreate('target','AFS',${mi})">+ Add security</button></div>`;
     });
-    _sb += '<button class="pillbtn" onclick="secManagedAddPortfolio()">+ Add managed portfolio</button></div>';
+    _sb += '<button class="pillbtn" onclick="secInventoryCreate(\'target\')">+ Add portfolio &amp; security</button></div>';
     let _ao = '<div class="sec-major-section"><div class="sec-major-title">AOCI</div>';
     _ao += `<div class="cmut" style="margin:0 0 6px">AOCI sensitivity</div>`;
     _ao += `<div class="crow" style="margin:0"><input type="number" step="0.1" style="width:96px" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=_pf(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
@@ -17449,6 +17560,14 @@ async function engagementResetConfirm(){
  }catch(e){if(_engReset!==R)return;R.busy=false;R.error=e.message;_engResetRender();}
 }
 
+// Securities navigation must not persist defaults from other, hidden Configuration editors.
+function _securitiesReadOnlyHtml(){
+ const original=cfg,view=JSON.parse(JSON.stringify(original));
+ const owned=['securities_afs','securities_htm','managed_securities_portfolios','balance_components_model','interest_balance_model','other_assets_model','other_liabilities_model'];
+ for(const key of owned)if(Object.prototype.hasOwnProperty.call(original.assumptions,key))view.assumptions[key]=original.assumptions[key];
+ cfg=view;window._secReadOnlyRender=true;
+ try{return structuresSectionsHtml();}finally{cfg=original;window._secReadOnlyRender=false;}
+}
 function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
   const r = lastRes || {};
@@ -17465,7 +17584,7 @@ function renderConfigTab(){
       + '<button class="btn-plain" style="font-size:11px;padding:5px 12px" onclick="dismissLandingNudge()">Not now</button>'
       + '</div>';
   }
-  if(!snapshotMode) h += '<div class="cfgwrap">' + structuresSectionsHtml() + '</div>';
+  if(!snapshotMode){window._secRenderedReadOnly=_cfgModuleSelected()==='sec';h += '<div class="cfgwrap">' + (window._secRenderedReadOnly?_securitiesReadOnlyHtml():structuresSectionsHtml()) + '</div>';}
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
     h += `<div class="cfgfoot"><span>Changes apply immediately and recompute the model. Engagement setup uses Apply changes.</span></div>`;
   if(V31){
