@@ -13,7 +13,7 @@ def sources(a):
         for p in a.get(collection) or []:
             for s in p.get('fee_streams') or []:
                 sid=s.get('quantity_series_id')
-                if not sid or (s.get('rate') or {}).get('behavior')=='durbin_capped':continue
+                if not sid or (s.get('rate') or {}).get('behavior')=='durbin_capped' or (s.get('cost') or {}).get('kind')=='linked_formula_opex':continue
                 rows.append({'series_id':sid,'label':(p.get('name') or 'Product')+' › '+(s.get('name') or 'Stream'),'timing':deepcopy(s.get('timing') or {})})
     from collections import Counter
     counts=Counter(r['series_id'] for r in rows)

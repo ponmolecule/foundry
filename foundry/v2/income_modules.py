@@ -380,7 +380,7 @@ _FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
 _FEE_SOURCES = {"constant", "own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "stream_ref", "fee_stream_quantity", "bank_aggregate", "cost_pool", "customer_acquisition_count", "account_activity"}
 _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
 _FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped", "cost_recovery"}
-_FEE_COST_KINDS = {"none", "per_unit", "per_account", "periodic_amount_opex", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex", "pct_of_balance_opex"}
+_FEE_COST_KINDS = {"none", "per_unit", "per_account", "periodic_amount_opex", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex", "pct_of_balance_opex", "linked_formula_opex"}
 _FEE_NATURAL_PERIODS = {"month", "quarter", "year", "model_period"}
 _FEE_TRANSACTION_PRICING_BASES = {"per_unit", "pct_of_throughput"}
 
@@ -775,6 +775,20 @@ def _validate_fee_stream_shape(stream):
     ck = cost.get("kind") or "none"
     if ck not in _FEE_COST_KINDS:
         raise ValueError(f"unsupported fee cost kind: {ck!r}")
+    if ck == "linked_formula_opex":
+        from .opex_extensions import normalize_linked_component
+        cp = cost.get("params") or {}
+        formula = normalize_linked_component(cp.get("formula"))
+        if formula["driver"] != "formula_driver": raise ValueError("Product cost requires a typed formula")
+        if basis != "flat" or src != "constant" or traj != "flat":
+            raise ValueError("Formula cost uses a Flat stream with an entered constant driver")
+        rp = rt.get("params") or {}
+        if rb != "flat" or presentation != "revenue" or rp.get("flat_amount") is not None or float(rp.get("amount_per_period") or 0) != 0:
+            raise ValueError("Formula cost streams cannot also post revenue")
+        if cp.get("factor_path") is not None or cp.get("multiplier_path") is not None:
+            raise ValueError("Edit the formula factors directly for a formula cost")
+        if (st.get("timing") or {}).get("ramp_in_periods"):
+            raise ValueError("Formula cost ramp belongs in an explicit formula factor")
     if presentation == "contra_revenue" and ck == "pct_of_revenue":
         raise ValueError("contra-revenue presentation cannot also use revenue-share contra treatment")
     if src in {"stream_ref", "fee_stream_quantity"}:
@@ -1096,6 +1110,8 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     if not stream:
         return 0.0, 0.0
     _validate_fee_stream_shape(stream)
+    if ((stream.get('cost') or {}).get('kind')) == 'linked_formula_opex':
+        return 0.0, 0.0  # product_formula_costs applies once after upstream balances/revenues
     if not (ctx or {}).get('_account_monthly'):
         from .account_activity import monthly_fee
         replay = monthly_fee(stream, q, ctx or {}, ppy, fee_stream_q, force=(ctx or {}).get('_profile_monthly_operands') is not None)

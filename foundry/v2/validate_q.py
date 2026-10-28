@@ -623,6 +623,13 @@ def validate_config_v2(cfg):
     except (ValueError, TypeError, KeyError) as e:
         errs.append(f'Account activity invalid: {e}')
         _activity = {}
+    try:
+        from .product_formula_costs import prepare as prepare_product_formula_costs, formulas as product_formulas
+        if any(product_formulas(a)) and cfg.get('parity_profile') != 'pf_a':
+            raise ValueError('Product formula costs require the fee-stream engine (pf_a)')
+        prepare_product_formula_costs(a, max(1, int(a.get('n_periods') or _ppy)), _ppy, _growth_ctx)
+    except (ValueError, TypeError, KeyError, IndexError) as e:
+        errs.append('Product formula cost invalid: '+str(e))
     for pi, prod in enumerate(a.get("obs_exposures") or []):
         mn = prod.get("managed_notional") or {}
         if mn.get("growth_spec"):

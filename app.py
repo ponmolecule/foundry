@@ -1643,6 +1643,17 @@ def console_v3(_=Depends(gate)):
     return HTMLResponse(html)
 
 
+@app.post("/api/v2/product-cost-transfer")
+def v2_product_cost_transfer(body: dict, _=Depends(gate)):
+    """Return a reconciled local draft; never save an engagement here."""
+    from foundry.v2.product_formula_costs import verified_move
+    try:
+        return JSONResponse(verified_move(body['config'], body['collection'], body['product_index'],
+                                         body['category_id'], body['component_id']))
+    except (ValueError, TypeError, KeyError, IndexError) as e:
+        return JSONResponse({'error':str(e)},status_code=422)
+
+
 @app.post("/api/v2/freeze")
 def v2_freeze(body: dict, _=Depends(gate)):
     """Notarize the posted configuration: run it and record config+hashes."""
@@ -1719,7 +1730,7 @@ def v2_source_catalog(cfg: dict, _=Depends(gate)):
         if category_id:
             from foundry.v2.source_catalog import balance_link_creates_cycle
             from foundry.v2.opex_extensions import auc_link_creates_cycle
-            category=next((c for c in (a.get("nie_detail") or {}).get("categories") or [] if c.get("series_id")==category_id),{})
+            category=next((c for c in (a.get("nie_detail") or {}).get("categories") or [] if c.get("series_id")==category_id),{"series_id":category_id})
             for row in rows:
                 cyclic=(row['driver']=='catalog_quantity' and balance_link_creates_cycle(a,category,row['series_id'])) or (row['driver']=='customer_acquisition_auc' and auc_link_creates_cycle(a,category,row['series_id']))
                 if row['driver'] in {'account_activity','fee_stream_quantity'}:

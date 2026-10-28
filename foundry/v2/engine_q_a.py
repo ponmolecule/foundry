@@ -1297,6 +1297,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     _linked_timing_balances = [0.0] * len((_nie_d or {}).get("linked_components") or [])
     _nie_linked_cat_by_q = {}   # r300: component charges per period, by category (reporting only)
     _simple_overhead = simple_overhead_series(a, Q, ppy, _growth_ctx)
+    from .product_formula_costs import prepare as _prepare_formula_costs, apply as _apply_formula_costs
+    _product_formulas = _prepare_formula_costs(a, Q, ppy, _growth_ctx)
     _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
     _wf_runtime = None
     _wf_comp_native = []
@@ -1496,6 +1498,19 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
         # as a downstream Opex driver. This is intentionally not an Income Statement netting.
         fee_opex = sum((p.get("_fcost") or [None] * (Q + 1))[q] or 0.0 for p in lend + dep + obs)
         fv_pnl = sum((p["_fvadj"][q] - p["_fvadj"][q - 1]) - p["_co"][q] for p in lend if p["_is_fv"])
+        if _product_formulas:
+            fee_opex += _apply_formula_costs(_product_formulas,
+                {'lending_products':lend,'deposit_products':dep,'obs_exposures':obs}, q,
+                {'fee_income':fees,'gain_on_sale':gos,'servicing_net':srv,
+                 'other_income':_other_income_total[q-1],
+                 'fee_stream_quantities':{sid:(arr[q-1] if q-1<len(arr) else 0.) for sid,arr in _fee_stream_qty_series.items()},
+                 'fee_stream_quantity_history':_fee_stream_qty_series,
+                 'fee_stream_quantity_known_ids':_fee_stream_qty_known_ids,
+                 'customer_acquisition_auc_monthly':_auc_month_sources,
+                 'customer_acquisition_auc_beginning':_auc_beginning_sources,
+                 'account_activity':_activity_series,'catalog_balances':_catalog_balances_q,
+                 'financial_observations':_financial_obs,'periods_per_year':ppy},
+                _fee_stream_econ_series)
         overhead = _simple_overhead[q - 1] + dep_exp_t[q]
         # Presentation-only decomposition of corporate overhead.  The legacy/simple
         # overhead assumption does not identify compensation separately, so it remains
