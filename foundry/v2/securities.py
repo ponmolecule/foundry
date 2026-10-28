@@ -6,8 +6,9 @@ rates.  A managed portfolio links to a whitelisted endogenous balance-sheet Seri
 sets an authored target ratio, allocates the target across named sleeves, applies
 runoff/maturities, and solves net purchases/(sales) as the balancing flow.
 
-Current first-class endogenous target sources include period-end Total Equity and
-Total Deposits.  Sources are identified by stable Series IDs so additional balance-sheet
+Current target sources include Total Equity, Total Deposits, prior-period bank cash
+and prior-period named cash allocations. Quarterly sampling optionally ramps holdings
+to the sampled target; interest may use ending or average holdings.  Sources are identified by stable Series IDs so additional balance-sheet
 Series can be added without changing the portfolio equations.
 """
 from __future__ import annotations
@@ -19,6 +20,7 @@ from .series import resolve_entered_series
 
 EQUITY_END_SERIES_ID = "bank.balance_sheet.equity.end"
 DEPOSITS_END_SERIES_ID = "bank.balance_sheet.deposits.end"
+CASH_END_SERIES_ID = "bank.balance_sheet.cash.end"
 _VALID_CLASSIFICATIONS = {"AFS", "HTM"}
 _VALID_YIELD_SOURCES = {"entered", "curve_library"}
 _VALID_CURVES = {"sofr", "effr", "prime"}
@@ -28,9 +30,12 @@ _PERIOD_FREQ = {"year": 1, "quarter": 4, "month": 12}
 _VALID_RATE_PERIODS = set(_PERIOD_FREQ) | {"model_period"}
 
 
-def managed_securities_source_catalog() -> list[dict]:
+def managed_securities_source_catalog(assumptions=None) -> list[dict]:
     """Return endogenous balance-sheet Series that may drive managed portfolios."""
-    return [
+    components=(assumptions or {}).get('balance_components_model') or {}
+    named=[{'series_id':'balance_component.'+c['id']+'.end','name':c.get('name') or 'Cash allocation','owner_module':'Interest-bearing balances','semantic_type':'balance','measure':'period_end'} for c in components.get('components') or [] if components.get('enabled',True) and c.get('treatment')=='cash_allocation' and c.get('id')]
+    return named+[
+        {"series_id": CASH_END_SERIES_ID, "name": "Bank cash — period end (prior only)", "owner_module": "Balance Sheet", "semantic_type": "balance", "measure": "period_end"},
         {
             "series_id": EQUITY_END_SERIES_ID,
             "name": "Total equity — period end",
@@ -141,6 +146,9 @@ def prepare_managed_securities(assumptions: Mapping[str, Any], n_periods: int, p
             "series_id": p.get("series_id"),
             "target_source": deepcopy(p.get("target_source") or {}),
             "target_ratio": ratio,
+            "target_cadence": p.get("target_cadence","model_period"),
+            "target_path": p.get("target_path","step"),
+            "interest_balance_measure": p.get("interest_balance_measure","period_end"),
             "target_source_value": [],
             "target": [],
             "sleeves": [],
@@ -185,7 +193,7 @@ def validate_managed_securities(assumptions: Mapping[str, Any], n_periods: int, 
                                 *, growth_context=None) -> list[str]:
     """Validate the managed-securities authoring contract; return human-readable errors."""
     errs: list[str] = []
-    catalog = {x["series_id"] for x in managed_securities_source_catalog()}
+    catalog = {x["series_id"] for x in managed_securities_source_catalog(assumptions)}
     try:
         runtime = prepare_managed_securities(assumptions, n_periods, ppy, growth_context=growth_context,
                                              rate_curves={k: (lambda _i: 0.0) for k in _VALID_CURVES})
@@ -201,6 +209,19 @@ def validate_managed_securities(assumptions: Mapping[str, Any], n_periods: int, 
         timing = str(src.get("timing") or "")
         if timing not in _VALID_TARGET_TIMINGS:
             errs.append(f"{path}.target_source.timing must be current_period or prior_period")
+        if (sid==CASH_END_SERIES_ID or sid.startswith('balance_component.')) and timing!='prior_period':
+            errs.append(f"{path}: cash targets require prior-period timing to avoid circular funding")
+        cadence=raw.get('target_cadence','model_period')
+        if cadence not in {'model_period','quarter'} or cadence=='quarter' and ppy not in {4,12}:
+            errs.append(f"{path}: quarterly target cadence requires a monthly or quarterly model")
+        if raw.get('target_path','step') not in {'step','ramp'}:
+            errs.append(f"{path}: target path must be step or ramp")
+        if cadence=='quarter' and timing!='prior_period':
+            errs.append(f"{path}: quarterly targets require prior-period sources")
+        if raw.get('target_path','step')=='ramp' and cadence!='quarter':
+            errs.append(f"{path}: ramp requires quarterly target cadence")
+        if raw.get('interest_balance_measure','period_end') not in {'period_end','period_average'}:
+            errs.append(f"{path}: invalid securities interest balance measure")
         init = str(src.get("prior_initialization") or "")
         if init not in _VALID_PRIOR_INITIALIZATIONS:
             errs.append(f"{path}.target_source.prior_initialization must be zero or opening_source")
@@ -263,7 +284,7 @@ def managed_period_snapshot(runtime: list[dict], period: int, source_values: Map
 
     `period` is 1-based.  Net purchases/(sales) are intentionally signed and are the
     balancing flow required to hit the target ending balance exactly.  Interest income
-    follows the source model's period-end-balance convention and annual yield / ppy.
+    uses the selected ending/average holdings basis and annual yield / ppy.
 
     Target-source timing is explicit per portfolio.  ``current_period`` consumes
     ``source_values``.  ``prior_period`` consumes ``prior_source_values`` after the
@@ -285,16 +306,24 @@ def managed_period_snapshot(runtime: list[dict], period: int, source_values: Map
                 source = float(prior_values[src_id])
         else:
             source = float(source_values[src_id])
-        target = source * float(p["target_ratio"][idx])
+        span=int(ppy)//4 if p.get('target_cadence')=='quarter' else 1
+        first=(idx//span)*span
+        if first<idx:
+            source=float(p['target_source_value'][first])
+        target = source * float(p["target_ratio"][first])
         po = {"name": p.get("name"), "series_id": p.get("series_id"),
               "target_source_value": source, "target": target, "sleeves": []}
         for s in p.get("sleeves") or []:
             start = float(s["ending"][-1])
             maturity = start * float(s["maturity_rate"][idx])
-            ending = target * float(s["allocation"][idx])
+            ending = target * float(s["allocation"][first])
+            if p.get('target_path')=='ramp':
+                anchor=float(s['ending'][first])
+                ending=anchor+(ending-anchor)*(idx-first+1)/span
             net = ending - start + maturity
             yld = float(s["yield"][idx])
-            interest = ending * yld / float(ppy)
+            income_basis=(start+ending)/2 if p.get('interest_balance_measure')=='period_average' else ending
+            interest = income_basis * yld / float(ppy)
             po["sleeves"].append({
                 "name": s.get("name"), "series_id": s.get("series_id"),
                 "classification": s.get("classification"), "starting": start,
@@ -342,6 +371,7 @@ def public_managed_securities(runtime: list[dict]) -> list[dict]:
         out.append({
             "name": p.get("name"), "series_id": p.get("series_id"),
             "target_source": deepcopy(p.get("target_source") or {}),
+            **({k:p[k] for k in ('target_cadence','target_path','interest_balance_measure')} if p.get('target_cadence')!='model_period' or p.get('interest_balance_measure')!='period_end' else {}),
             "target_ratio": list(p.get("target_ratio") or []),
             "target_source_value": list(p.get("target_source_value") or []),
             "target": list(p.get("target") or []),

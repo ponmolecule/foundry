@@ -456,7 +456,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     # may target current-period Total Equity, which itself includes current Net Income
     # (and, for AFS sleeves, current AOCI).  Authored trajectories are resolved once;
     # only the endogenous source value is supplied during each solver iteration.
-    from .securities import (EQUITY_END_SERIES_ID, DEPOSITS_END_SERIES_ID, prepare_managed_securities,
+    from .securities import (EQUITY_END_SERIES_ID, DEPOSITS_END_SERIES_ID, CASH_END_SERIES_ID, prepare_managed_securities,
                              managed_period_snapshot, commit_managed_snapshot,
                              managed_opening_totals, snapshot_totals, public_managed_securities)
     _managed_sec = prepare_managed_securities(a, Q, ppy, growth_context=_growth_ctx,
@@ -1665,6 +1665,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 }, ppy, prior_source_values={
                     EQUITY_END_SERIES_ID: bs["equity"][q - 1],
                     DEPOSITS_END_SERIES_ID: deps_b[q - 1],
+                    CASH_END_SERIES_ID: bs["cash"][q - 1],
+                    **({'balance_component.'+component['id']+'.end': (_bcm.rows[component['id']]['ending'][-1] if _bcm.rows[component['id']]['ending'] else _bcm.rows[component['id']]['opening']) for component in _bcm.components if component['treatment']=='cash_allocation'} if _bcm else {}),
                 }) if _managed_sec else []
             _managed_totals = snapshot_totals(_managed_snapshot)
             afs_end_b = _simple_afs_end + _managed_totals["afs"]
