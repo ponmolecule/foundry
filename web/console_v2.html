@@ -1515,6 +1515,19 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .product-cost-move-row select{width:100%;max-width:100%;min-width:0;box-sizing:border-box;padding:7px;border:1px solid #cfcfca;border-radius:4px;background:#fff}
 @media(max-width:900px){.product-formula-editor .fx-row,.product-formula-editor .fx-row.fx-linked,.product-formula-editor .fx-row.fx-linked:has(.fx-l:nth-of-type(3)){grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+
+.product-formula-create-dialog{width:min(440px,calc(100vw - 40px));box-sizing:border-box;padding:24px;border:1px solid #d3d1c8;border-radius:8px;background:#fff;color:#343434;box-shadow:0 12px 45px #0002}
+.product-formula-create-dialog::backdrop{background:rgba(0,0,0,.3)}
+.product-formula-create-dialog h3{margin:0 0 8px;font-size:18px;font-weight:600}
+.product-formula-create-dialog p{font-size:13px;color:#73736c;line-height:1.5;margin:0 0 18px}
+.product-formula-create-dialog label{display:block;font-size:12px;font-weight:600;margin-bottom:6px}
+.product-formula-create-dialog input{width:100%;box-sizing:border-box;border:1px solid #c9c8c0;padding:10px;font:inherit;font-size:14px}
+.product-formula-create-dialog input:focus{outline:2px solid #d4a65c;outline-offset:2px}
+.product-formula-create-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.product-formula-create-actions .pillbtn{color:#4b4b45!important;background:#fff;border:1px solid #c9c8c0;opacity:1}
+.product-formula-create-actions .btn-gold:disabled{background:#eeeae2;color:#9b978d;border-color:#e1ddd4;cursor:not-allowed;opacity:1}
+.product-formula-create-dialog .product-formula-create-error{color:#9f5340;margin:12px 0 0}
+
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -7558,10 +7571,35 @@ function _productFormulaActionsHtml(fi){
  const busy=window._productFormulaMoveBusy;
  return `<section class="product-cost-actions"><div class="product-cost-actions-head"><div><b>Formula costs</b><p>Attach a cost to this product using modeled balances, rates and activity.</p></div><button type="button" class="pillbtn" onclick="addProductFormulaCost(${fi})">+ Formula cost stream</button></div><details><summary>Move an existing Operating Expense formula</summary><p>The formula and gross-up eligibility move together. Other category amounts stay in Operating Expense. The move is applied only if financial totals reconcile.</p><div class="product-cost-move-row"><label>Expense formula<select id="productFormulaMove_${fi}"${busy?' disabled':''}><option value="">Select a formula…</option>${options.map(o=>`<option value="${esc(JSON.stringify([o.category,o.component]))}">${esc(o.label)}</option>`).join('')}</select></label><button type="button" class="pillbtn"${busy||!options.length?' disabled':''} onclick="moveProductFormulaCost(${fi})">${busy?'Checking…':'Move to this product'}</button></div>${options.length?'':'<p>No movable Formula components are available in Operating Expense.</p>'}</details></section>`;
 }
+function _focusProductFormula(fi,stream){
+ const p=_stOwner(fi);if(!p)return;
+ // A reconciled transfer returns new objects for the whole configuration. Mark
+ // them as known so the product navigator does not treat the first as newly added.
+ const seen=window._prdSeen=window._prdSeen||new WeakSet();
+ for(const key of ['lending_products','deposit_products','obs_exposures'])for(const product of cfg.assumptions[key]||[])seen.add(product);
+ window._prdSeenInit=true;window._prdSel=p;window._prdView='product';window._prdTab='streams';
+ const streamsSeen=window._stSeen=window._stSeen||new WeakSet();
+ for(const item of p.fee_streams||[])streamsSeen.add(item);
+ window._stSeenInit=true;window._stSelObj=stream;window._stTab='costs';
+}
 window.addProductFormulaCost=function(fi){
- const p=_stOwner(fi),id=_seriesId('product-formula'),formula={driver:'formula_driver',component_id:_seriesId('formula'),name:'Product cost',factors:[{kind:'entered',name:'Amount',display:'number',periodized:true,spec:{trajectory:'flat',value:0,period:'month'}}]};
- const st={name:'Product cost',basis:'flat',quantity_series_id:id,driver:{source:'constant',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{amount_per_period:0}},timing:{start_period:1},cost:{kind:'linked_formula_opex',params:{formula}}};
- p.fee_streams=p.fee_streams||[];p.fee_streams.push(st);window._stSelObj=st;window._stTab='costs';renderContent();refresh();
+ const existing=document.getElementById('productFormulaCreate');if(existing?.open){existing.querySelector('input').focus();return;}if(existing)existing.remove();
+ const original=cfg,owner=_stOwner(fi);if(!owner)return;
+ const dlg=document.createElement('dialog');dlg.id='productFormulaCreate';dlg.className='product-formula-create-dialog';dlg.setAttribute('aria-labelledby','productFormulaCreateTitle');
+ dlg.innerHTML='<form><h3 id="productFormulaCreateTitle">New formula cost stream</h3><p>Give the cost a name before adding it to this product.</p><label for="productFormulaCreateName">Stream name</label><input id="productFormulaCreateName" name="name" autocomplete="off" required placeholder="Name this cost"><p class="product-formula-create-error" role="alert" hidden></p><div class="product-formula-create-actions"><button type="button" class="pillbtn" data-cancel>Cancel</button><button type="submit" class="btn-gold" disabled>Create stream</button></div></form>';
+ const input=dlg.querySelector('input'),submit=dlg.querySelector('[type=submit]'),error=dlg.querySelector('[role=alert]');
+ input.addEventListener('input',()=>{submit.disabled=!input.value.trim();error.hidden=true;});
+ dlg.querySelector('[data-cancel]').onclick=()=>dlg.close();
+ dlg.querySelector('form').onsubmit=event=>{
+  event.preventDefault();const name=input.value.trim();if(!name)return;
+  if(cfg!==original||_stOwner(fi)!==owner){error.textContent='The engagement changed while this dialog was open. Cancel and open it again.';error.hidden=false;return;}
+  if((owner.fee_streams||[]).some(s=>String(s.name||'').trim().toLowerCase()===name.toLowerCase())){error.textContent='A stream with this name already exists in this product.';error.hidden=false;input.focus();return;}
+  submit.disabled=true;
+  const id=_seriesId('product-formula'),formula={driver:'formula_driver',component_id:_seriesId('formula'),name,factors:[{kind:'entered',name:'Amount',display:'number',periodized:true,spec:{trajectory:'flat',value:0,period:'month'}}]};
+  const st={name,basis:'flat',quantity_series_id:id,driver:{source:'constant',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{amount_per_period:0}},timing:{start_period:1},cost:{kind:'linked_formula_opex',params:{formula}}};
+  owner.fee_streams=owner.fee_streams||[];owner.fee_streams.push(st);_focusProductFormula(fi,st);dlg.close();renderContent();refresh();
+ };
+ document.body.appendChild(dlg);dlg.addEventListener('close',()=>dlg.remove());dlg.showModal();input.focus();
 };
 window.moveProductFormulaCost=async function(fi){
  if(window._productFormulaMoveBusy)return;
@@ -7572,7 +7610,7 @@ window.moveProductFormulaCost=async function(fi){
   const r=await fetch('/api/v2/product-cost-transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:original,collection,product_index,category_id,component_id})}),v=await r.json();
   if(!r.ok)throw Error(v.error||'Formula could not be moved');
   if(cfg!==original||JSON.stringify(cfg)!==signature)throw Error('The engagement changed during the check. No transfer was applied; select the formula and try again.');
-  cfg=v.config;const streams=cfg.assumptions[collection][product_index].fee_streams;window._stSelObj=streams[streams.length-1];window._stTab='costs';appStatus('ok',v.message);refresh();
+  cfg=v.config;const streams=cfg.assumptions[collection][product_index].fee_streams;_focusProductFormula(fi,streams[streams.length-1]);appStatus('ok',v.message);refresh();
  }catch(e){appStatus('err',e.message||String(e));}
  finally{window._productFormulaMoveBusy=false;renderContent();}
 };
