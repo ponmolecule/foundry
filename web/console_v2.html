@@ -9952,9 +9952,9 @@ function productDetailSeries(p, key){
   return Array.isArray(exact) ? exact : (p ? p[key] : null);
 }
 // r400: statement view cadence is session-only. Never change model cadence.
-function incomeStatementView(){
+function incomeStatementView(selection=window._incomeViewPPY){
  const native=PPY(),choices=[12,4,1].filter(p=>p<=native&&native%p===0);
- const selected=choices.includes(window._incomeViewPPY)?window._incomeViewPPY:native;
+ const selected=choices.includes(selection)?selection:native;
  const width=native/selected,n=NP(),groups=[];
  for(let start=0;start<n;start+=width){const end=Math.min(n,start+width),index=groups.length+1;
   groups.push({start,end,label:(selected===12?'M':selected===4?'Q':'Year ')+index+(end-start<width?' (partial)':'')});}
@@ -9990,6 +9990,33 @@ function incomeStatementRow(view,label,arr,cls,tot,refKey,measure='sum'){
  });
  const total=measure==='end'?vals[vals.length-1]:(vals.every(v=>v!=null)?vals.reduce((a,b)=>a+b,0):null);
  h+=total==null?'<td></td>':cellNum(total,measure==='end'?'Last reported value ($000s).':'Total across the modeled horizon ($000s).');return h+'</tr>';
+}
+// r414: stock views select period ends; opening remains separate. Session-only.
+function balanceSheetView(){return incomeStatementView(window._balanceViewPPY??null);}
+window.balanceSheetSetView=function(value){const p=+value;if(!balanceSheetView().choices.includes(p))return;window._balanceViewPPY=p;renderContent();};
+function balanceSheetValues(arr,view,hasOpen){
+ if(!Array.isArray(arr))return null;
+ const offset=hasOpen?1:0;
+ const value=i=>typeof arr[i]==='number'&&Number.isFinite(arr[i])?arr[i]:null;
+ return [...(hasOpen?[value(0)]:[]),...view.groups.map(g=>value(g.end-1+offset))];
+}
+function balanceSheetToolbar(view){
+ const names={12:'Monthly',4:'Quarterly',1:'Annual'};
+ return '<div class="is-viewbar"><div class="h2">Pro Forma Balance Sheet'+(V21?'<span class="schedbadge">SCHEDULE RC</span>':'')+'</div><div class="is-viewcontrols" role="group" aria-label="Balance sheet display period"><span>View</span>'+view.choices.map(p=>`<button type="button" aria-pressed="${p===view.selected}" class="${p===view.selected?'on':''}" onclick="balanceSheetSetView(${p})">${names[p]}</button>`).join('')+'</div></div>';
+}
+function balanceSheetHeader(view,hasOpen){return '<tr>'+(V21?'<th class="ref">Ref</th>':'')+'<th>Line item ($000s)</th>'+(hasOpen?'<th>Open</th>':'')+view.groups.map(g=>'<th>'+g.label+'</th>').join('')+'</tr>';}
+function balanceSheetRow(view,hasOpen,label,arr,cls,refKey){
+ if(!arr)return '';
+ const values=balanceSheetValues(arr,view,hasOpen),help=calcText(refKey);
+ let h=`<tr${cls?` class="${cls}"`:''}>`+refCell(refKey)+`<td${help?` data-prov title="${esc(help)}"`:''}>${label}</td>`;
+ values.forEach((v,i)=>{
+  if(v==null){h+='<td></td>';return;}
+  const opening=hasOpen&&i===0,g=opening?null:view.groups[i-(hasOpen?1:0)];
+  const nativeIndex=opening?0:g.end-1+(hasOpen?1:0);
+  let note=noteFor(refKey,nativeIndex,v);
+  if(g&&view.width>1)note=(note?note+' — ':'')+g.label+': period-end balance at '+PERLAB(g.end)+' ($000s); balances are not summed.';
+  h+=cellNum(v,note);
+ });return h+'</tr>';
 }
 function rowIS(label, arr, cls, tot, refKey){
   if(!arr) return "";
@@ -13508,12 +13535,17 @@ function _renderContentBody(){
   }
 
   if(currentTab==="bs"){
+    const view=balanceSheetView();
+    const rowBS=(...args)=>balanceSheetRow(view,bsHasOpen,...args);
+    const headerRow=withOpen=>balanceSheetHeader(view,withOpen);
+    const finColspan=withOpen=>(V21?1:0)+1+(withOpen?1:0)+view.groups.length;
     _noteTerms = {};
     regNote('totalAssets', bsHasOpen, [["Cash", fin.bs.cash], ["Securities", fin.bs.sec || fin.bs.afs],
       ["Net loans", fin.bs.netLoans], ["Held for sale", fin.bs.hfs], ["MSR", fin.bs.msr],
       ["Premises", fin.bs.premises], ["Intangibles", fin.bs.intangibles], ["Other", fin.bs.otherAssets]]);
     regNote('netLoans', bsHasOpen, [["Gross loans", fin.bs.grossLoans], ["\u2212 "+(cfg.assumptions&&cfg.assumptions.credit_regime?'ACL':'ALLL'), (fin.bs.alll||[]).map(x=>-(x||0))]]);
-    h += '<div class="h2">Pro Forma Balance Sheet' + (V21 ? '<span class="schedbadge">SCHEDULE RC</span>' : '') + '</div>';
+    h += balanceSheetToolbar(view);
+    if(view.width>1)h+='<div class="srcnote">Period-end balances, not sums. Opening stays separate; partial periods use their last modeled date and are labelled.</div>';
     h += '<table class="fin">' + headerRow(bsHasOpen, false);
     h += `<tr class="section"><td colspan="${finColspan(bsHasOpen,false)}">Assets</td></tr>`;
     h += rowBS('Cash & Due from Banks', arr12(fin.bs.cash, bsHasOpen), null, 'cash');
