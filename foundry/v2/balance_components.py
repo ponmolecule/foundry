@@ -39,7 +39,9 @@ def validate_model(a):
         if c.get('prior_interest_initialization','opening') not in {'opening','zero'}:raise ValueError('Invalid first-period interest initialization')
         if c.get('balance_floor','none') not in {'none','zero'}:raise ValueError('Unknown balance formula floor')
         if c.get('income_method','balance_yield') not in {'balance_yield','entered_amount','separate_balance_yield'}:raise ValueError('Unknown balance-component income method')
-        if c.get('treatment') in {'cash_allocation','residual_cash'} and c.get('income_method','balance_yield')!='balance_yield':raise ValueError('Cash components price their allocated balance; independent income requires a separate asset or off-book component')
+        if c.get('treatment')=='residual_cash' and c.get('income_method','balance_yield')!='balance_yield':raise ValueError('Residual cash prices its remaining balance')
+        if c.get('treatment')=='cash_allocation' and c.get('income_method','balance_yield') not in {'balance_yield','separate_balance_yield'}:raise ValueError('Cash allocations support yield on allocated cash or a separate balance basis')
+        if c.get('cap_at_available_cash') and c.get('income_method','balance_yield')!='balance_yield':raise ValueError('Capped cash must price the allocated balance; disable the cap to use a separate income basis')
         for t in c.get('terms') or []:
             if isinstance(t.get('sign',1),bool) or t.get('sign',1) not in {-1,1}:raise ValueError('Balance term sign must be +1 or -1')
         for k in ('interest_start_period',):
