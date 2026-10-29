@@ -1025,6 +1025,7 @@ def v31_bpt_cover(body: dict, _=Depends(gate)):
     populated from a fresh engine run of the posted config. Dynamic product/deposit rows."""
     from fastapi.responses import Response
     from foundry.v2.bpt_cover import build_bpt_cover
+    from foundry.v2.reporting import ReportingNotReconciled
     from foundry.v2.run_q import run_v2
     try:
         cfg = body.get("cfg") or {}
@@ -1035,6 +1036,8 @@ def v31_bpt_cover(body: dict, _=Depends(gate)):
         return Response(content=data,
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+    except ReportingNotReconciled as e:
+        return JSONResponse({"error": str(e), "code": "reporting_not_reconciled"}, status_code=409)
     except (ValueError, TypeError) as e:
         return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
     except Exception as e:

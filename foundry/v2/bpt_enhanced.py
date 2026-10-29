@@ -946,7 +946,7 @@ def _reporting_products(wb, m, bank):
         sh.header("", labels)
         sh.line("Members: " + ", ".join(names), [None] * len(Y), indent=0)
         sections = (("balances", "Balances · ending balance at each period end"), ("income", "Income"),
-                    ("expense", "Expense"))
+                    ("expense", "Expense"), ("memo", "Memo · credit reserve (not in direct contribution)"))
         for sec, title in sections:
             lines = [ln for ln in sch.get("lines") or [] if ln["section"] == sec]
             unres = [u for u in sch.get("unresolved") or [] if u["section"] == sec]
@@ -1049,6 +1049,8 @@ def _product_map(wb, m, bank, asset_sheets):
 def build_enhanced_bpt(cfg, res):
     """Return (xlsx_bytes, filename) for the enhanced, engagement-driven Business Plan Tables."""
     m = _Model(cfg, res)
+    from .reporting import require_reconciled
+    require_reconciled(cfg, m.rpt)   # official export stops while reporting does not reconcile
     bank = _bank_name(cfg)
     wb = Workbook()
     used = {s.lower() for s in SHEETS_FIXED_HEAD + SHEETS_FIXED_TAIL}

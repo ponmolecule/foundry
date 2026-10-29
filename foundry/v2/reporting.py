@@ -28,6 +28,12 @@ import hashlib
 import json
 
 MANIFEST_KEY = "reporting_manifest"
+BLOCKING = ("stale_member", "overlap", "invalid_override", "duplicate_name", "duplicate_id", "unnamed", "empty",
+            "duplicate_product_id", "duplicate_result_id")
+
+
+class ReportingNotReconciled(ValueError):
+    """Raised by official exports when reporting products exist and reporting does not reconcile."""
 FAMILIES = {"lending": "lending_products", "deposit": "deposit_products", "obs": "obs_exposures"}
 FAMILY_LABEL = {"lending": "Lending", "deposit": "Deposit", "obs": "Fee product"}
 
@@ -42,6 +48,11 @@ CLASSES = {
     "noninterest_expense": {"label": "Noninterest expense", "kind": "flow", "section": "expense",
                             "default": "Attributable costs"},
     "credit_losses": {"label": "Net charge-offs", "kind": "flow", "section": "expense", "default": "Net charge-offs"},
+    # Memo classes: reported and reconciled, never part of direct contribution (which deducts charge-offs).
+    "provision": {"label": "Provision for credit losses", "kind": "flow", "section": "memo",
+                  "default": "Provision for credit losses"},
+    "allowance": {"label": "Allowance for credit losses", "kind": "stock", "section": "memo",
+                  "default": "Allowance · ending balance"},
 }
 # Standard report lines per class.  An override may choose any of its own class's lines or a new name,
 # never a line that belongs to another class.
@@ -53,6 +64,8 @@ CLASS_LINES = {
     "interest_expense": ["Cost of funds"],
     "noninterest_expense": ["Attributable costs"],
     "credit_losses": ["Net charge-offs"],
+    "provision": ["Provision for credit losses"],
+    "allowance": ["Allowance · ending balance"],
 }
 RESERVED_LINES = {"earnings on deposits", "direct contribution"}
 
@@ -66,7 +79,9 @@ _MEASURES = {
                 ("servNet", "noninterest_income", "Net servicing", "Net servicing income"),
                 ("opex", "noninterest_expense", "Attributable costs", "Operating costs · base"),
                 ("passCost", "noninterest_expense", "Attributable costs", "Fee-stream direct costs"),
-                ("co", "credit_losses", "Net charge-offs", "Net charge-offs")],
+                ("co", "credit_losses", "Net charge-offs", "Net charge-offs"),
+                ("provision", "provision", "Provision for credit losses", "Provision for credit losses"),
+                ("alll", "allowance", "Allowance · ending balance", "Allowance · ending balance")],
     "deposit": [("bal", "deposits", "Deposits · ending balance", "Ending balance"),
                 ("intExp", "interest_expense", "Cost of funds", "Interest expense"),
                 ("fees", "noninterest_income", "Fee income", "Fee income"),
@@ -88,13 +103,36 @@ def _num(x):
     return v if v == v else 0.0
 
 
-def product_key(family, name):
-    return f"{family}/{name}"
+def product_key(family, name, product_id=None):
+    """Stable identity: the product's immutable ``product_id`` when it has one; legacy products without
+    an ID fall back to family/name until they are first placed in a reporting product."""
+    pid = str(product_id or "").strip()
+    return f"{family}:{pid}" if pid else f"{family}/{name}"
 
 
-def result_id(family, name, measure, stream=None, part=None):
-    base = f"{family}/{name}"
-    return f"{base}/stream:{stream}/{part}" if stream else f"{base}/{measure}"
+def result_id(pkey, measure, stream=None, part=None):
+    return f"{pkey}/stream:{stream}/{part}" if stream else f"{pkey}/{measure}"
+
+
+def _credit_series(prod, cfg_p, n):
+    """(allowance with opening slot, provision) for a lending product, derived from engine results.
+
+    Opening allowance = opening balance × the product's reserve rate (the engine's own initialisation;
+    zero for fair-value products).  Provision = change in allowance + net charge-offs.  The bank-level
+    reconciliation checks both against the balance sheet allowance and income-statement provision."""
+    if prod.get("is_fv"):
+        return None, None
+    al = [_num(x) for x in (prod.get("alll") or [])][:n]
+    if not al:
+        return None, None
+    al += [al[-1]] * (n - len(al))
+    bal0 = _num((prod.get("bal") or [0.0])[0]) if len(prod.get("bal") or []) == n + 1 else 0.0
+    opening = bal0 * _num((cfg_p or {}).get("reserve_rate_pct_bal"))
+    allowance = [opening] + al
+    co = [_num(x) for x in (prod.get("co") or [])][:n]
+    co += [0.0] * (n - len(co))
+    provision = [allowance[t + 1] - allowance[t] + co[t] for t in range(n)]
+    return allowance, provision
 
 
 # manifest -----------------------------------------------------------------------------------------
@@ -107,8 +145,12 @@ def manifest(cfg):
             continue
         members = []
         for m in rp.get("members") or []:
-            if isinstance(m, dict) and m.get("family") in FAMILIES and str(m.get("name") or "").strip():
-                members.append({"family": m["family"], "name": str(m["name"])})
+            if isinstance(m, dict) and m.get("family") in FAMILIES and (str(m.get("name") or "").strip()
+                                                                          or str(m.get("product_id") or "").strip()):
+                mm = {"family": m["family"], "name": str(m.get("name") or "")}
+                if str(m.get("product_id") or "").strip():
+                    mm["product_id"] = str(m["product_id"]).strip()
+                members.append(mm)
         ov = {str(k): str(v) for k, v in (rp.get("line_overrides") or {}).items()
               if isinstance(v, str) and v.strip()}
         out.append({"id": str(rp.get("id") or f"rp-{i + 1}"), "name": str(rp.get("name") or "").strip(),
@@ -155,43 +197,58 @@ def _stream_split(cfg_p, prod, measure, econ, n):
     return [tuple(s) for s in streams], rem
 
 
-def _results_for(fam, cfg_p, prod, econ, n):
-    name = prod.get("name")
+def _results_for(fam, cfg_p, prod, econ, n, pkey):
     out = []
+    allowance, provision = _credit_series(prod, cfg_p, n) if fam == "lending" else (None, None)
     for measure, cls, line, label in _MEASURES[fam]:
+        if measure in ("provision", "alll"):
+            ser = provision if measure == "provision" else allowance
+            if ser is not None and any(abs(v) > _EPS for v in ser):
+                out.append({"id": result_id(pkey, measure), "measure": measure, "class": cls, "default_line": line,
+                            "label": label, "stream": None, "series": ser})
+            continue
         if CLASSES[cls]["kind"] == "stock":
             ser = _arr(prod.get(measure), n, True)
             if measure != "bal" and not any(abs(v) > _EPS for v in ser):
                 continue
-            out.append({"id": result_id(fam, name, measure), "measure": measure, "class": cls, "default_line": line,
+            out.append({"id": result_id(pkey, measure), "measure": measure, "class": cls, "default_line": line,
                         "label": label, "stream": None, "series": ser})
             continue
         if measure in ("fees", "passCost"):
             streams, rem = _stream_split(cfg_p, prod, measure, econ, n)
             part = "income" if measure == "fees" else "cost"
             for sid, sname, ser in streams:
-                out.append({"id": result_id(fam, name, measure, sid, part), "measure": measure, "class": cls,
+                out.append({"id": result_id(pkey, measure, sid, part), "measure": measure, "class": cls,
                             "default_line": line, "label": sname + (" · fee-stream cost" if part == "cost" else ""),
                             "stream": sid, "series": ser})
             if any(abs(v) > _EPS for v in rem):
                 lab = label if not streams else (
                     "Fee income · product level and other streams" if measure == "fees" else
                     "Fee-stream direct costs · other streams")
-                out.append({"id": result_id(fam, name, measure), "measure": measure, "class": cls,
+                out.append({"id": result_id(pkey, measure), "measure": measure, "class": cls,
                             "default_line": line, "label": lab, "stream": None, "series": rem})
             continue
         ser = [_num(x) for x in (prod.get(measure) or [])][:n]
         if any(abs(v) > _EPS for v in ser):
-            out.append({"id": result_id(fam, name, measure), "measure": measure, "class": cls, "default_line": line,
+            out.append({"id": result_id(pkey, measure), "measure": measure, "class": cls, "default_line": line,
                         "label": label, "stream": None, "series": ser + [0.0] * (n - len(ser))})
     return out
 
 
-def _cfg_product(cfg, fam, name):
-    for p in ((cfg or {}).get("assumptions") or {}).get(FAMILIES[fam]) or []:
-        if p.get("name") == name:
-            return p
-    return {}
+def _cfg_products(cfg, prods):
+    """Match engine products to configuration products (ordinal within family first, then name)."""
+    a = (cfg or {}).get("assumptions") or {}
+    out, pos = [], {f: 0 for f in FAMILIES}
+    for p in prods:
+        fam = p["family"]
+        arr = a.get(FAMILIES[fam]) or []
+        i = pos[fam]
+        pos[fam] += 1
+        c = arr[i] if i < len(arr) and isinstance(arr[i], dict) and arr[i].get("name") == p.get("name") else None
+        if c is None:
+            c = next((x for x in arr if isinstance(x, dict) and x.get("name") == p.get("name")), {})
+        out.append(c or {})
+    return out
 
 
 def override_problem(cls, label):
@@ -224,17 +281,44 @@ def build_view(cfg, res):
 
     # products and their results
     plist = []
-    for p in prods:
+    seen_keys = set()
+    for p, cp in zip(prods, _cfg_products(cfg, prods)):
         fam = p["family"]
-        cp = _cfg_product(cfg, fam, p.get("name"))
-        plist.append({"key": product_key(fam, p.get("name")), "family": fam, "name": p.get("name"),
-                      "results": _results_for(fam, cp, p, econ, n)})
+        key = product_key(fam, p.get("name"), cp.get("product_id"))
+        if key in seen_keys:
+            problems.append({"code": "duplicate_product_id", "product": key,
+                             "message": f"Two {FAMILY_LABEL[fam].lower()} products share the identity “{key}”; "
+                                        "each product needs its own ID before it can be reported."})
+            k = 2
+            while f"{key}#{k}" in seen_keys:
+                k += 1
+            key = f"{key}#{k}"
+        seen_keys.add(key)
+        plist.append({"key": key, "family": fam, "name": p.get("name"), "product_id": cp.get("product_id"),
+                      "results": _results_for(fam, cp, p, econ, n, key)})
     by_key = {p["key"]: p for p in plist}
+
+    def _resolve(m):
+        if m.get("product_id"):
+            k = product_key(m["family"], None, m["product_id"])
+            return k if k in by_key else None
+        hits = [x["key"] for x in plist if x["family"] == m["family"] and x["name"] == m["name"]]
+        return hits[0] if len(hits) == 1 else None
 
     # assignment: product -> reporting products that list it
     assign = {p["key"]: [] for p in plist}
     names_seen = {}
+    ids_seen = set()
     for rp in man["reporting_products"]:
+        if rp["id"] in ids_seen:
+            problems.append({"code": "duplicate_id", "rp": rp["id"],
+                             "message": f"Two reporting products share the ID “{rp['id']}”; each needs its own ID "
+                                        "before its members can be reported."})
+            k = 2
+            while f"{rp['id']}#{k}" in ids_seen:
+                k += 1
+            rp["id"] = f"{rp['id']}#{k}"
+        ids_seen.add(rp["id"])
         if not rp["name"]:
             problems.append({"code": "unnamed", "rp": rp["id"], "message": "A reporting product has no name."})
         low = rp["name"].lower()
@@ -247,15 +331,16 @@ def build_view(cfg, res):
                              "message": f"“{rp['name']}” has no member products."})
         seen = set()
         for m in rp["members"]:
-            k = product_key(m["family"], m["name"])
+            k = _resolve(m)
+            if k is None:
+                problems.append({"code": "stale_member", "rp": rp["id"],
+                                 "product": product_key(m["family"], m["name"], m.get("product_id")),
+                                 "message": f"“{rp['name']}” lists “{m['name'] or m.get('product_id')}”, which is not "
+                                            "in this engagement's results."})
+                continue
             if k in seen:
                 continue
             seen.add(k)
-            if k not in assign:
-                problems.append({"code": "stale_member", "rp": rp["id"], "product": k,
-                                 "message": f"“{rp['name']}” lists “{m['name']}”, which is not in this engagement's "
-                                            "results."})
-                continue
             assign[k].append(rp["id"])
     for k, rps in assign.items():
         if len(rps) > 1:
@@ -284,8 +369,9 @@ def build_view(cfg, res):
             for d in dests:
                 ov = (rp_by_id.get(d) or {}).get("line_overrides", {}).get(r["id"])
                 if ov is not None:
-                    why = override_problem(r["class"], ov) if CLASSES[r["class"]]["kind"] == "flow" else \
-                        "Balance lines cannot be renamed."
+                    why = override_problem(r["class"], ov) if (CLASSES[r["class"]]["kind"] == "flow" and
+                                                               CLASSES[r["class"]]["section"] != "memo") else \
+                        "Balance and memo lines cannot be renamed."
                     if why:
                         problems.append({"code": "invalid_override", "rp": d, "result": r["id"], "message": why})
                     else:
@@ -293,6 +379,10 @@ def build_view(cfg, res):
             results.append({**r, "product": p["key"], "product_name": p["name"], "family": p["family"],
                             "destinations": dests, "line": line, "line_source": src})
     known = {r["id"] for r in results}
+    if len(known) != len(results):
+        dup = sorted({r["id"] for r in results if sum(1 for x in results if x["id"] == r["id"]) > 1})
+        problems.append({"code": "duplicate_result_id", "results": dup,
+                         "message": f"{len(dup)} result IDs are not unique, so results cannot be assigned once each."})
     for rp in man["reporting_products"]:
         for rid in rp["line_overrides"]:
             if rid not in known:
@@ -305,10 +395,10 @@ def build_view(cfg, res):
 
     view = {"version": 1, "manifest_signature": manifest_signature(cfg), "manifest": man, "ppy": ppy, "n_periods": n,
             "window": {"label": _horizon_label(ppy, n), "periods": n, "basis": "forecast horizon"},
-            "products": [{"key": p["key"], "family": p["family"], "name": p["name"],
+            "products": [{"key": p["key"], "family": p["family"], "name": p["name"], "product_id": p["product_id"],
                           "entries": assign[p["key"]] or ["standalone:" + p["key"]]} for p in plist],
             "entries": entries, "results": results, "classes": CLASSES, "class_lines": CLASS_LINES}
-    view["reconciliation"] = reconcile(view, res, problems)
+    view["reconciliation"] = reconcile(view, res, problems, cfg)
     view["problems"] = problems
     view["ok"] = view["reconciliation"]["ok"]
     return view
@@ -349,7 +439,7 @@ def _schedule(entry, results, n):
         return {"label": label, "class": cls, "section": CLASSES[cls]["section"], "stock": stock,
                 "series": ser, "results": [r["id"] for r in rs], "detail": detail}
 
-    sec_order = {"balances": 0, "income": 1, "expense": 2}
+    sec_order = {"balances": 0, "income": 1, "expense": 2, "memo": 3}
     cls_order = list(CLASSES)
     std = {c: (CLASS_LINES[c] + [CLASSES[c]["default"]]) for c in CLASSES}
 
@@ -367,7 +457,7 @@ def _schedule(entry, results, n):
                                             "product contributions."})
     contrib = [0.0] * n
     for ln in lines:
-        if ln["stock"]:
+        if ln["stock"] or ln["section"] not in ("income", "expense"):
             continue
         sgn = 1.0 if ln["section"] == "income" else -1.0
         contrib = [c + sgn * (ln["series"][i] if i < len(ln["series"]) else 0.0) for i, c in enumerate(contrib)]
@@ -384,12 +474,15 @@ _RECON = [
     ("noninterest_income", "Fee, sale and servicing income", "flow"),
     ("noninterest_expense", "Operating costs", "flow"),
     ("credit_losses", "Net charge-offs", "flow"),
+    ("allowance", "Allowance for credit losses · ending balance", "stock"),
+    ("provision", "Provision for credit losses", "flow"),
 ]
 _PRODUCT_FIELDS = {
     "loans": ("lending", ["bal", "whCarry"]), "deposits": ("deposit", ["bal"]),
     "interest_income": (None, ["intInc"]), "interest_expense": (None, ["intExp"]),
     "noninterest_income": (None, ["fees", "gos", "servNet"]), "noninterest_expense": (None, ["opex", "passCost"]),
     "credit_losses": (None, ["co"]),
+    "allowance": ("lending", ["@allowance"]), "provision": ("lending", ["@provision"]),
 }
 
 
@@ -401,13 +494,14 @@ def _arr(x, n, stock):
     return (a + [0.0] * want)[:want]
 
 
-def reconcile(view, res, problems=None):
+def reconcile(view, res, problems=None, cfg=None):
     problems = problems if problems is not None else []
     n = view["n_periods"]
     fin = (res or {}).get("financials") or {}
     IS, BS = fin.get("is") or {}, fin.get("bs") or {}
     der = ((res or {}).get("presentation") or {}).get("derived") or {}
     prods = [p for p in ((res or {}).get("products") or []) if p.get("family") in FAMILIES]
+    cfgp = _cfg_products(cfg, prods) if cfg is not None else [{} for _ in prods]
     nprod = max(1, len(prods))
     out = []
     ok = True
@@ -423,12 +517,19 @@ def reconcile(view, res, problems=None):
             for _ in r["destinations"]:
                 reported = [x + y for x, y in zip(reported, ser)]
         engine_products = [0.0] * len(reported)
-        for p in prods:
+        for p, cp in zip(prods, cfgp):
             if fam and p.get("family") != fam:
                 continue
             if stock and p.get("family") not in ("lending", "deposit"):
                 continue
             for f in fields:
+                if f.startswith("@"):
+                    al, pv = _credit_series(p, cp, n)
+                    ser = al if f == "@allowance" else pv
+                    if ser is None:
+                        continue
+                    engine_products = [x + y for x, y in zip(engine_products, _arr(ser, n, stock))]
+                    continue
                 engine_products = [x + y for x, y in zip(engine_products, _arr(p.get(f), n, stock))]
         outside, bank, bank_label = [], None, None
         if cls == "loans":
@@ -462,6 +563,12 @@ def reconcile(view, res, problems=None):
         elif cls == "credit_losses":
             if IS.get("nco") is not None:
                 bank, bank_label = _arr(IS.get("nco"), n, False), "Income statement · memo net charge-offs"
+        elif cls == "allowance":
+            if BS.get("alll") is not None:
+                bank, bank_label = _arr(BS.get("alll"), n, True), "Balance sheet · allowance for loan losses"
+        elif cls == "provision":
+            if IS.get("prov") is not None:
+                bank, bank_label = _arr(IS.get("prov"), n, False), "Income statement · provision for loan losses"
         outside = [(lab, _arr(s, n, stock)) for lab, s in outside if s is not None]
         tol_rep = 1e-6
         tol_bank = 0.005 * (nprod + len(outside) + 2) + 1e-6
@@ -470,7 +577,7 @@ def reconcile(view, res, problems=None):
         for _, s in outside:
             total = [x + y for x, y in zip(total, s)]
         d_bank = [a - b for a, b in zip(total, bank)] if bank is not None else None
-        rng = range(1, n + 1) if stock else range(n)
+        rng = range(0, n + 1) if stock else range(n)
         m_ok = all(abs(d_rep[i]) <= tol_rep for i in rng) and (
             d_bank is None or all(abs(d_bank[i]) <= tol_bank for i in rng))
         ok = ok and m_ok
@@ -479,8 +586,7 @@ def reconcile(view, res, problems=None):
                     "bank_total": total, "engine_bank": bank, "engine_bank_label": bank_label,
                     "diff_reported": d_rep, "diff_bank": d_bank, "ok": m_ok,
                     "tolerance": {"reported": tol_rep, "bank": tol_bank}})
-    blocking = [p for p in problems if p["code"] in ("stale_member", "overlap", "invalid_override", "duplicate_name",
-                                                     "unnamed", "empty")]
+    blocking = [p for p in problems if p["code"] in BLOCKING]
     n_rep = sum(1 for r in view["results"] if any(not d.startswith("standalone:") for d in r["destinations"]))
     cov = {"results": len(view["results"]), "in_reporting": n_rep,
            "standalone": len(view["results"]) - n_rep,
@@ -505,6 +611,19 @@ def exhibit_entries(cfg, res):
     if v is None or v.get("manifest_signature") != manifest_signature(cfg):
         v = build_view(cfg, res)
     return v
+
+
+def require_reconciled(cfg, view):
+    """Official exports stop while reporting products exist and reporting does not reconcile."""
+    if not manifest(cfg)["reporting_products"] or view.get("ok"):
+        return
+    msgs = [p["message"] for p in view.get("problems") or [] if p.get("code") in BLOCKING]
+    bad = [m["label"] for m in (view.get("reconciliation") or {}).get("measures") or [] if not m.get("ok")]
+    if bad:
+        msgs.append("Amounts do not reconcile for: " + ", ".join(bad) + ".")
+    raise ReportingNotReconciled("Reporting does not reconcile, so Business Plan Tables were not exported. "
+                                 + " ".join(msgs[:4]) + " Fix this in Product Detail → By reporting entry → "
+                                 "Reconciliation.")
 
 
 def copy_manifest(cfg):

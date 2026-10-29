@@ -13006,13 +13006,15 @@ function _filingPreflight(artifactLabel){
 
 async function exportBptCover(){
   if(!_filingPreflight("Business Plan Tables")) return;
+  if(typeof rptExportBlock==='function'&&rptExportBlock()) return;   // r417
   try{
     const r = await fetch("/api/v31/bpt-cover", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({cfg: (typeof cfgRef==="function"?cfgRef():cfg)})});
     const ctype = r.headers.get("content-type")||"";
     if(!r.ok || ctype.indexOf("spreadsheet")===-1){
       const t = await r.text();
-      appStatus("err", "Business Plan Tables export failed: "+esc(t.slice(0,160)));
+      let msg = t; try{ const j = JSON.parse(t); if(j&&j.error) msg = j.error; }catch(_){}   // r417: readable server reason
+      appStatus("err", (r.status===409?"":"Business Plan Tables export failed: ")+esc(String(msg).slice(0,400)));
       return;
     }
     const blob = await r.blob();
@@ -18148,14 +18150,21 @@ function _rptList(){return ((cfg&&cfg.reporting_manifest&&cfg.reporting_manifest
 function _rptView(){const v=lastRes&&lastRes.reporting;return v&&Array.isArray(v.entries)?v:null;}
 function _rptCanon(x){if(Array.isArray(x))return '['+x.map(_rptCanon).join(',')+']';if(x&&typeof x==='object')return '{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+_rptCanon(x[k])).join(',')+'}';return JSON.stringify(x);}
 function _rptNorm(){return {reporting_products:_rptList().filter(r=>r&&typeof r==='object').map((r,i)=>({id:String(r.id||('rp-'+(i+1))),name:String(r.name||'').trim(),
-  members:(r.members||[]).filter(m=>m&&RPT_FAM[m.family]&&String(m.name||'').trim()).map(m=>({family:m.family,name:String(m.name)})),
+  members:(r.members||[]).filter(m=>m&&RPT_FAM[m.family]&&(String(m.name||'').trim()||String(m.product_id||'').trim())).map(m=>{const x={family:m.family,name:String(m.name||'')};if(String(m.product_id||'').trim())x.product_id=String(m.product_id).trim();return x;}),
   line_overrides:Object.fromEntries(Object.entries(r.line_overrides||{}).filter(([,v])=>typeof v==='string'&&v.trim()).map(([k,v])=>[String(k),String(v)]))}))};}
 function _rptPending(){const v=_rptView();return !!v&&_rptCanon(v.manifest||{})!==_rptCanon(_rptNorm());}
 function _rptKey(fam,name){return fam+'/'+name;}
+/* r417: identity is the product's immutable product_id; legacy products without one use family/name until first grouped */
+function _rptPKey(fam,p){return p&&p.product_id?fam+':'+p.product_id:fam+'/'+(p&&p.name);}
+function _rptFam(k){return String(k).match(/^[a-z]+/)[0];}
+function _rptObjByName(fam,name){return ((cfg&&cfg.assumptions||{})[ARR_OF[fam]]||[]).find(p=>p&&p.name===name)||null;}
+function _rptMemKey(m){if(m.product_id)return m.family+':'+m.product_id;const o=_rptObjByName(m.family,m.name);return o?_rptPKey(m.family,o):_rptMemKey(m);}
+function _rptNewId(){return 'p-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function _rptNameOf(k){const t=_rptCfgProduct(k);if(t.obj)return t.obj.name;const V=_rptView(),p=V&&(V.products||[]).find(x=>x.key===k);return p?p.name:k;}
 function _rptFamOfObj(p){const A=cfg.assumptions||{};for(const f of Object.keys(RPT_FAM))if((A[ARR_OF[f]]||[]).includes(p))return f;return null;}
-function _rptCfgProduct(key){const i=key.indexOf('/'),fam=key.slice(0,i),name=key.slice(i+1);return {fam,name,obj:((cfg.assumptions||{})[ARR_OF[fam]]||[]).find(p=>p&&p.name===name)||null};}
-function _rptAllProducts(){const A=(cfg&&cfg.assumptions)||{},out=[];for(const f of ['lending','deposit','obs'])(A[ARR_OF[f]]||[]).forEach(p=>{if(p&&p.name)out.push({key:_rptKey(f,p.name),family:f,name:p.name});});return out;}
-function _rptOwner(key,exceptId){return _rptList().find(r=>r.id!==exceptId&&(r.members||[]).some(m=>_rptKey(m.family,m.name)===key))||null;}
+function _rptCfgProduct(key){const fam=_rptFam(key),rest=key.slice(fam.length+1),arr=((cfg.assumptions||{})[ARR_OF[fam]]||[]);const obj=key[fam.length]===':'?arr.find(p=>p&&p.product_id===rest)||null:arr.find(p=>p&&p.name===rest&&!p.product_id)||arr.find(p=>p&&p.name===rest)||null;return {fam,name:obj?obj.name:rest,obj};}
+function _rptAllProducts(){const A=(cfg&&cfg.assumptions)||{},out=[];for(const f of ['lending','deposit','obs'])(A[ARR_OF[f]]||[]).forEach(p=>{if(p&&p.name)out.push({key:_rptPKey(f,p),family:f,name:p.name,obj:p});});return out;}
+function _rptOwner(key,exceptId){return _rptList().find(r=>r.id!==exceptId&&(r.members||[]).some(m=>_rptMemKey(m)===key))||null;}
 function _rptJs(x){return esc(JSON.stringify(String(x)));}
 window.rptIdsToggle=function(id){window._rptIdsOpen=window._rptIdsOpen===id?null:id;renderContent();};
 function _rptAmt(v){return v==null?'—':fmt0(v);}
@@ -18179,17 +18188,21 @@ window.rptSetView=function(v){window._pdView=v==='reporting'?'reporting':'produc
 window.rptSelect=function(id){window._rptSel=id;window._rptOverride=null;window._rptLine=null;window._pdView='reporting';renderContent();};
 window.rptTab=function(t){window._rptTab=t;window._rptOverride=null;renderContent();};
 window.rptOpenDialog=function(kind,id){const rp=id?_rptList().find(r=>r.id===id):null;
-  window._rptDlg={kind,id:id||null,name:rp?rp.name:'',members:rp?(rp.members||[]).map(m=>_rptKey(m.family,m.name)):[],err:null};renderContent();
+  window._rptDlg={kind,id:id||null,name:rp?rp.name:'',members:rp?(rp.members||[]).map(m=>_rptMemKey(m)):[],err:null};renderContent();
   setTimeout(()=>{const el=document.querySelector('.rpt-dlg input[data-rpt-name]');if(el){el.focus();el.select();}},0);};
 window.rptCloseDialog=function(){window._rptDlg=null;renderContent();};
 window.rptDlgName=function(v){if(window._rptDlg){window._rptDlg.name=v;window._rptDlg.err=null;}};
 window.rptDlgToggle=function(key){const d=window._rptDlg;if(!d)return;const i=d.members.indexOf(key);if(i>=0)d.members.splice(i,1);else if(!_rptOwner(key,d.id))d.members.push(key);d.err=null;renderContent();};
 window.rptDlgSave=function(){const d=window._rptDlg;if(!d)return;const inp=document.querySelector('.rpt-dlg input[data-rpt-name]');if(inp)d.name=inp.value;
   const why=rptNameProblem(d.name,d.id)||(d.members.length?null:'Choose at least one product.');if(why){d.err=why;renderContent();return;}
-  const members=_rptAllProducts().filter(p=>d.members.includes(p.key)).map(p=>({family:p.family,name:p.name}));
+  const chosen=_rptAllProducts().filter(p=>d.members.includes(p.key));
+  const ensureIds=m=>{chosen.forEach(p=>{if(p.obj.product_id)return;const oldPre=_rptPKey(p.family,p.obj)+'/';p.obj.product_id=_rptNewId();const newPre=_rptPKey(p.family,p.obj)+'/';
+    m.reporting_products.forEach(rp=>{rp.line_overrides=Object.fromEntries(Object.entries(rp.line_overrides||{}).map(([k,v])=>[k.startsWith(oldPre)?newPre+k.slice(oldPre.length):k,v]));
+      (rp.members||[]).forEach(x=>{if(!x.product_id&&x.family===p.family&&x.name===p.obj.name)x.product_id=p.obj.product_id;});});});
+    return chosen.map(p=>({family:p.family,product_id:p.obj.product_id,name:p.obj.name}));};
   if(d.kind==='create'){const id='rp-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    _rptChangeManifest(m=>{m.reporting_products.push({id,name:d.name.trim(),members,line_overrides:{}});});window._rptSel=id;window._rptTab='composition';renderContent();return;}
-  _rptChangeManifest(m=>{const rp=m.reporting_products.find(r=>r.id===d.id);if(!rp)return;rp.name=d.name.trim();const keep=new Set(members.map(x=>_rptKey(x.family,x.name)+'/'));
+    _rptChangeManifest(m=>{const members=ensureIds(m);m.reporting_products.push({id,name:d.name.trim(),members,line_overrides:{}});});window._rptSel=id;window._rptTab='composition';renderContent();return;}
+  _rptChangeManifest(m=>{const members=ensureIds(m);const rp=m.reporting_products.find(r=>r.id===d.id);if(!rp)return;rp.name=d.name.trim();const keep=new Set(members.map(x=>_rptMemKey(x)+'/'));
     rp.members=members;rp.line_overrides=Object.fromEntries(Object.entries(rp.line_overrides||{}).filter(([k])=>[...keep].some(p=>k.startsWith(p))));});};
 window.rptDelete=function(id){_rptChangeManifest(m=>{m.reporting_products=m.reporting_products.filter(r=>r.id!==id);});const left=_rptList();window._rptSel=left.length?left[0].id:null;renderContent();};
 window.rptOverrideOpen=function(rid){window._rptOverride=window._rptOverride===rid?null:rid;window._rptOvErr=null;renderContent();};
@@ -18207,26 +18220,26 @@ window.rptReturn=function(){const r=window._rptReturn;window._rptReturn=null;win
 
 /* ---- product rename / delete keep membership whole ---- */
 (function(){const rn=window.renameProduct;if(typeof rn==='function'&&!rn._rpt){const w=function(fam,i,newName){const p=(famArr(fam)||[])[i],old=p&&p.name;const r=rn.apply(this,arguments);
-  const now=p&&p.name;if(old&&now&&old!==now&&cfg&&cfg.reporting_manifest){const a=_rptKey(fam,old)+'/',b=_rptKey(fam,now)+'/';(cfg.reporting_manifest.reporting_products||[]).forEach(rp=>{(rp.members||[]).forEach(m=>{if(m.family===fam&&m.name===old)m.name=now;});
-    rp.line_overrides=Object.fromEntries(Object.entries(rp.line_overrides||{}).map(([k,v])=>[k.startsWith(a)?b+k.slice(a.length):k,v]));});}return r;};w._rpt=true;window.renameProduct=w;}
- const dp=window.delProduct;if(typeof dp==='function'&&!dp._rpt){const w=function(fam,i){const p=(famArr(fam)||[])[i],name=p&&p.name;const r=dp.apply(this,arguments);
-  if(name&&!(famArr(fam)||[]).includes(p)&&cfg&&cfg.reporting_manifest){const a=_rptKey(fam,name)+'/';(cfg.reporting_manifest.reporting_products||[]).forEach(rp=>{rp.members=(rp.members||[]).filter(m=>!(m.family===fam&&m.name===name));
-    rp.line_overrides=Object.fromEntries(Object.entries(rp.line_overrides||{}).filter(([k])=>!k.startsWith(a)));});}return r;};w._rpt=true;window.delProduct=w;}
+  const now=p&&p.name;if(old&&now&&old!==now&&cfg&&cfg.reporting_manifest){const a=_rptKey(fam,old)+'/',b=_rptKey(fam,now)+'/';(cfg.reporting_manifest.reporting_products||[]).forEach(rp=>{(rp.members||[]).forEach(m=>{if(m.family!==fam)return;if(p.product_id?m.product_id===p.product_id:(!m.product_id&&m.name===old))m.name=now;});
+    if(!p.product_id)rp.line_overrides=Object.fromEntries(Object.entries(rp.line_overrides||{}).map(([k,v])=>[k.startsWith(a)?b+k.slice(a.length):k,v]));});}return r;};w._rpt=true;window.renameProduct=w;}
+ const dp=window.delProduct;if(typeof dp==='function'&&!dp._rpt){const w=function(fam,i){const p=(famArr(fam)||[])[i],name=p&&p.name,pre=p?_rptPKey(fam,p)+'/':null;const r=dp.apply(this,arguments);
+  if(p&&!(famArr(fam)||[]).includes(p)&&cfg&&cfg.reporting_manifest){(cfg.reporting_manifest.reporting_products||[]).forEach(rp=>{rp.members=(rp.members||[]).filter(m=>!(m.family===fam&&(p.product_id?m.product_id===p.product_id:(!m.product_id&&m.name===name))));
+    rp.line_overrides=Object.fromEntries(Object.entries(rp.line_overrides||{}).filter(([k])=>!k.startsWith(pre)));});}return r;};w._rpt=true;window.delProduct=w;}
  const st=window.setTab;if(typeof st==='function'&&!st._rpt){const w=function(t){if(t!=='products'&&t!=='detail')window._rptReturn=null;return st.apply(this,arguments);};w._rpt=true;window.setTab=w;}})();
 
 /* ---- Product Detail: view switch and "Reported in" ---- */
 function rptDetailBar(){const on=window._pdView==='reporting',n=_rptList().length;
   return `<div class="rpt-bar" role="group" aria-label="Product Detail view"><button type="button" class="${on?'':'on'}" aria-pressed="${!on}" onclick="rptSetView('product')">By product</button><button type="button" class="${on?'on':''}" aria-pressed="${on}" onclick="rptSetView('reporting')">By reporting entry${n?` <i>${n}</i>`:''}</button></div>`;}
-function rptReportedIn(fam,name){const rp=_rptOwner(_rptKey(fam,name));return rp?`<span class="rpt-in" title="Presented with the reporting product ${esc(rp.name)} in Business Plan Tables and product summaries">in ${esc(rp.name)}</span>`:'';}
+function rptReportedIn(fam,name){const o=_rptObjByName(fam,name);const rp=o?_rptOwner(_rptPKey(fam,o)):null;return rp?`<span class="rpt-in" title="Presented with the reporting product ${esc(rp.name)} in Business Plan Tables and product summaries">in ${esc(rp.name)}</span>`:'';}
 
 /* ---- reporting view ---- */
 function _rptEntry(V,id){return V.entries.find(e=>e.id===id)||null;}
-function _rptMemberSummary(keys){const c={lending:0,deposit:0,obs:0};keys.forEach(k=>{c[k.split('/')[0]]++;});const w=[];
+function _rptMemberSummary(keys){const c={lending:0,deposit:0,obs:0};keys.forEach(k=>{c[_rptFam(k)]++;});const w=[];
   if(c.deposit)w.push(c.deposit+(c.deposit>1?' deposits':' deposit'));if(c.lending)w.push(c.lending+(c.lending>1?' loans':' loan'));if(c.obs)w.push(c.obs+(c.obs>1?' fee products':' fee product'));return w.join(' · ');}
 function _rptManifestList(V,sel){const rps=_rptList();let h=`<div class="rpt-man"><div class="rpt-mh"><b>REPORTING MANIFEST</b><p>How products are presented in Business Plan Tables and product summaries. Statements keep each product's own classification.</p></div>`;
   h+=`<div class="rpt-g rpt-gx"><span>REPORTING PRODUCTS</span><button type="button" class="rpt-add" onclick="rptOpenDialog('create')">+ Create</button></div>`;
   if(!rps.length)h+=`<div class="rpt-none">None yet. Every product reports as itself.</div>`;
-  rps.forEach(rp=>{const keys=(rp.members||[]).map(m=>_rptKey(m.family,m.name));h+=`<button type="button" class="rpt-me${sel===rp.id?' on':''}" onclick="rptSelect(${_rptJs(rp.id)})"><span class="t">${esc(rp.name||'Untitled')}<span class="rp">REPORTING</span></span><span class="c">${keys.length}</span><small>${esc(_rptMemberSummary(keys))||'no members'}</small></button>`;});
+  rps.forEach(rp=>{const keys=(rp.members||[]).map(m=>_rptMemKey(m));h+=`<button type="button" class="rpt-me${sel===rp.id?' on':''}" onclick="rptSelect(${_rptJs(rp.id)})"><span class="t">${esc(rp.name||'Untitled')}<span class="rp">REPORTING</span></span><span class="c">${keys.length}</span><small>${esc(_rptMemberSummary(keys))||'no members'}</small></button>`;});
   const stand=_rptAllProducts().filter(p=>!_rptOwner(p.key));
   if(stand.length){h+=`<div class="rpt-g">STANDALONE ENTRIES</div>`;stand.forEach(p=>{h+=`<div class="rpt-me st"><span class="t">${esc(p.name)}</span><span class="c"></span><small>${RPT_FAM[p.family]} · reported as itself</small></div>`;});}
   const ok=V&&V.ok&&!_rptPending();
@@ -18238,7 +18251,7 @@ function _rptVals(arr,view,stock){return incomeStatementValues(arr,view,stock?'e
 function _rptTot(vals,stock){return stock?vals[vals.length-1]:(vals.every(v=>v!=null)?vals.reduce((a,b)=>a+b,0):null);}
 function _rptRow(cls,label,arr,view,stock,extra=''){const vals=_rptVals(arr,view,stock);return `<tr class="${cls}"><td>${label}${extra}</td>${vals.map(v=>`<td class="n">${_rptAmt(v)}</td>`).join('')}<td class="n"><b>${_rptAmt(_rptTot(vals,stock))}</b></td></tr>`;}
 
-function rptRender(r){const V=_rptView();_rptState();
+function rptRender(r){const V=_rptView();   // read-only: rendering never creates or changes the manifest
   if(!V)return `<div class="rpt-empty">${lastRes&&lastRes.reporting&&lastRes.reporting.error?'Reporting could not be prepared for this run: '+esc(lastRes.reporting.error):'Run the model to see reporting entries.'}</div>`;
   let sel=window._rptSel;const rps=_rptList();if(sel!=='recon'&&!rps.some(x=>x.id===sel))sel=window._rptSel=(rps[0]&&rps[0].id)||'recon';
   let main='';
@@ -18248,8 +18261,8 @@ function rptRender(r){const V=_rptView();_rptState();
   if(window._rptDlg)h+=_rptDialog(V);
   return h;}
 
-function _rptProduct(V,rp){const e=_rptEntry(V,rp.id)||{members:(rp.members||[]).map(m=>_rptKey(m.family,m.name)),schedule:{lines:[],unresolved:[]}};
-  const tab=['composition','plan','objects'].includes(window._rptTab)?window._rptTab:'composition';const keys=(rp.members||[]).map(m=>_rptKey(m.family,m.name));
+function _rptProduct(V,rp){const e=_rptEntry(V,rp.id)||{members:(rp.members||[]).map(m=>_rptMemKey(m)),schedule:{lines:[],unresolved:[]}};
+  const tab=['composition','plan','objects'].includes(window._rptTab)?window._rptTab:'composition';const keys=(rp.members||[]).map(m=>_rptMemKey(m));
   let h=`<div class="rpt-crumb"><a onclick="rptSelect(${_rptJs(rp.id)})">Product Detail</a> / <span>Reporting manifest</span> / <b>${esc(rp.name)}</b></div>`;
   h+=`<div class="rpt-rh"><div><div class="rpt-rt"><h2>${esc(rp.name)}</h2><span class="tag">REPORTING PRODUCT</span></div><div class="sub">Presents ${keys.length} existing product${keys.length===1?'':'s'} as one offering · whole products only · creates no postings · statements keep each product's classification</div></div>
   <div class="r"><button type="button" class="rpt-btn gh" onclick="rptOpenDialog('edit',${_rptJs(rp.id)})">Edit membership…</button><button type="button" class="rpt-btn gh del" onclick="rptOpenDialog('delete',${_rptJs(rp.id)})">Delete…</button></div></div>`;
@@ -18264,8 +18277,8 @@ function _rptComposition(V,rp,e){const res=_rptResults(V,rp.id),n=V.n_periods,W=
   let h=`<div class="rpt-card"><h3>Composition</h3><p class="lead">The products this reporting product references, as whole products: each brings all of its streams. Their calculations, identities and source links stay where they are; this page only decides how their results are presented. Nothing here edits a financial assumption.</p>`;
   h+=`<table class="rpt-t"><thead><tr><th>Member product</th><th>Authoring type</th><th>Accounting classification</th><th class="n">Ending balance · ${esc(W.split('–')[1]||'')}</th><th class="n">Net result · ${esc(W)}</th><th></th></tr></thead><tbody>`;
   const CL={lending:['Loans (asset)','Interest income, fees, credit losses'],deposit:['Deposit liability','Interest expense, fees, costs'],obs:['Off-balance-sheet','Noninterest income and expense']};
-  e.members.forEach(k=>{const rs=res.filter(r=>r.product===k),fam=k.split('/')[0],name=k.slice(fam.length+1);const bal=rs.filter(r=>r.class==='loans'||r.class==='deposits');
-    const net=rs.filter(r=>!(r.class==='loans'||r.class==='deposits')).reduce((t,r)=>t+(((V.classes[r.class]||{}).section==='income')?1:-1)*_rptSum(r.series),0);const streams=rs.filter(r=>r.stream);
+  e.members.forEach(k=>{const rs=res.filter(r=>r.product===k),fam=_rptFam(k),name=_rptNameOf(k);const bal=rs.filter(r=>r.class==='loans'||r.class==='deposits');
+    const net=rs.filter(r=>['income','expense'].includes((V.classes[r.class]||{}).section)&&(V.classes[r.class]||{}).kind==='flow').reduce((t,r)=>t+(((V.classes[r.class]||{}).section==='income')?1:-1)*_rptSum(r.series),0);const streams=rs.filter(r=>r.stream);
     h+=`<tr class="${streams.length?'pr':''}"><td><b>${esc(name)}</b>${streams.length?`<small>${streams.length} fee-stream result${streams.length>1?'s':''}, shown below as detail</small>`:''}</td><td><span class="rpt-k">${RPT_FAM[fam].toUpperCase()}</span></td><td>${CL[fam][0]}<small>${CL[fam][1]}</small></td><td class="n">${bal.length?_rptAmt(bal.reduce((t,r)=>t+(_rptEnd(r.series)||0),0)):'—'}</td><td class="n">${_rptAmt(net)}</td><td class="n"><a class="rpt-go" onclick="rptOpenEditor(${_rptJs(k)},${_rptJs(rp.id)})">Open editor ↗</a></td></tr>`;
     streams.forEach(r=>{const inc=(V.classes[r.class]||{}).section==='income';h+=`<tr class="st"><td>${esc(r.label)}</td><td><span class="rpt-fol">FOLLOWS PRODUCT</span></td><td>${esc((V.classes[r.class]||{}).label||r.class)}</td><td class="n">—</td><td class="n">${_rptAmt((inc?1:-1)*_rptSum(r.series))}</td><td></td></tr>`;});});
   if(!e.members.length)h+=`<tr><td colspan="6" class="rpt-muted">No members in the last run.</td></tr>`;
@@ -18273,8 +18286,8 @@ function _rptComposition(V,rp,e){const res=_rptResults(V,rp.id),n=V.n_periods,W=
   const nOv=res.filter(r=>r.line_source==='override').length;
   h+=`<h4 class="rpt-h4">REPORT LINES <i>${res.length} result${res.length===1?'':'s'} · from accounting classification · ${nOv} override${nOv===1?'':'s'}</i></h4>`;
   h+=`<table class="rpt-t rpt-rl"><thead><tr><th>Result</th><th>Accounting classification</th><th>Report line</th><th>Source</th><th></th></tr></thead><tbody>`;
-  res.forEach(r=>{const stock=(V.classes[r.class]||{}).kind==='stock',open=window._rptOverride===r.id;
-    h+=`<tr class="${open?'sel':''}"><td><b>${esc(r.product_name)}</b> · ${esc(r.label)}</td><td>${esc((V.classes[r.class]||{}).label||r.class)}</td><td>${esc(r.line)}</td><td><span class="rpt-src${r.line_source==='override'?' ov':''}">${r.line_source==='override'?'OVERRIDE':'DEFAULT'}</span></td><td class="n">${stock?'<span class="rpt-muted">balance line</span>':`<a class="rpt-go" onclick="rptOverrideOpen(${_rptJs(r.id)})">${open?'Close ▴':'Override…'}</a>`}</td></tr>`;
+  res.forEach(r=>{const stock=(V.classes[r.class]||{}).kind==='stock'||(V.classes[r.class]||{}).section==='memo',open=window._rptOverride===r.id;
+    h+=`<tr class="${open?'sel':''}"><td><b>${esc(r.product_name)}</b> · ${esc(r.label)}</td><td>${esc((V.classes[r.class]||{}).label||r.class)}</td><td>${esc(r.line)}</td><td><span class="rpt-src${r.line_source==='override'?' ov':''}">${r.line_source==='override'?'OVERRIDE':'DEFAULT'}</span></td><td class="n">${stock?`<span class="rpt-muted">${(V.classes[r.class]||{}).section==='memo'?'memo line':'balance line'}</span>`:`<a class="rpt-go" onclick="rptOverrideOpen(${_rptJs(r.id)})">${open?'Close ▴':'Override…'}</a>`}</td></tr>`;
     if(open)h+=`<tr class="rpt-ovr"><td colspan="5">${_rptOverrideMenu(V,rp,r,res)}</td></tr>`;});
   h+=`</tbody></table>`;
   if((e.schedule.unresolved||[]).length)h+=`<div class="rpt-unres"><span class="dot"></span><span><b>Earnings on deposits are not attributed to this reporting product.</b> The business plan shows that line as unresolved, and investment earnings stay outside product contributions. Foundry does not infer earnings from deposit balances. This is a reporting choice only: it does not change any member's calculations, including fee streams that read deposit balances or interest.</span></div>`;
@@ -18296,7 +18309,7 @@ function _rptPlan(V,rp,e){const {view,html}=_rptCadence(V),sch=e.schedule||{line
   let h=`<div class="rpt-card"><div class="rpt-ph"><h3>Business plan preview</h3><span class="rpt-hz">Horizon <b>${esc(V.window.label)}</b> · forecast horizon</span>${html}</div>
   <p class="lead">One ${esc(rp.name)} schedule, as Business Plan Tables show it. Select a line to see the engine results it comes from. Indented detail sits inside its subtotal and is not added again. $000s.</p>`;
   h+=`<div class="rpt-scroll"><table class="rpt-t rpt-sch"><thead><tr><th>${esc(rp.name)}</th>${view.groups.map(g=>`<th class="n">${esc(g.label)}</th>`).join('')}<th class="n">Horizon</th></tr></thead><tbody>`;
-  const secs=[['balances','BALANCES · ENDING BALANCE AT EACH PERIOD END'],['income','INCOME · FLOWS, HORIZON COLUMN IS THE TOTAL'],['expense','EXPENSE']];
+  const secs=[['balances','BALANCES · ENDING BALANCE AT EACH PERIOD END'],['income','INCOME · FLOWS, HORIZON COLUMN IS THE TOTAL'],['expense','EXPENSE'],['memo','MEMO \u00b7 CREDIT RESERVE (NOT IN DIRECT CONTRIBUTION)']];
   let li=0;
   secs.forEach(([sec,title])=>{const lines=sch.lines.map((l,i)=>[l,i]).filter(([l])=>l.section===sec),un=(sch.unresolved||[]).filter(u=>u.section===sec);if(!lines.length&&!un.length)return;
     h+=`<tr class="sec"><td colspan="${ng}">${title}</td></tr>`;
@@ -18318,7 +18331,7 @@ function _rptDrill(V,rp,l){const rs=l.results.map(id=>V.results.find(r=>r.id===i
 
 function _rptObjects(V,rp,e){const res=_rptResults(V,rp.id);
   let h=`<div class="rpt-card"><h3>Authoring objects</h3><p class="lead">The products behind this reporting product, read-only. Open editor takes you to the product's existing editor under Product, where its assumptions are changed; a link there brings you back. Nothing is copied or recreated here.</p><div class="rpt-ao">`;
-  e.members.forEach(k=>{const fam=k.split('/')[0],name=k.slice(fam.length+1),t=_rptCfgProduct(k),rs=res.filter(r=>r.product===k),st=((t.obj||{}).fee_streams||[]);
+  e.members.forEach(k=>{const fam=_rptFam(k),name=_rptNameOf(k),t=_rptCfgProduct(k),rs=res.filter(r=>r.product===k),st=((t.obj||{}).fee_streams||[]);
     const facts=rs.filter(r=>(V.classes[r.class]||{}).kind==='flow'&&!r.stream).slice(0,3).map(r=>esc(r.label)+' '+_rptAmt(_rptSum(r.series))).join(' · ');
     h+=`<div class="rpt-obj"><div class="a"><b>${esc(name)}</b><span class="rpt-k">${RPT_FAM[fam].toUpperCase()}</span></div><p>${facts||'No flows in the forecast horizon'}</p>${st.length?`<p>${st.length} fee stream${st.length>1?'s':''}: ${st.slice(0,4).map(s=>esc(s.name||'Stream')).join(', ')}${st.length>4?', …':''}</p>`:''}<div class="f"><span>${esc(V.window.label)}</span><a class="rpt-go" onclick="rptOpenEditor(${_rptJs(k)},${_rptJs(rp.id)})">Open editor ↗</a></div></div>`;});
   h+=`</div><p class="rpt-note">Source links between products (for example a fee stream that reads deposit balances or interest) are configured in each stream and are unchanged by grouping. Assumptions are edited only in the product editors.</p></div>`;return h;}
@@ -18327,15 +18340,15 @@ function _rptRecon(V){const R=V.reconciliation||{},{view,html}=_rptCadence(V),ng
   let h=`<div class="rpt-crumb"><a onclick="rptSelect('recon')">Product Detail</a> / <span>Reporting manifest</span> / <b>Reconciliation</b></div>`;
   h+=`<div class="rpt-rc${ok?'':' bad'}"><span class="big">${ok?'✓':'⚠'}</span><div><h2>${ok?'Reporting reconciles':'Reporting does not reconcile'}</h2><div class="sub">Every measure in every period: reporting entries = engine product results, and product results + outside product contributions = engine bank totals. Every underlying result has one destination.</div></div>${html}</div>`;
   const probs=V.problems||[];if(probs.length)h+=`<div class="rpt-prob">${probs.map(p=>'<div>⚠ '+esc(p.message)+'</div>').join('')}</div>`;
-  h+=`<div class="rpt-card"><h3>Amounts · by measure and period</h3><p class="lead">Largest difference in each column, ${esc(V.window.label)}, forecast horizon. Balances and flows reconcile separately; assets and deposit liabilities are never netted. Select a measure to see its build-up. $000s.</p>`;
+  h+=`<div class="rpt-card"><h3>Amounts · by measure and period</h3><p class="lead">Largest difference in any underlying period within each column (differences are never netted across periods), ${esc(V.window.label)}, forecast horizon. Balances and flows reconcile separately; assets and deposit liabilities are never netted. Select a measure to see its build-up. $000s.</p>`;
   h+=`<div class="rpt-scroll"><table class="rpt-t rpt-sch"><thead><tr><th>Measure</th>${view.groups.map(g=>`<th class="n">${esc(g.label)}</th>`).join('')}<th class="n">Horizon</th></tr></thead><tbody>`;
   const meas=R.measures||[];let lastKind=null;
   meas.forEach((m,i)=>{const stock=m.kind==='stock';if(m.kind!==lastKind){h+=`<tr class="sec"><td colspan="${ng}">${stock?'BALANCES · ENDING BALANCE AT EACH PERIOD END':'FLOWS · EACH PERIOD SEPARATELY'}</td></tr>`;lastKind=m.kind;}
-    const dr=_rptVals(m.diff_reported,view,stock),db=m.diff_bank?_rptVals(m.diff_bank,view,stock):view.groups.map(()=>0);
-    const big=(a,b)=>Math.max(Math.abs(a||0),Math.abs(b||0)),tol=(m.tolerance||{}).bank||0.05;
-    const cells=view.groups.map((g,k)=>{const d=big(dr[k],db[k]);return `<td class="n">${d<=tol*Math.max(1,g.end-g.start)?'<span class="rpt-ok">0 ✓</span>':'<span class="rpt-bad">'+_rptAmt(d)+'</span>'}</td>`;}).join('');
+    const tR=(m.tolerance||{}).reported||1e-6,tB=(m.tolerance||{}).bank||0.05,off=stock?1:0;
+    const worst=(g)=>{let w=0,bad=false;for(let t=g.start;t<g.end;t++){const a=Math.abs((m.diff_reported||[])[t+off]||0),b=Math.abs(((m.diff_bank||[])[t+off])||0);if(a>tR||b>tB)bad=true;w=Math.max(w,a,b);}return {w,bad};};
+    const cells=view.groups.map(g=>{const x=worst(g);return `<td class="n">${x.bad?'<span class="rpt-bad" title="Largest difference in any underlying period">'+(x.w<0.5?x.w.toFixed(2):_rptAmt(x.w))+'</span>':'<span class="rpt-ok">0 \u2713</span>'}</td>`;}).join('');
     const sel=window._rptRecOpen===i;
-    h+=`<tr class="ln${sel?' sel':''}" onclick="rptRecMeasure(${i})" tabindex="0"><td><span class="rpt-tw">${sel?'▾':'▸'}</span>${esc(m.label)}${stock?`<small>${m.class==='loans'?'Asset':'Liability'}</small>`:''}</td>${cells}<td class="n">${m.ok?'<span class="rpt-ok">0 ✓</span>':'<span class="rpt-bad">differs</span>'}</td></tr>`;
+    h+=`<tr class="ln${sel?' sel':''}" onclick="rptRecMeasure(${i})" tabindex="0"><td><span class="rpt-tw">${sel?'▾':'▸'}</span>${esc(m.label)}${stock?`<small>${m.class==='loans'?'Asset':m.class==='allowance'?'Contra-asset':'Liability'}</small>`:''}</td>${cells}<td class="n">${m.ok?'<span class="rpt-ok">0 ✓</span>':'<span class="rpt-bad">differs</span>'}</td></tr>`;
     if(sel){const rp=[],sa=[];const n=stock?V.n_periods+1:V.n_periods;let a=new Array(n).fill(0),b=new Array(n).fill(0);
       V.results.filter(r=>r.class===m.class).forEach(r=>{(r.destinations||[]).forEach(d=>{const t=d.startsWith('standalone:')?b:a;(r.series||[]).forEach((v,j)=>{if(j<n)t[j]+=(+v||0);});});});
       h+=_rptRow('ln bu','Reporting products',a,view,stock)+_rptRow('ln bu','Standalone entries',b,view,stock)+_rptRow('sub bu','All reporting entries',m.reported,view,stock)+_rptRow('ln mem bu','Engine · product results',m.engine_products,view,stock);
@@ -18374,6 +18387,10 @@ function rptAfterRender(){if(typeof document==='undefined')return;const c=docume
     d.innerHTML=`<span>Opened from <b>${esc(window._rptReturn.name)}</b> in Product Detail.</span><button type="button" class="rpt-go" onclick="rptReturn()">‹ Back to ${esc(window._rptReturn.name)}</button>`;c.insertBefore(d,c.firstChild);}
   else if(old)old.remove();
   if(currentTab==='detail'&&window._rptDlg){if(!window._rptEsc){window._rptEsc=e=>{if(e.key==='Escape'&&window._rptDlg)rptCloseDialog();};document.addEventListener('keydown',window._rptEsc);}}}
+
+/* r417: official export stops while reporting products exist and reporting does not reconcile */
+function rptExportBlock(){const V=_rptView();if(!_rptList().length||!V||_rptPending()||V.ok)return false;
+  appStatus('err','Business Plan Tables were not exported: reporting does not reconcile. Open Product Detail \u2192 By reporting entry \u2192 Reconciliation to see each problem.');return true;}
 
 renderTabs();
 whoami().then(u=>{ paintWho(); if(u){ boot().then(()=>sessionSafety.offer()); } else { currentTab = "welcome"; renderContent(); } });

@@ -135,7 +135,7 @@ class ReportingManifestTests(unittest.TestCase):
         self.assertTrue(rec["ok"])
         self.assertEqual([m["class"] for m in rec["measures"]],
                          ["loans", "deposits", "interest_income", "interest_expense", "noninterest_income",
-                          "noninterest_expense", "credit_losses"])
+                          "noninterest_expense", "credit_losses", "allowance", "provision"])
         for m in rec["measures"]:
             self.assertIsNotNone(m["engine_bank"], m["class"])
             want = cfg["assumptions"]["n_periods"] + (1 if m["kind"] == "stock" else 0)
@@ -145,7 +145,7 @@ class ReportingManifestTests(unittest.TestCase):
         r = next(x for x in v["results"] if x["class"] == "noninterest_expense")
         r["series"][5] += 1.0
         from .reporting import reconcile
-        rec2 = reconcile(v, res)
+        rec2 = reconcile(v, res, None, cfg)
         self.assertFalse(rec2["ok"])
         self.assertEqual([m["class"] for m in rec2["measures"] if not m["ok"]], ["noninterest_expense"])
 

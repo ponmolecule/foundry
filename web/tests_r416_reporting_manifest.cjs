@@ -77,7 +77,7 @@ assert.strictEqual(await C.locator('.rpt-ret').count(),0);
 // 6. Reconciliation by measure and period, with coverage by result.
 await C.locator('.rpt-cov').click();
 assert(/Reporting reconciles/.test(await C.locator('.rpt-rc').innerText()));
-const recRows=await C.locator('.rpt-sch tbody tr.ln').count();assert.strictEqual(recRows,7,'seven measures');
+const recRows=await C.locator('.rpt-sch tbody tr.ln').count();assert.strictEqual(recRows,9,'nine measures, including allowance and provision');
 await C.locator('.rpt-sch tbody tr.ln',{hasText:'Operating costs'}).click();
 const bu=await C.locator('.rpt-sch tr.bu').allInnerTexts();
 assert(bu.some(t=>/Outside product contributions/.test(t))&&bu.some(t=>/^Difference/.test(t)));
