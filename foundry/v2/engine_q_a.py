@@ -1879,6 +1879,9 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 "whBal": _s("_wh"),
                 "servUPB": _s("_upb"), "msrCap": _s("_scap"), "msrAmort": _s("_samort"),
                 "msrBal": _s("_msr"), "alll": _s("_alll"),
+                # opening allowance (period 0) as the engine set it, whatever its source (reserve rate,
+                # contract, repayment profile or allocation group); output only, read by reporting.
+                "alllOpen": ([p["_alll"][0]] if fam == "lending" and p.get("_alll") else None),
                 "fv": ([p["_fv"][q] for q in range(1, Q + 1)] if p.get("_is_fv") else None),
                 "fvAdj": ([p["_fvadj"][q] for q in range(1, Q + 1)] if p.get("_is_fv") else None),
                 "avg": [p["_avg"][q] for q in range(1, Q + 1)],

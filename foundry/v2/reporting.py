@@ -117,8 +117,8 @@ def result_id(pkey, measure, stream=None, part=None):
 def _credit_series(prod, cfg_p, n):
     """(allowance with opening slot, provision) for a lending product, derived from engine results.
 
-    Opening allowance = opening balance × the product's reserve rate (the engine's own initialisation;
-    zero for fair-value products).  Provision = change in allowance + net charge-offs.  The bank-level
+    Opening allowance = the engine's own opening allowance (``alllOpen``), which may come from the reserve
+    rate, a loan contract, a repayment profile or an allocation group; zero for fair-value products.  Provision = change in allowance + net charge-offs.  The bank-level
     reconciliation checks both against the balance sheet allowance and income-statement provision."""
     if prod.get("is_fv"):
         return None, None
@@ -126,8 +126,11 @@ def _credit_series(prod, cfg_p, n):
     if not al:
         return None, None
     al += [al[-1]] * (n - len(al))
-    bal0 = _num((prod.get("bal") or [0.0])[0]) if len(prod.get("bal") or []) == n + 1 else 0.0
-    opening = bal0 * _num((cfg_p or {}).get("reserve_rate_pct_bal"))
+    if isinstance(prod.get("alllOpen"), list) and prod["alllOpen"]:
+        opening = _num(prod["alllOpen"][0])          # the engine's own opening allowance, whatever its source
+    else:                                            # results produced before r418 did not carry it
+        bal0 = _num((prod.get("bal") or [0.0])[0]) if len(prod.get("bal") or []) == n + 1 else 0.0
+        opening = bal0 * _num((cfg_p or {}).get("reserve_rate_pct_bal"))
     allowance = [opening] + al
     co = [_num(x) for x in (prod.get("co") or [])][:n]
     co += [0.0] * (n - len(co))
@@ -336,7 +339,8 @@ def build_view(cfg, res):
                 problems.append({"code": "stale_member", "rp": rp["id"],
                                  "product": product_key(m["family"], m["name"], m.get("product_id")),
                                  "message": f"“{rp['name']}” lists “{m['name'] or m.get('product_id')}”, which is not "
-                                            "in this engagement's results."})
+                                            "in this engagement's results. Open Edit membership and save to remove "
+                                            "it."})
                 continue
             if k in seen:
                 continue

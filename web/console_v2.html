@@ -3691,6 +3691,8 @@ button.pk{cursor:pointer}.rpt-pks .pk:first-child{border-top:0}.rpt-pks .pk smal
 .rpt-ret{display:flex;align-items:center;gap:12px;background:#FBF6EA;border:1px solid #E7D7B4;border-radius:4px;padding:8px 14px;font-size:12px;color:#6E5320;margin:0 0 12px}.rpt-ret b{color:#4F3C17}.rpt-ret .rpt-go{margin-left:auto}
 .rpt-t td:first-child{min-width:190px}.rpt-sch td:first-child{min-width:240px}.rpt-fol,.rpt-k,.rpt-src{white-space:nowrap}
 .rpt-dlg .db .rpt-muted{display:block;margin-top:12px;line-height:1.5}
+/* r418 */
+.rpt-miss{margin-top:10px;border:1px solid #EBD3A6;background:#FFF7E6;color:#6E5320;border-radius:4px;padding:8px 12px;font-size:12px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -18158,7 +18160,7 @@ function _rptKey(fam,name){return fam+'/'+name;}
 function _rptPKey(fam,p){return p&&p.product_id?fam+':'+p.product_id:fam+'/'+(p&&p.name);}
 function _rptFam(k){return String(k).match(/^[a-z]+/)[0];}
 function _rptObjByName(fam,name){return ((cfg&&cfg.assumptions||{})[ARR_OF[fam]]||[]).find(p=>p&&p.name===name)||null;}
-function _rptMemKey(m){if(m.product_id)return m.family+':'+m.product_id;const o=_rptObjByName(m.family,m.name);return o?_rptPKey(m.family,o):_rptMemKey(m);}
+function _rptMemKey(m){if(m.product_id)return m.family+':'+m.product_id;const o=_rptObjByName(m.family,m.name);return o?_rptPKey(m.family,o):_rptKey(m.family,m.name);}   // r418: unresolved stays a plain reference (no recursion)
 function _rptNewId(){return 'p-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function _rptNameOf(k){const t=_rptCfgProduct(k);if(t.obj)return t.obj.name;const V=_rptView(),p=V&&(V.products||[]).find(x=>x.key===k);return p?p.name:k;}
 function _rptFamOfObj(p){const A=cfg.assumptions||{};for(const f of Object.keys(RPT_FAM))if((A[ARR_OF[f]]||[]).includes(p))return f;return null;}
@@ -18376,6 +18378,8 @@ function _rptDialog(V){const d=window._rptDlg;
   <label class="rpt-lbl">Member products · whole products, each with all of its streams</label><div class="rpt-pks">`;
   ['deposit','lending','obs'].forEach(f=>{all.filter(p=>p.family===f).forEach(p=>{const on=d.members.includes(p.key),own=_rptOwner(p.key,d.id),ns=(((_rptCfgProduct(p.key).obj)||{}).fee_streams||[]).length;
     h+=`<button type="button" class="pk${on?' on':''}${own?' dis':''}" ${own?'disabled':''} onclick="rptDlgToggle(${_rptJs(p.key)})"><span class="cb">${on?'✓':''}</span><div><b>${esc(p.name)}</b><small>${RPT_FAM[f]}${ns?' · '+ns+' fee stream'+(ns>1?'s':''):''}</small>${on&&ns?'<div class="sts">All streams follow the product</div>':''}</div>${own?`<em>In ${esc(own.name)}. Remove it there first.</em>`:''}</button>`;});});
+  const rpNow=d.id?_rptList().find(r=>r.id===d.id):null,keysNow=new Set(all.map(p=>p.key)),missing=rpNow?(rpNow.members||[]).filter(m=>!keysNow.has(_rptMemKey(m))):[];
+  if(missing.length)h+=`<div class="rpt-miss" data-rpt-missing>${missing.map(m=>`<div><b>${esc(m.name||m.product_id||'Unnamed product')}</b> is no longer in this engagement and will be removed from membership when you save.</div>`).join('')}</div>`;
   h+=`</div><label class="rpt-lbl">Report lines</label><div class="rpt-muted">Each result starts on the line its accounting classification gives. Overrides are set afterwards in Composition.</div>`;
   if(d.err)h+=`<div class="rpt-err">${esc(d.err)}</div>`;
   else h+=`<div class="rpt-chk">✓ Membership changes presentation only: no financial object, assumption or source link changes${d.kind==='create'?', and nothing is reported twice':''}.</div>`;

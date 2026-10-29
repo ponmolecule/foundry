@@ -147,11 +147,17 @@ class _Model:
         self.rpt = exhibit_entries(cfg, res)
         self.rp_entries = [e for e in self.rpt.get("entries") or [] if e.get("kind") == "reporting"]
         self.rp_of = {k: e for e in self.rp_entries for k in e["members"]}
+        # Identity comes from the reporting view (product_id when the product has one), matched to the
+        # engine registry by position, never re-derived from the product's name here.
+        fam_prods = [p for p in self.products if p.get("family") in ("lending", "deposit", "obs")]
+        vkeys = [x.get("key") for x in (self.rpt.get("products") or [])]
+        self._key_of = {id(p): k for p, k in zip(fam_prods, vkeys)} if len(vkeys) == len(fam_prods) else {}
         self._pkey = product_key
 
     def rp_for(self, p):
         """The reporting product presenting ``p`` (None for a standalone product)."""
-        return self.rp_of.get(self._pkey(p.get("family"), p.get("name")))
+        k = self._key_of.get(id(p)) or self._pkey(p.get("family"), p.get("name"))
+        return self.rp_of.get(k)
 
     # -- config matching (ordinal first, name fallback) ---------------------------------
     @staticmethod
