@@ -11,12 +11,11 @@ and expand to as many rows as it has products. Nothing is fabricated — a line 
 separately produce is left blank (not zero).
 
 Conventions:
-  This is a regulator-facing BUSINESS-PLAN exhibit, not a mirror of the full computational
-  horizon. By default it presents the first 12 CALENDAR quarters (three years), even when the
-  engine runs monthly or projects beyond three years. ``charter_profile.submission_quarters``
-  may override that window for an engagement whose regulator requests a different horizon.
-  Annual sheet    — stocks at submission-year end; flows summed over each submission year.
-  Quarterly sheet — stocks at each submission quarter-end; flows summed within that quarter.
+  Business Plan Tables follow the full computational forecast horizon.
+  Annual stocks use year-end balances; flows sum the year's modeled periods.
+  Quarterly stocks use quarter-end balances; flows sum within each quarter.
+  Incomplete final periods are explicitly labelled partial.
+
 """
 
 from openpyxl import Workbook
@@ -57,29 +56,30 @@ def _norm(series, periods, n_periods=None):
     return s, None
 
 
-def _annual_periods(ppy=4, n_periods=12, submission_q=12):
+def _annual_periods(ppy=4, n_periods=12, submission_q=None):
     # AUDIT 4.3: cadence-aware. Engine runs in `ppy` periods/year; the BPT annual view aggregates
     # each YEAR: stock at year-end engine-period, flows summed over the year's engine-periods.
-    # Regulator-facing window: never silently expand just because the computational
-    # horizon is longer. 12 quarters = 3 years by default.
-    available_q = max(1, int(n_periods * 4 / ppy))
-    shown_q = min(int(submission_q), available_q)
+    # Default to the complete forecast. An explicit window remains available
+    # to callers that need a restricted exhibit.
+    available_q = max(1, (n_periods * 4 + ppy - 1) // ppy)
+    shown_q = available_q if submission_q is None else min(int(submission_q), available_q)
     nyr = max(1, (shown_q + 3) // 4)
     periods = [{"label": "Day 1", "day1": True}]
     for y in range(1, nyr + 1):
-        max_engine = min(n_periods, shown_q * max(1, ppy // 4))
+        max_engine = n_periods if submission_q is None else min(n_periods, shown_q * max(1, ppy // 4))
         idxs = [i for i in ((y - 1) * ppy + k for k in range(ppy)) if i < max_engine]
         if not idxs:
             continue
-        periods.append({"label": f"Year {y}", "stock_idx": idxs[-1], "flow_idxs": idxs})
+        periods.append({"label": f"Year {y}" + (" (partial)" if len(idxs) < ppy else ""), "stock_idx": idxs[-1], "flow_idxs": idxs})
     return periods
 
 
-def _quarterly_periods(ppy=4, n_periods=12, submission_q=12):
+def _quarterly_periods(ppy=4, n_periods=12, submission_q=None):
     # AUDIT 4.3: the QUARTERLY regulatory view. mpq engine-periods per quarter (mo:3, qtr:1). A
     # quarter's stock = its last engine-period; its flow = sum over the quarter's engine-periods.
     mpq = max(1, round(ppy / 4))
-    nq = min(int(submission_q), max(1, round(n_periods * 4 / ppy)))
+    available_q = max(1, (n_periods + mpq - 1) // mpq)
+    nq = available_q if submission_q is None else min(int(submission_q), available_q)
     periods = [{"label": "Day 1", "day1": True}]
     for qn in range(1, nq + 1):
         y, q = (qn - 1) // 4 + 1, (qn - 1) % 4 + 1
@@ -87,7 +87,7 @@ def _quarterly_periods(ppy=4, n_periods=12, submission_q=12):
         idxs = [base + j for j in range(mpq) if base + j < n_periods]
         if not idxs:
             break
-        periods.append({"label": f"Y{y} Q{q}", "stock_idx": idxs[-1], "flow_idxs": idxs})
+        periods.append({"label": f"Y{y} Q{q}" + (" (partial)" if len(idxs) < mpq else ""), "stock_idx": idxs[-1], "flow_idxs": idxs})
     return periods
 
 
@@ -362,8 +362,7 @@ def build_bpt_cover_legacy(cfg, res):
     ws_annual.title = "Business Plan Tables Annual"
     _ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
     _np = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
-    from .timebase import submission_quarters
-    _submission_q = submission_quarters(cfg)
+    _submission_q = None  # Business Plan Tables follow the forecast, not filing scope.
     _build_sheet(ws_annual, cfg, res, _annual_periods(_ppy, _np, _submission_q), "annual")
 
     ws_q = wb.create_sheet("Business Plan Tables Quarterly")

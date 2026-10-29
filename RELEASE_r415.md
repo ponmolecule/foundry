@@ -1,0 +1,5 @@
+# r415 — Business Plan Tables follow forecast horizon
+
+Built on r414. Both enhanced and legacy Business Plan Tables now cover the complete modeled forecast, independently of the regulatory submission window. Annual, quarterly, product assumptions, product inclusion and product-map totals all use the same forecast scope. Stocks remain period-end observations; flows remain sums. Partial final periods are labelled partial. Separate regulatory submission settings and all financial-engine/save behavior are unchanged.
+
+Validation: existing enhanced export suite (31 checks) passes. New regression tests generate both workbook layouts for five-year monthly, seven-year quarterly and two-year quarterly forecasts with a deliberately conflicting one-year submission window. They check final-year coverage, income totals, full-horizon product totals and no configuration/result mutation. Helper checks verify partial final annual/quarterly periods, no lost or duplicated monthly flows, and annual-native periods.
