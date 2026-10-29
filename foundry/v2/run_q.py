@@ -1459,4 +1459,8 @@ def run_v2(cfg):
         f["source"] = "modeled" if str(f.get("id", "")).split(":")[0] in _MODELED_FLAG_IDS else "input"
 
     results["run_hash"] = _hash(results)
+    # Presentation only, attached after the run hash: the reporting manifest groups engine results for
+    # exhibits and never feeds back into any engine value. See foundry/v2/reporting.py.
+    from .reporting import attach as _attach_reporting
+    _attach_reporting(cfg, results)
     return results
