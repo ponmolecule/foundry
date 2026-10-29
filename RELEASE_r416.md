@@ -1,0 +1,5 @@
+# r416 — Reporting manifest
+
+Built on r415. Product Detail gains a reporting manifest: users group whole products into reporting products (for example Operating Accounts = two deposit tiers + their fee product) for presentation in Business Plan Tables and product summaries. The engine never reads the manifest; statements and the Call Report keep each product's own classification. Every underlying result has one destination, report lines default from accounting classification with same-class overrides only, deposit earnings are never inferred (shown as unresolved), and reporting reconciles to the engine by measure and by period over the forecast horizon with no residual line. Business Plan Tables add a Reporting Products sheet, present reporting products as single rows on Non-Interest Income / Expense, and add "Reported in" to the product map. Product schedules relabel fee-stream direct costs (no longer "→ overhead").
+
+Validation: full suite compared with the r415 baseline (same failing modules, no new failures); new Python and browser tests for r416.

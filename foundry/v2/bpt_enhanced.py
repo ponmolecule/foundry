@@ -142,6 +142,16 @@ class _Model:
         self.dep_class = [self._classify_deposit(p, c) for p, c in zip(self.dep, self.dep_cfg)]
         self._curves = None
         self._curves_err = None
+        # Reporting manifest (presentation only): which products are presented together.
+        from .reporting import exhibit_entries, product_key
+        self.rpt = exhibit_entries(cfg, res)
+        self.rp_entries = [e for e in self.rpt.get("entries") or [] if e.get("kind") == "reporting"]
+        self.rp_of = {k: e for e in self.rp_entries for k in e["members"]}
+        self._pkey = product_key
+
+    def rp_for(self, p):
+        """The reporting product presenting ``p`` (None for a standalone product)."""
+        return self.rp_of.get(self._pkey(p.get("family"), p.get("name")))
 
     # -- config matching (ordinal first, name fallback) ---------------------------------
     @staticmethod
@@ -827,12 +837,20 @@ def _nonint_income(wb, m, bank):
     sh.title("Non-Interest Income ($000)")
     sh.header("", [p["label"] for p in Y])
     shown = []
+    for e in m.rp_entries:   # reporting products: all members' noninterest income on one row
+        ser = _addv(*[x for p in m.products if m.rp_for(p) is e for x in (p.get("fees"), p.get("gos"), p.get("servNet"))])
+        if ser is not None and m.has_window_activity(ser):
+            v = m.flow(ser, Y); shown.append(v); sh.line(e["name"], v)
     for p in m.obs_revenue_products():
+        if m.rp_for(p):
+            continue
         v = m.flow(p.get("fees"), Y); shown.append(v); sh.line(p.get("name", "Program"), v)
-    credit = _addv(*[x for p in m.lend for x in (p.get("fees"), p.get("gos"), p.get("servNet"))])
+    credit = _addv(*[x for p in m.lend if not m.rp_for(p) for x in (p.get("fees"), p.get("gos"), p.get("servNet"))])
     if credit is not None and m.has_window_activity(credit):
         v = m.flow(credit, Y); shown.append(v); sh.line("Credit Product Fees and Servicing", v)
     for p in m.dep:
+        if m.rp_for(p):
+            continue
         if m.has_window_activity(p.get("fees")):
             v = m.flow(p.get("fees"), Y); shown.append(v); sh.line(f"{p.get('name', 'Deposit')} Fees", v)
     if m.has_window_activity(m.isv("fvPnl")):
@@ -848,7 +866,9 @@ def _nonint_income(wb, m, bank):
     sh.line("Total", total, bold=True)
     sh.notes(["One row per off-balance-sheet product with revenue in the forecast horizon, named as in this "
               "engagement. Credit Product Fees and Servicing = asset-product fees, gains on sale and net servicing. "
-              "Total ties to Non-Interest Income on the Income Statement; any unattributed remainder is shown as Other."])
+              "Total ties to Non-Interest Income on the Income Statement; any unattributed remainder is shown as Other."]
+             + (["Reporting products (Product Detail → reporting manifest) appear as one row carrying all of their "
+                 "members' noninterest income; those members do not appear again on other rows."] if m.rp_entries else []))
 
 
 def _nonint_expense(wb, m, bank):
@@ -857,10 +877,17 @@ def _nonint_expense(wb, m, bank):
     sh.title("Non-Interest Expense ($000)")
     sh.header("", [p["label"] for p in Y])
     shown = []
+    for e in m.rp_entries:   # reporting products: all members' operating and fee-stream costs on one row
+        ser = _addv(*[x for p in m.products if m.rp_for(p) is e for x in (p.get("opex"), p.get("passCost"))])
+        if ser is not None and m.has_window_activity(ser):
+            v = m.flow(ser, Y); shown.append(v); sh.line(f"Cost of Revenue: {e['name']}", v)
     for p in m.obs_cost_products():
+        if m.rp_for(p):
+            continue
         v = m.flow(_addv(p.get("opex"), p.get("passCost")), Y); shown.append(v)
         sh.line(f"Cost of Revenue: {p.get('name', 'Program')}", v)
     for fam, label in ((m.lend, "Credit Product Operating Expense"), (m.dep, "Deposit Product Operating Expense")):
+        fam = [p for p in fam if not m.rp_for(p)]
         s = _addv(*[p.get("opex") for p in fam]) if fam else None
         if s is not None and m.has_window_activity(s):
             v = m.flow(s, Y); shown.append(v); sh.line(label, v)
@@ -873,7 +900,9 @@ def _nonint_expense(wb, m, bank):
         sh.line("Other Non-Interest Expense", resid)
     sh.line("Total", total, bold=True)
     sh.notes(["Cost of Revenue rows: each off-balance-sheet product's operating and fee-stream costs. De Novo Bank "
-              "Operating Expense is detailed on the next sheet. Total ties to Non-Interest Expense on the Income Statement."])
+              "Operating Expense is detailed on the next sheet. Total ties to Non-Interest Expense on the Income Statement."]
+             + (["A reporting product's Cost of Revenue row carries all of its members' operating and fee-stream "
+                 "costs; those members are left out of the other rows."] if m.rp_entries else []))
 
 
 def _denovo(wb, m, bank):
@@ -903,12 +932,72 @@ def _denovo(wb, m, bank):
               "FDIC/OCC assessments and expense gross-up. Total ties to De Novo Bank Operating Expense."])
 
 
+def _reporting_products(wb, m, bank):
+    """One schedule per reporting product, across the full forecast horizon (annual)."""
+    if not m.rp_entries:
+        return
+    sh = _Sheet(wb, "Reporting Products", bank)
+    Y = m.years
+    labels = [p["label"] for p in Y]
+    for e in m.rp_entries:
+        sch = e.get("schedule") or {}
+        names = [x["name"] for x in (m.rpt.get("products") or []) if x["key"] in e["members"]]
+        sh.title(f"{e['name']} — reporting product ($000)")
+        sh.header("", labels)
+        sh.line("Members: " + ", ".join(names), [None] * len(Y), indent=0)
+        sections = (("balances", "Balances · ending balance at each period end"), ("income", "Income"),
+                    ("expense", "Expense"))
+        for sec, title in sections:
+            lines = [ln for ln in sch.get("lines") or [] if ln["section"] == sec]
+            unres = [u for u in sch.get("unresolved") or [] if u["section"] == sec]
+            if not lines and not unres:
+                continue
+            sh.section(title)
+            for u in unres:
+                sh.line(u["label"] + " · unresolved", ["unresolved"] * len(Y), indent=1)
+            for ln in lines:
+                agg = m.stock if ln["stock"] else m.flow
+                sh.line(ln["label"], agg(ln["series"], Y), bold=bool(ln["detail"]), indent=1)
+                for d in ln["detail"]:
+                    sh.line(d["label"] + " · within subtotal", agg(d["series"], Y), indent=3)
+        dc = "Direct contribution" + (" · excludes unresolved earnings" if sch.get("unresolved") else "")
+        sh.line(dc, m.flow(sch.get("direct_contribution"), Y), bold=True)
+        sh.row += 1
+    rec = m.rpt.get("reconciliation") or {}
+    sh.title("Reconciliation · reporting entries to engine, by measure ($000)")
+    sh.header("", labels)
+    for meas in rec.get("measures") or []:
+        agg = m.stock if meas["kind"] == "stock" else m.flow
+        sh.section(meas["label"])
+        sh.line("All reporting entries", agg(meas["reported"], Y), indent=1)
+        sh.line("Engine · product results", agg(meas["engine_products"], Y), indent=1)
+        for o in meas["outside"]:
+            sh.line("Outside product contributions · " + o["label"], agg(o["series"], Y), indent=1)
+        if meas.get("engine_bank") is not None:
+            sh.line(meas.get("engine_bank_label") or "Engine · bank total", agg(meas["engine_bank"], Y), indent=1)
+            sh.line("Difference", agg(meas["diff_bank"], Y), indent=1)
+    sh.notes([
+        "Reporting products present existing products together; they create no postings and change no engine value. "
+        "Statements and regulatory schedules keep each product's own classification.",
+        "Rows marked 'within subtotal' are detail of the line above and are not added again. Balance rows are "
+        "ending balances, not totals.",
+        "Earnings on deposits are shown as unresolved when no attribution is set; Foundry does not infer earnings "
+        "from deposit balances, and investment income stays outside product contributions.",
+        "Reconciliation: " + ("reporting reconciles — every result reports to one entry and every measure ties to "
+                              "the engine in every period." if rec.get("ok") else
+                              "REPORTING DOES NOT RECONCILE. See Product Detail → Reconciliation for each problem."),
+        "Window: " + str((rec.get("window") or {}).get("label") or "") + " · forecast horizon.",
+    ])
+
+
 def _product_map(wb, m, bank, asset_sheets):
     sh = _Sheet(wb, "Product Map & Notes", bank)
     sh.title(f"{bank} — Business Plan Tables: product map")
     sh.header(f"Product (Q1–Q{m.subq} forecast totals, $000s)",
-              ["Class", "End Balance", "Interest Income", "Interest Expense", "Fees", "Appears in"], width=15)
+              ["Class", "End Balance", "Interest Income", "Interest Expense", "Fees", "Appears in", "Reported in"],
+              width=15)
     sh.ws.column_dimensions[get_column_letter(7)].width = 70
+    sh.ws.column_dimensions[get_column_letter(8)].width = 28
     end = m.years[-1] if m.years else None
     rev = {id(p) for p in m.obs_revenue_products()}
     cost = {id(p) for p in m.obs_cost_products()}
@@ -933,12 +1022,18 @@ def _product_map(wb, m, bank, asset_sheets):
                 parts.append("Non-Interest Expense (Cost of Revenue)")
             where = "; ".join(parts) or "No revenue or cost in the forecast horizon (driver/exposure only)"
         bal = m.stock(p.get("bal"), [end])[0] if end and isinstance(p.get("bal"), list) else None
+        rp = m.rp_for(p)
+        if rp is not None and fam != "lending":
+            where += f"; presented with '{rp['name']}' on Non-Interest Income / Expense and Reporting Products"
+        elif rp is not None:
+            where += f"; presented with '{rp['name']}' on Reporting Products"
         vals = [cls, bal, m.window_total(p.get("intInc")), m.window_total(p.get("intExp")),
-                m.window_total(p.get("fees")), where]
+                m.window_total(p.get("fees")), where, rp["name"] if rp else "Itself"]
         r = sh.row
         sh.line(p.get("name", "Product"), vals)
         sh.ws.cell(row=r, column=2).alignment = Alignment(horizontal="center")
         sh.ws.cell(row=r, column=7).alignment = Alignment(horizontal="left", wrap_text=True)
+        sh.ws.cell(row=r, column=8).alignment = Alignment(horizontal="left", wrap_text=True)
     gh = (m.res.get("run_hash") or m.res.get("config_hash") or "")[:12]
     sh.notes([
         "Rows on the product-driven sheets come from this engagement's product registry (Detail → Per-Product "
@@ -972,6 +1067,7 @@ def build_enhanced_bpt(cfg, res):
     _nonint_income(wb, m, bank)
     _nonint_expense(wb, m, bank)
     _denovo(wb, m, bank)
+    _reporting_products(wb, m, bank)
     _product_map(wb, m, bank, asset_sheets)
     for ws in wb.worksheets:
         ws.sheet_view.showGridLines = False
