@@ -29,8 +29,8 @@ fresh ``run_v2`` of the posted configuration, in $ thousands.  Lines the engine 
 produce are left blank (never zero-filled) and are listed in the notes.  Residual lines
 ("other") exist only so a table ties exactly to its engine total, and are labelled as such.
 
-Window: the regulator-facing submission window (``timebase.submission_quarters``, default
-12 calendar quarters), independent of the computational horizon and cadence.
+Window: the full computational forecast horizon, independent of the separate
+regulatory submission window.
 """
 
 import copy
@@ -112,16 +112,15 @@ def _sheet_title(name, used):
 # ---------------------------------------------------------------------------------------
 class _Model:
     def __init__(self, cfg, res):
-        from .timebase import submission_quarters
         self.cfg = cfg
         self.res = res
         a = cfg.get("assumptions") or {}
         self.a = a
         self.ppy = int(a.get("periods_per_year") or 4)
         self.n = int(a.get("n_periods") or 12)
-        self.subq = submission_quarters(cfg)
-        self.annual = _annual_periods(self.ppy, self.n, self.subq)
-        self.quarterly = _quarterly_periods(self.ppy, self.n, self.subq)
+        self.subq = (self.n * 4 + self.ppy - 1) // self.ppy
+        self.annual = _annual_periods(self.ppy, self.n)
+        self.quarterly = _quarterly_periods(self.ppy, self.n)
         self.quarterly_ok = self.ppy >= 4
         self.years = [p for p in self.annual if not p.get("day1")]
         fin = res.get("financials") or {}
@@ -281,7 +280,7 @@ class _Model:
         return sum(v for v in self.flow(series, self.years) if v is not None)
 
     def has_window_activity(self, series):
-        """True when ANY engine period inside the submission window is non-zero.
+        """True when ANY engine period inside the forecast horizon is non-zero.
 
         Tested per period, not on the net total, so offsetting activity (+X then -X) is still shown."""
         if series is None:
@@ -403,7 +402,7 @@ class _Sheet:
                 self.ws.cell(row=r2, column=col).fill = _HDR_FILL
                 self.ws.merge_cells(start_row=r1, start_column=col, end_row=r2, end_column=col)
                 continue
-            y, q = p["label"].split()
+            y, q = p["label"].split(maxsplit=1)
             if groups and groups[-1][0] == y:
                 groups[-1][2] = col
             else:
@@ -487,7 +486,7 @@ def _bs_annual(wb, m, bank):
 
 
 _BS_NOTES = [
-    "Period-end balances: Day 1 is the opening balance sheet; each year is its final submission quarter-end.",
+    "Period-end balances: Day 1 is the opening balance sheet; each year is its final forecast quarter-end.",
     "Securities = all AFS, HTM and designated securities books. Loans are net of the allowance and include "
     "loans held for sale at carrying value. Other Assets = Total Assets less the lines shown (premises, "
     "Federal Reserve stock or other interest-bearing assets, MSRs, deferred tax, prepaid and other assets). "
@@ -517,7 +516,7 @@ def _is_annual(wb, m, bank):
     sh.header("Income Statement", [p["label"] for p in m.years])
     for label, vals, bold in _is_rows(m, m.years):
         sh.line(label, vals, bold=bold)
-    sh.notes(["Flows summed over each submission year. Pre-Tax Net Income = Interest Income − Interest Expense − "
+    sh.notes(["Flows summed over each forecast year. Pre-Tax Net Income = Interest Income − Interest Expense − "
               "Provision + Non-Interest Income − Non-Interest Expense. Bank EBITDA is the engine's earnings before "
               "depreciation, amortization and taxes, shown as on the Pro Forma Income Statement."])
 
@@ -659,7 +658,7 @@ def _bs_quarterly(wb, m, bank):
     sh.line("Other Liabilities", q(m.other_liab_series()))
     sh.line("Total Liabilities", q(m.total_liab_series()), bold=True)
     sh.line("Equity", q(m.bsv("equity")), bold=True)
-    notes = ["Quarter-end balances over the submission window; line definitions as on Balance Sheet EOP (Annual). "
+    notes = ["Quarter-end balances over the forecast horizon; line definitions as on Balance Sheet EOP (Annual). "
              "Deposits are split by the Deposit Mix classification; product rows appear when a class holds more "
              "than one liability product."]
     if not m.quarterly_ok:
@@ -674,7 +673,7 @@ def _is_quarterly(wb, m, bank):
     cols = sh.quarterly_header("Income Statement", P, include_day1=False)
     for label, vals, bold in _is_rows(m, cols):
         sh.line(label, vals if m.quarterly_ok else [None] * len(cols), bold=bold)
-    notes = ["Flows within each submission quarter."]
+    notes = ["Flows within each forecast quarter."]
     if not m.quarterly_ok:
         notes.append("This engagement runs on an annual cadence, so quarterly flows are not produced.")
     sh.notes(notes)
@@ -847,7 +846,7 @@ def _nonint_income(wb, m, bank):
     if any(abs(x) > _RESID for x in resid):
         sh.line("Other Non-Interest Income, Net", resid)
     sh.line("Total", total, bold=True)
-    sh.notes(["One row per off-balance-sheet product with revenue in the submission window, named as in this "
+    sh.notes(["One row per off-balance-sheet product with revenue in the forecast horizon, named as in this "
               "engagement. Credit Product Fees and Servicing = asset-product fees, gains on sale and net servicing. "
               "Total ties to Non-Interest Income on the Income Statement; any unattributed remainder is shown as Other."])
 
@@ -906,9 +905,8 @@ def _denovo(wb, m, bank):
 
 def _product_map(wb, m, bank, asset_sheets):
     sh = _Sheet(wb, "Product Map & Notes", bank)
-    from .timebase import submission_quarters
     sh.title(f"{bank} — Business Plan Tables: product map")
-    sh.header(f"Product (Q1–Q{submission_quarters(m.cfg)} submission totals, $000s)",
+    sh.header(f"Product (Q1–Q{m.subq} forecast totals, $000s)",
               ["Class", "End Balance", "Interest Income", "Interest Expense", "Fees", "Appears in"], width=15)
     sh.ws.column_dimensions[get_column_letter(7)].width = 70
     end = m.years[-1] if m.years else None
@@ -933,7 +931,7 @@ def _product_map(wb, m, bank, asset_sheets):
                 parts += ["Non-Interest Income", "Program Migration"]
             if id(p) in cost:
                 parts.append("Non-Interest Expense (Cost of Revenue)")
-            where = "; ".join(parts) or "No revenue or cost in the submission window (driver/exposure only)"
+            where = "; ".join(parts) or "No revenue or cost in the forecast horizon (driver/exposure only)"
         bal = m.stock(p.get("bal"), [end])[0] if end and isinstance(p.get("bal"), list) else None
         vals = [cls, bal, m.window_total(p.get("intInc")), m.window_total(p.get("intExp")),
                 m.window_total(p.get("fees")), where]
@@ -947,7 +945,7 @@ def _product_map(wb, m, bank, asset_sheets):
         "Contributions): Asset products drive Loan Mix and one assumption sheet each; Liability products drive the "
         "deposit split; Off-BS products drive Non-Interest Income, Cost of Revenue and Program Migration.",
         "All amounts in $ thousands from a fresh base-case engine run of the posted configuration. Annual: stocks "
-        f"at submission year-end, flows summed over the year. Submission window: Q1–Q{m.subq} calendar quarters.",
+        f"at forecast year-end, flows summed over the year. Forecast horizon: Q1–Q{m.subq} calendar quarters.",
         "Blank cells mark lines the engine does not produce (not zero).",
         f"Run hash: {gh}",
     ])
