@@ -986,6 +986,20 @@ def _validate_fee_stream_shape(stream):
             float(fp.get("value") or 0.0)
         except (TypeError, ValueError):
             raise ValueError("entered flow value must be numeric")
+    count_multiplier = (drv.get("params") or {}).get("count_multiplier_spec")
+    if count_multiplier is not None:
+        if basis != "account" or traj != "derived" or src not in {"stream_ref", "fee_stream_quantity"}:
+            raise ValueError("Count breakdown requires Account, a linked stream and Derived trajectory")
+        if any((drv.get("params") or {}).get(k) is not None for k in ("multiple", "pct", "coefficient", "stock_multiplier")):
+            raise ValueError("Count breakdown cannot be combined with another multiplier")
+        if not isinstance(count_multiplier, dict) or count_multiplier.get("source") != "weighted_sum" or count_multiplier.get("unit") != "scalar":
+            raise ValueError("Count breakdown requires a dimensionless weighted sum")
+        terms = count_multiplier.get("components") or []
+        ids = [str(t.get("id") or "") for t in terms]
+        if not terms or any(not i for i in ids) or len(ids) != len(set(ids)):
+            raise ValueError("Count breakdown requires components with unique stable IDs")
+        # Resolve with the real run's growth context, not during context-free shape checks.
+        # The shared resolver validates units, nonnegative values and 100% monthly shares.
     if stock_multiplier is not None:
         if basis != "balance" or traj != "derived" or src == "constant":
             raise ValueError("fee stock_multiplier requires a sourced balance driver with trajectory='derived'")
@@ -1244,7 +1258,11 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             # flow ratio. _fee_coefficient_value owns that distinction before pricing is applied.
             coef = params.get("coefficient") if basis == "transaction" else None
             stock_multiplier = params.get("stock_multiplier")
-            if stock_multiplier is not None:
+            if params.get("count_multiplier_spec") is not None:
+                from .shared_assumptions import SharedAssumptions
+                multipliers, _ = SharedAssumptions({}, int(q), int(ppy), (ctx or {}).get("growth_context")).resolve(params["count_multiplier_spec"], "scalar")
+                qty = sb * multipliers[int(q)-1]
+            elif stock_multiplier is not None:
                 sm = dict(stock_multiplier or {})
                 qty = sb * _fee_level_path_value(sm, q, ppy, ctx, 0.0)
             elif coef is not None:
