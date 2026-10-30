@@ -1478,4 +1478,12 @@ def run_v2(cfg):
     # exhibits and never feeds back into any engine value. See foundry/v2/reporting.py.
     from .reporting import attach as _attach_reporting
     _attach_reporting(cfg, results)
+    # r421: weighted count breakdowns by period for the stream editor (presentation only).
+    try:
+        from .count_breakdown import count_breakdowns as _count_breakdowns
+        _cb = _count_breakdowns(cfg, results)
+        if _cb:
+            results["count_breakdowns"] = _cb
+    except Exception as _e:
+        results["count_breakdowns"] = [{"error": f"{type(_e).__name__}: {_e}"[:300]}]
     return results
