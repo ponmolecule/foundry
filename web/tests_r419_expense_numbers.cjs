@@ -1,0 +1,16 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const H=fs.readFileSync('web/console_v2.html','utf8');
+const escape=s=>String(s).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;');
+let mounted,closed=false,copied=[];const status={textContent:''},box={hidden:true,focus(){},select(){}};
+const ctx={window:{},PPY:()=>12,esc:escape,lastErrs:null,lastRes:{nie_detail_series:{comp:[0,2,3],categories:[1,2,3],categories_total:[2,4,6],components:[1,2,3],category_details:[{name:'Insurance',series_id:'insurance',base:[1,2,3],components:[1,2,3],total:[2,4,6]}]},workforce:{roles:['Director'],series_ids:['director'],counts:[[0,1,2]],total_counts:[0,1,2],role_expenses:[[0,2,3]],additive_components:[{name:'Bonus',component_id:'bonus',amounts:[0,0,5]}]}},navigator:{clipboard:{writeText:async t=>copied.push(t)}},document:{getElementById:()=>null,createElement:()=>({setAttribute(){},addEventListener(event,fn){this[event]=fn},showModal(){this.open=true},remove(){closed=true},querySelector:s=>s==='textarea'?box:status}),body:{appendChild:d=>mounted=d}}};
+vm.createContext(ctx);vm.runInContext(H.slice(H.indexOf('// Numeric inspection stays'),H.indexOf('function _lfxRoHtml(')),ctx);
+(async()=>{const original=JSON.stringify(ctx.lastRes);
+for(const [kind,key,want] of [['workforce',null,'Director · active headcount'],['role','director','Director · compensation incl. payroll load'],['expenses',null,'Insurance · total'],['category','insurance','Insurance · recurring base'],['pool','bonus','Bonus']]){
+ const rows=ctx._nieNumbersRows(kind,key);assert(rows.some(r=>r.name===want));assert(rows.every(r=>r.values.length===3));const link=ctx._nieNumbersLink(kind,key);assert(link.includes('Numbers'));assert(!link.includes('<table'));}
+assert.equal(ctx._nieNumbersLink('role','missing'),'');assert.equal(ctx._nieNumbersLink('category','missing'),'');
+assert.equal(JSON.stringify(ctx.lastRes),original);
+for(const [ppy,tag] of [[12,'M'],[4,'Q'],[1,'Y']]){ctx.PPY=()=>ppy;const link=ctx._nieNumbersLink('category','insurance');const data=JSON.parse(link.match(/data-result-numbers="([^"]+)"/)[1].replaceAll('&quot;','"').replaceAll('&amp;','&'));
+ ctx.resultNumbersOpen({getAttribute:()=>JSON.stringify(data)});assert(mounted.innerHTML.includes(tag+'3'));assert(mounted.innerHTML.includes('$000s'));assert(mounted.innerHTML.includes('Resolved amounts'));assert(mounted.innerHTML.includes('Close period values'));await ctx.resultNumbersCopy({closest:()=>mounted},null);assert(copied.at(-1).includes(tag+'1\t'+tag+'2\t'+tag+'3'));mounted.close();assert(closed);}
+ctx.lastErrs=['incomplete'];assert(ctx._nieNumbersLink('expenses').includes('&quot;stale&quot;:true'));ctx.lastRes={};assert.equal(ctx._nieNumbersLink('workforce'),'');
+assert(H.includes("${_nieNumbersLink('workforce')}"));assert(H.includes("${_nieNumbersLink('expenses')}"));assert(H.includes("_nieNumbersLink('role',(wf.roles[_wfSel]||{}).series_id)"));
+console.log('PASS r419: full-series workforce/category/pool snapshots, money/count units, monthly/quarterly/yearly labels and TSV, stale/empty/unknown sources, close cleanup, unchanged result objects and discreet links.');})().catch(e=>{console.error(e);process.exit(1)});

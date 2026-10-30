@@ -1393,6 +1393,21 @@ def run_v2(cfg):
                                               "categories_total": [round(a / 1000.0 + b, 2) for a, b in
                                                                    zip(nd_s["categories"], _lk.get("total") or [0.0] * len(nd_s["categories"]))],
                                           })(base.get("nie_linked_by_category") or {}),
+                                          # Output-only inspection snapshots, from the same recognized base paths
+                                          # and component charges already used by the engine ($000s).
+                                          "category_details": [
+                                              {"name": str(ct.get("name") or "Unnamed category"),
+                                               "series_id": str(ct.get("series_id") or ""),
+                                               "base": [float(v) / 1000.0 for v in path],
+                                               "components": [float(v) for v in
+                                                   ((base.get("nie_linked_by_category") or {}).get("by_category") or {}).get(
+                                                       str(i), [0.0] * len(path))],
+                                               "total": [float(v) / 1000.0 + float(w) for v, w in zip(path,
+                                                   ((base.get("nie_linked_by_category") or {}).get("by_category") or {}).get(
+                                                       str(i), [0.0] * len(path)))]}
+                                              for i, (ct, path) in enumerate(zip(
+                                                  (cfg["assumptions"].get("nie_detail") or {}).get("categories") or [],
+                                                  nd_s.get("_category_series") or []))],
                                           "linked_component_count": len(nd_s.get("linked_components") or []),
                                           "prepaid_opex": [round(x / 1000.0, 2) for x in ((base.get("bs") or {}).get("prepaidOpex") or [])],
                                           "accrued_opex": [round(x / 1000.0, 2) for x in ((base.get("bs") or {}).get("accruedOpex") or [])],
