@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),H=fs.readFileSync('web/console_v2.html','utf8');
+const ch=(id,refs)=>({name:id,method:'pool_conversion',derived_series_ids:{new_customers:id},driver_specs:{pool:{series_id:id+'-pool',source:'link',link:{kind:'acquisition_channel_new_customers',series_id:(refs||[])[0],...(refs&&refs.length>1?{series_ids:refs}:{}),aggregation:'sum'}}}});
+const a={cac_feeds:{Feed:{channels:[ch('direct'),ch('digital'),ch('emr',['direct']),ch('downstream',['emr'])]}}};
+const ctx={window:null,cfg:{assumptions:a},esc:s=>String(s).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;'),renderContent(){},refresh(){},_ensureLinkableSeriesIds(){},_cacEnsureSpec:(c,k)=>c.driver_specs[k],_cacMeta:()=>[{k:'pool',linkKind:'acquisition_channel_new_customers'}],_cacEnsureDerivedIds:c=>c.derived_series_ids};ctx.window=ctx;
+vm.createContext(ctx);vm.runInContext(H.slice(H.indexOf('function _cacPoolSources('),H.indexOf('window.cacDriverSource=')),ctx);
+const meta=ctx._cacMeta()[0],pool=()=>a.cac_feeds.Feed.channels[2].driver_specs.pool;
+const before=JSON.stringify(a),opts=ctx._cacLinkOptions(meta,'Feed',2),html=ctx._cacPoolSourcesHtml('Feed',2,pool(),opts);
+assert.equal(JSON.stringify(a),before);assert(html.includes('+ Source'));assert(html.includes('Addressable pool source 1'));assert(!html.includes('textarea'));assert(!html.includes('<table'));
+assert(opts.find(o=>o.id==='emr').disabled);assert(opts.find(o=>o.id==='downstream').disabled);
+const saved=JSON.stringify(a);ctx.cacPoolSourceAdd('Feed',2);assert.equal(JSON.stringify(a),saved);const pendingHtml=ctx._cacPoolSourcesHtml('Feed',2,pool(),opts);assert(pendingHtml.includes('Addressable pool source 2'));ctx.cacPoolSourceAdd('Feed',2);assert.equal(JSON.stringify(a),saved);
+ctx.cacPoolSourceSelect('Feed',2,1,'direct');assert.equal(JSON.stringify(a),saved);
+ctx.cacPoolSourceSelect('Feed',2,1,'downstream');assert.equal(JSON.stringify(a),saved);
+ctx.cacPoolSourceSelect('Feed',2,1,'digital');assert.deepEqual(Array.from(pool().link.series_ids),['direct','digital']);
+const multi=ctx._cacPoolSourcesHtml('Feed',2,pool(),ctx._cacLinkOptions(meta,'Feed',2));assert(multi.includes('Sum of live monthly additions'));assert(multi.includes('Remove pool source 2'));assert(multi.includes('conversion applies once'));assert(!multi.includes('cac-link-preview'));
+ctx.cacPoolSourceRemove('Feed',2,0);assert.equal(pool().link.series_id,'digital');assert(!pool().link.series_ids);ctx.cacPoolSourceRemove('Feed',2,0);assert.equal(pool().link.series_id,'digital');
+const savedAgain=JSON.stringify(a);ctx.cacPoolSourceAdd('Feed',2);ctx.cacPoolSourceRemove('Feed',2,1);assert.equal(JSON.stringify(a),savedAgain);
+console.log('PASS compact source rows, add/select/remove, scalar compatibility, read-only rendering, duplicate/cycle guards and single pending selection');
