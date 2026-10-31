@@ -19,11 +19,13 @@ assert.strictEqual(await A.locator('.fcb-t tbody tr:not(.fcb-tot)').count(),4);
 assert.strictEqual(await A.locator('.fcb-tag',{hasText:'FLAT'}).count(),8);
 assert(/100\.00%/.test(await A.locator('.fcb-tot').innerText())&&/12\.456/.test(await A.locator('.fcb-tot').innerText()));
 assert(/count = Enabled accounts × Σ/.test(await A.locator('.count-equation').innerText()));
-const want=await page.evaluate(()=>Math.round(lastRes.count_breakdowns[0].quantity[11]).toLocaleString('en-US'));
-assert.strictEqual((await A.locator('.fcb-big').innerText()).split('\n')[0].replace(/count/,'').trim(),want,'result at M12');
-assert.strictEqual(await A.locator('.fcb-contrib b').count(),4);
-const g=await page.evaluate(()=>{const m=document.querySelector('.fcb-main').getBoundingClientRect(),r=document.querySelector('.fcb-ro').getBoundingClientRect();return {right:r.left>=m.right-1,top:Math.abs(r.top-m.top)<60};});
-assert(g.right,'results column on the right');
+assert.strictEqual(await A.locator('.fcb-ro').count(),0,'no duplicate sidebar');
+const explain=A.locator('.fcb-explain');assert((await explain.getAttribute('open'))===null,'explanation starts closed');
+await explain.locator('summary').click();
+const want=await page.evaluate(()=>lastRes.count_breakdowns[0].quantity[11].toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
+assert((await explain.innerText()).includes(want),'engine count in optional explanation');
+assert.strictEqual(await explain.locator('.fcb-explain-contributions b').count(),4);
+await explain.locator('summary').click();
 // 2. Editing a flat share inline; the check catches 99% and Scale restores 100%.
 const s1=A.locator('input[aria-label="Band 1 share (%)"]');await s1.fill('72.5415');await s1.press('Tab');await page.waitForTimeout(50);
 assert(Math.abs((await comps())[0].weight_spec.value-0.725415)<1e-12);
@@ -63,7 +65,8 @@ await A.locator('.fcb-seg button',{hasText:'Weighted breakdown'}).click();
 assert.strictEqual((await comps()).length,4);
 // 7. Containment.
 for(const width of [1440,1100]){await page.setViewportSize({width,height:1000});
-  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),width+' no page scroll');}
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),width+' no page scroll');
+  assert(await A.locator('.fcb-scroll').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'no band-table horizontal scrollbar');}
 assert.deepStrictEqual(errors,[]);
 console.log('PASS r422 count breakdown: band table, inline flat values, tags open the Series editor beneath the row, remainder band (one only, reversible), first-period and every-period share checks, scale to 100%, results on the right, method switch keeps drafts, containment');
 }finally{await browser.close();}
