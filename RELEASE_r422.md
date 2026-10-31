@@ -1,0 +1,3 @@
+# r422 — Weighted count breakdown as one band table
+
+Built on r421. The weighted breakdown is one table (a row per band) with inline flat values, a tag per value that opens the existing Series editor beneath its row, a mix bar and total row, a share check in the first period and in every period, and results on the right (count, how it is built, which bands it comes from, its path). One band may take the remainder share (100% less the others, every month), so a growing share is offset automatically. Additive resolver option and a presentation-only run field (count_breakdowns); existing configurations calculate exactly as before.

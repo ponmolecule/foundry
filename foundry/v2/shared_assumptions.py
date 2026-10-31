@@ -35,17 +35,40 @@ class SharedAssumptions:
             ids=[str(t.get('id') or '') for t in terms]
             if any(not x for x in ids) or len(set(ids))!=len(ids):raise ValueError('Weighted components require unique stable IDs')
             values=[0.]*self.months;weights=[0.]*self.months
+            # r421: one component may take the remainder share (100% less every other component, each month),
+            # so a growing share can be offset without re-authoring the others.
+            rem=[t for t in terms if (t.get('weight_spec') or {}).get('source')=='remainder']
+            if len(rem)>1:raise ValueError('Only one component can take the remainder share')
+            resolved=[]
             for term in terms:
                 amount=self.evaluate(term.get('amount_spec') or {},expected,stack)
+                if term in rem:
+                    resolved.append((term,amount,None));continue
                 weight=self.evaluate(term.get('weight_spec') or {},'share',stack)
-                for i,(a,w) in enumerate(zip(amount,weight)):
+                for i,w in enumerate(weight):
                     if w>1:raise ValueError('Component weight must be between 0% and 100%')
-                    weights[i]+=w;values[i]+=a*w
+                    weights[i]+=w
+                resolved.append((term,amount,weight))
+            if rem:
+                left=[1-w for w in weights]
+                bad=next((i for i,x in enumerate(left) if x<-1e-8),None)
+                if bad is not None:
+                    raise ValueError(f'Remainder share would be negative: the other components total '
+                                     f'{weights[bad]*100:.2f}% in month {bad+1}')
+                left=[max(0.,x) for x in left]
+                resolved=[(t,a,left if w is None else w) for t,a,w in resolved]
+                weights=[w+x for w,x in zip(weights,left)]
+            for term,amount,weight in resolved:
+                for i,(a,w) in enumerate(zip(amount,weight)):
+                    values[i]+=a*w
                 self.detail.append({'component_id':term['id'],'name':term.get('name') or term['id'],
                                     'unit':expected,'amount':amount,'weight':weight,
+                                    'weight_source':'remainder' if term in rem else 'entered',
                                     'weighted_amount':[a*w for a,w in zip(amount,weight)]})
-            if any(abs(w-1)>1e-8 for w in weights):
-                raise ValueError('Weighted amount shares must total 100% in every month')
+            bad=next((i for i,w in enumerate(weights) if abs(w-1)>1e-8),None)
+            if bad is not None:
+                raise ValueError('Weighted amount shares must total 100% in every month '
+                                 f'(month {bad+1}: {weights[bad]*100:.2f}%)')
         elif src=='entered':
             unit=s.get('unit',expected)
             if unit!=expected:raise ValueError('Entered assumption unit mismatch')
