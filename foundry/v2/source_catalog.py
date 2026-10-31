@@ -84,6 +84,7 @@ def catalog(a):
                 if sid in opex_ids:consumers.append('opex_formula')
                 if key=='obs_exposures':consumers.append('fee_quantity')
                 if (sid,'fee_quantity') in deps:consumers.append('deposit_'+basis)
+                if (sid,'fee_count') in deps:consumers.append('deposit_count')
                 if unit=='money_flow' and basis=='transaction' and ((key=='obs_exposures' and (sid,'fee_quantity') in deps) or (key=='deposit_products' and p.get('balance_mode')!='pool' and (st.get('driver') or {}).get('source','constant')=='constant')):consumers.append('lending_funded_flow')
                 rows.append(dict(series_id=sid,label=f'{fam} › {p.get("name") or fam} › {st.get("name") or "Stream"}',family=fam,unit=unit,temporal='stock' if basis=='balance' else 'flow' if basis=='transaction' else 'level',measures=[],consumers=consumers,driver='fee_stream_quantity',basis=basis,product_index=pi,stream_index=si,collection=key))
                 if (sid,'fee_share') in deps:

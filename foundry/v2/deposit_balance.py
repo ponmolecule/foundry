@@ -14,6 +14,21 @@ def _check(values, label, share=False):
     return out
 
 
+def count_source_catalog(a):
+    """Independent Account levels only; never follow bank/deposit balances back into a deposit."""
+    from .fee_links import FeeLinkPlan
+    plan = FeeLinkPlan(a)
+    def independent(node, seen=frozenset()):
+        if node in seen or plan.nodes[node].get('basis') != 'account': return False
+        d = plan.nodes[node].get('driver') or {}
+        dep = plan.deps[node]
+        if dep is not None: return independent(dep, seen | {node})
+        return d.get('source', 'constant') in {'constant', 'customer_acquisition_count'}
+    return [dict(series_id=st['quantity_series_id'], kind='fee_count', basis='account', stream=st,
+                 label=str(plan.products[pi].get('name') or 'Fee product')+' · '+str(st.get('name') or 'Account count'))
+            for (pi, si), st in plan.nodes.items() if st.get('quantity_series_id') and independent((pi, si))]
+
+
 def source_catalog(a):
     """Only upstream OBS quantities; deposit-owned drivers would create a cycle."""
     from .income_modules import _fee_stream_quantity_kinds
@@ -61,6 +76,7 @@ def source_catalog(a):
             # Sources owned by deposit members would point back into their consumer.
             if fd.get('source') == 'entered' or (fd.get('source') == 'fee_stream_quantity' and any(x['series_id'] == fd.get('series_id') and x['kind'] == 'fee_quantity' for x in out)):
                 out.append(dict(series_id=p['balance_series_id'], kind='lending_funded_flow', label=str(p.get('name') or 'Lending') + ' · funded flow', basis='transaction', product=p))
+    out.extend(count_source_catalog(a))
     return out
 
 
@@ -149,7 +165,28 @@ def per_customer_amount(product, a, months, growth_context=None, seen=()):
     return _check(resolve_entered_series(spec,months,12,context=growth_context),'Deposit balance per customer'),[]
 
 
-def customer_balance(product, a, n, ppy, growth_context=None):
+def stream_count_balance(product, a, n, ppy, quantities, growth_context=None):
+    """Published native-period count × same-period per-account amount, with no flow conversion."""
+    d = product.get('balance_driver') or {};sid = str(d.get('series_id') or '')
+    if not any(x['series_id'] == sid for x in count_source_catalog(a)):
+        raise ValueError('Deposit count stream is missing, incompatible or depends on bank/deposit balances')
+    if d.get('measure', 'period_end') != 'period_end':
+        raise ValueError('A linked account stream uses its published count level; period-average resampling is unavailable')
+    if ppy not in {4,12}: raise ValueError('Account-linked deposits require monthly or quarterly cadence')
+    counts = (quantities or {}).get(sid)
+    if not isinstance(counts, list) or len(counts) != n: raise ValueError('Deposit account-count stream has an incomplete horizon')
+    counts = _check(counts, 'Deposit linked account count')
+    step = 12 // ppy
+    amounts, detail = per_customer_amount(product, a, n*step, growth_context)
+    shares = _check(resolve_entered_series(d.get('balance_share_spec') or {'source':'entered','trajectory':'flat','value':1}, n*step, 12, context=growth_context), 'Deposit balance share', True)
+    amounts = amounts[step-1::step];shares = shares[step-1::step]
+    return {'seriesId':sid, 'measure':'period_end', 'countCadence':'published_period', 'periodCount':counts,
+            'periodDollarsPerCustomer':amounts, 'endingBalanceDollars':_check([c*v*w for c,v,w in zip(counts,amounts,shares)], 'Deposit customer balance'),
+            **({'breakdown':detail} if detail else {}),
+            **({'periodBalanceShare':shares} if d.get('balance_share_spec') is not None else {})}
+
+
+def customer_balance(product, a, n, ppy, growth_context=None, quantities=None):
     """A monetary stock from the CAC-owned monthly book and dollars per customer.
 
     Resolve monthly before selecting a period-end stock or averaging monthly
@@ -158,6 +195,8 @@ def customer_balance(product, a, n, ppy, growth_context=None):
     from .cac_feeder import cac_customer_count_catalog, cac_auc_rollforward
     from .balance_measures import monthly_balance_measure_series
     d = product.get('balance_driver') or {}
+    if d.get('source') == 'fee_quantity':
+        return stream_count_balance(product,a,n,ppy,quantities,growth_context)
     if d.get('source', 'customer_acquisition_count') != 'customer_acquisition_count':
         raise ValueError('Deposit customer balance requires a Customer Acquisition count source')
     sid = str(d.get('series_id') or '')
@@ -219,7 +258,7 @@ def prepare(a, n, ppy, quantities=None, growth_context=None, customer_details=No
                 raise ValueError('Deposit level requires an explicit ending balance source')
             direct[i] = r(p.get('ending_balance_spec'))
         if mode == 'linked_customer_level':
-            resolved = customer_balance(p, a, n, ppy, growth_context)
+            resolved = customer_balance(p, a, n, ppy, growth_context, quantities)
             direct[i] = resolved['endingBalanceDollars']
             if customer_details is not None:
                 customer_details[i] = resolved

@@ -1115,19 +1115,19 @@ def _product_rows(results, n, exact=None):
                     if isinstance(values,list):
                         stride=max(1,len(values)//n);unit='factor' if key=='weight' or detail.get('unit') in {'share','scalar','rate'} else '$ / customer'
                         rows.append((f'{fam} · {name}',str(detail.get('name') or 'Amount')+' · '+key,detail.get('component_id') or '',unit,values[stride-1::stride],_RATE_FMT if unit=='factor' else _MONEY_FMT))
-            if calc.get('monthlyBalanceShare') is not None:
-                values=calc['monthlyBalanceShare'];stride=max(1,len(values)//n)
+            if calc.get('monthlyBalanceShare') is not None or calc.get('periodBalanceShare') is not None:
+                values=calc.get('periodBalanceShare',calc.get('monthlyBalanceShare'));stride=max(1,len(values)//n)
                 rows.append((f'{fam} · {name}','Balance share','balance_share','factor',values[stride-1::stride],_RATE_FMT))
-            counts = calc['monthlyCount']
-            amounts = calc['monthlyDollarsPerCustomer']
+            counts = calc.get('periodCount', calc.get('monthlyCount'))
+            amounts = calc.get('periodDollarsPerCustomer', calc.get('monthlyDollarsPerCustomer'))
             step = len(counts) // n
             selected = [counts[(i+1)*step-1] if calc['measure'] == 'period_end' else
                         sum(counts[i*step:(i+1)*step])/step for i in range(n)]
-            rows.append((f'{fam} · {name}', 'Customer count · '+calc['measure'], calc['seriesId'], 'count', selected, _COUNT_FMT))
+            rows.append((f'{fam} · {name}', 'Published source count' if calc.get('countCadence') == 'published_period' else 'Customer count · '+calc['measure'], calc['seriesId'], 'count', selected, _COUNT_FMT))
             # Per-unit values retain dollars, unlike monetary balance output.
             selected_amounts = [amounts[(i+1)*step-1] for i in range(n)]
-            rows.append((f'{fam} · {name}', 'Balance per customer · last monthly observation', 'balance_per_customer', '$ / customer', selected_amounts, _MONEY_FMT))
-            rows.append((f'{fam} · {name}', 'Customer-linked ending balance · monthly products resolved before aggregation', 'customer_balance', '$000s', _money_k_series(calc['endingBalanceDollars']), _MONEY_FMT))
+            rows.append((f'{fam} · {name}', 'Balance per customer · published period' if calc.get('countCadence') == 'published_period' else 'Balance per customer · last monthly observation', 'balance_per_customer', '$ / customer', selected_amounts, _MONEY_FMT))
+            rows.append((f'{fam} · {name}', 'Account-linked ending balance · published count × period-end amount' if calc.get('countCadence') == 'published_period' else 'Customer-linked ending balance · monthly products resolved before aggregation', 'customer_balance', '$000s', _money_k_series(calc['endingBalanceDollars']), _MONEY_FMT))
         for key, arr in p.items():
             if not isinstance(arr, list) or not all(x is None or isinstance(x, (int, float)) for x in arr):
                 continue
