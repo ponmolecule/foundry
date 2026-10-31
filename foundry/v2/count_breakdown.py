@@ -44,7 +44,14 @@ def count_breakdowns(cfg, res):
                     if isinstance(q, list) and q:
                         q = [float(x or 0.0) for x in q[:n]]
                         rec["quantity"] = q
-                        rec["source"] = [(q[t] / mult[t]) if mult[t] else None for t in range(min(len(q), len(mult)))]
+                        # Read the actual published upstream quantity. Dividing the result by the
+                        # multiplier would misstate it when participation or launch timing also applies.
+                        upstream_id = str(drv.get("ref") or "")
+                        if drv.get("source") == "stream_ref":
+                            hits = [x for x in p.get("fee_streams") or [] if x.get("name") == upstream_id]
+                            upstream_id = str(hits[0].get("quantity_series_id") or "") if len(hits) == 1 else ""
+                        upstream = qty.get(upstream_id)
+                        rec["source"] = [float(x) if x is not None else None for x in upstream[:n]] if isinstance(upstream, list) else [None] * len(q)
                 except ValueError as e:
                     rec["error"] = str(e)
                 out.append(rec)

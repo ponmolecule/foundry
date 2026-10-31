@@ -1,0 +1,11 @@
+# r423 — Full-width count authoring and optional explanation
+
+Built on Claude r422 (aeb4798). The band editor uses the entire available width. The permanent result sidebar, duplicated headline count and mini-chart are removed. A collapsed Explain calculation disclosure below the editor retains the source-to-result chain and band contributions from the latest completed run. Opening it is session-only UI state. The original result chart and Numbers link remain.
+
+The band table uses proportional columns and flexible names. At narrow container widths it stacks into labeled band rows rather than requiring horizontal scrolling. Customize ratio label lets the user supply wording such as People per organization; it is generic presentation metadata and does not change units or calculations. Existing configurations need no migration.
+
+Unpriced Account count charts retain period snapshots and omit the misleading horizon sum. Transaction-flow counts and financial revenue/cost series retain their sums.
+
+One additional diagnostic correction: count_breakdowns.source reads the actual published upstream quantity rather than deriving source = result / multiplier. The old inference could hide participation/timing adjustments and lost the source when the multiplier was zero. Missing published sources are shown unavailable. When source × multiplier differs from the resolved quantity, the explanation identifies additional participation/timing adjustments. No financial-engine equations or save mechanisms change.
+
+Validation: four r423 engine/diagnostic tests pass (labels preserve financials, actual source under participation, zero multiplier, missing source). The r423 editor harness verifies collapsed explanation, exact snapshot provenance, custom labels, no duplicate sidebar/chart and stock-versus-flow summary selection. Existing r420 count and editor tests, five non-browser r422 tests, syntax checks and diff checks pass. The r422 browser test was updated for the disclosure and table containment but was not executed: no local browser binary is available and the cloud browser could not access the local preview in the prior layout pass. Real-browser visual/geometry verification remains outstanding.
