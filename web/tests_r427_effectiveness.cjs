@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),H=fs.readFileSync('web/console_v2.html','utf8');
+const c={_seriesId:()=> 'test-id',_cacFlowKey:()=>false,_cacMode:s=>s.mode||s.trajectory};vm.createContext(c);
+vm.runInContext(H.slice(H.indexOf('function _cacMeta('),H.indexOf('function _cacFlowKey(')),c);
+vm.runInContext(H.slice(H.indexOf('function _cacLegacyVal('),H.indexOf('function _cacFeedSpec(')),c);
+const meta=c._cacMeta('spend_cac'),m=meta.find(x=>x.k==='effectiveness_multiplier');assert(m);assert.equal(m.kind,'pct');assert.equal(m.lab,'Effectiveness multiplier');assert.equal(m.unit,'%');assert(!m.flow);
+const ch={method:'spend_cac',params:{spend:21624,cac:265}},before=JSON.stringify(ch);c._cacMeta('spend_cac');assert.equal(JSON.stringify(ch),before);
+assert.equal(c._cacLegacyVal(ch,'effectiveness_multiplier',1),1);const s=c._cacEnsureSpec(ch,'effectiveness_multiplier');assert.equal(s.value,1);assert.equal(s.source,'entered');assert.equal(s.mode,'flat');
+s.value=.0425;assert.equal(c._cacEnsureSpec(ch,'effectiveness_multiplier').value,.0425);
+assert(H.includes('New customers = Spend ÷ CAC × Effectiveness multiplier (spend is unchanged)'));
+console.log('PASS Spend/CAC effectiveness control, percent units, 100% default, saved-value preservation and equation wording');
