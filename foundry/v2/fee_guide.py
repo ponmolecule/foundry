@@ -169,7 +169,7 @@ _SOURCE_LABELS = {
     "own_balance": "Own on-book balance",
     "managed_notional": "Managed notional (AUC/AUM)",
     "stream_ref": "Another stream",
-    "fee_stream_quantity": "Linked stream quantity — across fee products",
+    "fee_stream_quantity": "Linked stream quantity — across products",
     "bank_aggregate": "Bank aggregate",
     "cost_pool": "Cost pool — eligible cost base",
     "customer_acquisition_count": "Ending bank customers — Customer Acquisition",

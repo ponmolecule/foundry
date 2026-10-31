@@ -77,7 +77,7 @@ def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping 
             for family in ("deposit_products", "obs_exposures"):
                 for pi,prod in enumerate((assumptions or {}).get(family) or []):
                     streams = prod.get("fee_streams") or []
-                    kinds = {i:plan.kinds[(pi,i)] for i in range(len(streams))} if plan and family=="obs_exposures" else _fee_stream_quantity_kinds(streams)
+                    kinds = {i:plan.kinds[(plan.owners[(family,pi)],i)] for i in range(len(streams))} if plan else _fee_stream_quantity_kinds(streams)
                     matches += [(st, kinds[i]) for i, st in enumerate(streams)
                                 if str(st.get("quantity_series_id") or "") == sid]
             if len(matches) != 1 or matches[0][1] != "money" or matches[0][0].get("basis") != "transaction":

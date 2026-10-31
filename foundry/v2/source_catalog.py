@@ -68,7 +68,7 @@ def catalog(a):
     # Dependency-sensitive deposit bindings are withheld until the graph is valid.
     try:
         deps={(x['series_id'],x['kind']):x for x in deposit_sources(a)}
-        plan=FeeLinkPlan(a) if has_links(a) else None
+        plan=FeeLinkPlan(a)
     except ValueError:
         deps={};plan=None
     for fam,key in [('Fee Product','obs_exposures'),('Deposit','deposit_products'),('Lending','lending_products')]:
@@ -78,11 +78,11 @@ def catalog(a):
             for si,st in enumerate(streams):
                 sid=st.get('quantity_series_id');basis=st.get('basis')
                 if not sid or basis not in {'transaction','balance','account'}:continue
-                kind=plan.kinds[(pi,si)] if plan and key=='obs_exposures' else kinds.get(si,'native')
+                kind=plan.kinds[(plan.owners[(key,pi)],si)] if plan else kinds.get(si,'native')
                 unit=('money_stock' if basis=='balance' else 'money_flow') if kind=='money' else ('count' if basis=='account' or kind=='count' else 'native')
                 consumers=[]
                 if sid in opex_ids:consumers.append('opex_formula')
-                if key=='obs_exposures':consumers.append('fee_quantity')
+                if not plan or plan.exportable((plan.owners[(key,pi)],si)):consumers.append('fee_quantity')
                 if (sid,'fee_quantity') in deps:consumers.append('deposit_'+basis)
                 if (sid,'fee_count') in deps:consumers.append('deposit_count')
                 if unit=='money_flow' and basis=='transaction' and ((key=='obs_exposures' and (sid,'fee_quantity') in deps) or (key=='deposit_products' and p.get('balance_mode')!='pool' and (st.get('driver') or {}).get('source','constant')=='constant')):consumers.append('lending_funded_flow')
