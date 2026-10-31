@@ -558,7 +558,8 @@ def run_checks(cfg, runner=None, saved=None):
 def _fee_link_findings(cfg):
     """Nonblocking authoring checks; quantities and financial posting are independent."""
     a = cfg.get("assumptions") or {}
-    products = a.get("obs_exposures") or []
+    owners = [(key,i,p) for key in ("obs_exposures","deposit_products","lending_products") for i,p in enumerate(a.get(key) or [])]
+    products = [p for _,_,p in owners]
     ids = {s.get("quantity_series_id"): s for p in products for s in p.get("fee_streams") or [] if s.get("quantity_series_id")}
     def active(s):
         for k in ("rate", "cost"):
@@ -567,7 +568,7 @@ def _fee_link_findings(cfg):
             if any(_num(v) and v != 0 for v in _numbers(obj.get("params") or {})): return True
         return False
     out = []
-    for pi, p in enumerate(products):
+    for key, pi, p in owners:
         streams = p.get("fee_streams") or []
         for si, st in enumerate(streams):
             d = st.get("driver") or {}; params = d.get("params") or {}; ref = d.get("ref")
@@ -577,7 +578,8 @@ def _fee_link_findings(cfg):
                 from .income_modules import _fee_stream_quantity_kinds
                 from .fee_links import has_links, FeeLinkPlan
                 try:
-                    kind = FeeLinkPlan(a).kinds[(pi,si)] if has_links(a) else _fee_stream_quantity_kinds(streams).get(si)
+                    plan = FeeLinkPlan(a) if has_links(a) else None
+                    kind = plan.kinds[(plan.owners[(key,pi)],si)] if plan else _fee_stream_quantity_kinds(streams).get(si)
                     if kind == 'count':
                         hints.append('Per-unit cost on a count flow is charged per event. If this is recurring account servicing, use Account basis and Cost per account with an explicit billing period.')
                 except ValueError: pass
@@ -587,7 +589,7 @@ def _fee_link_findings(cfg):
             if d.get("trajectory") == "derived" and coef.get("trajectory") == "explicit_schedule" and not coef.get("schedule"):
                 hints.append("The linked quantity is multiplied by an empty coefficient schedule. Load the schedule or choose Flat to pass the source through.")
             for hint in hints:
-                out.append(dict(severity="look", kind="authoring", path=["assumptions", "obs_exposures", pi, "fee_streams", si], where="Fee products · " + str(p.get("name") or pi), detail=str(st.get("name") or si), hint=hint, effects=None, same_period_as=[]))
+                out.append(dict(severity="look", kind="authoring", path=["assumptions", key, pi, "fee_streams", si], where=({"obs_exposures":"Fee products", "deposit_products":"Deposits", "lending_products":"Lending"}[key])+" · " + str(p.get("name") or pi), detail=str(st.get("name") or si), hint=hint, effects=None, same_period_as=[]))
     return out
 
 

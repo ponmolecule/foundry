@@ -635,23 +635,23 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
             _dp['_interest_before_minimum'] = []
     _deposit_prepared = False
     from .fee_links import has_links, FeeLinkPlan
-    _fee_links = FeeLinkPlan(a) if has_links(a) else None
+    _fee_links = FeeLinkPlan(dict(a, obs_exposures=obs, deposit_products=dep, lending_products=lend)) if has_links(a) else None
     _fee_link_contexts = {}
-    _fee_links_done = False
+    _fee_link_completed = set()
     def _project_fee_streams(product, period, context, cadence):
-        if _fee_links is not None and any(product is x for x in obs):
-            pi = next(i for i,x in enumerate(obs) if product is x)
+        if _fee_links is not None:
+            pi = next(i for i,x in enumerate(_fee_links.products) if product is x)
             _fee_link_contexts[(pi, period)] = context
             return 0., 0.
         return product_fee_streams_q(product, period, context, cadence)
-    def _finish_fee_links():
-        nonlocal _fee_links_done
-        if _fee_links is None or _fee_links_done: return
-        totals = _fee_links.evaluate(_fee_link_contexts, Q, ppy)
+    def _finish_fee_links(require_complete=False):
+        if _fee_links is None: return
+        totals = _fee_links.evaluate(_fee_link_contexts, Q, ppy,
+            completed=_fee_link_completed, require_complete=require_complete)
         for (pi, period), (inc, cost) in totals.items():
-            obs[pi]["_fee"][period] += inc
-            obs[pi]["_fcost"][period] += cost
-        _fee_links_done = True
+            product=_fee_links.products[pi]
+            product["_fee"][period] += inc
+            product["_fcost"][period] += cost
     # Resolve upstream fee quantities before their deposit consumers; historical
     # projection order stays identical for engagements without deposit extensions.
     for p in (obs + dep if _deposit_feature else dep + obs):
@@ -972,7 +972,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 _interest_basis = p["_repayment_profile"]["interest_basis"][q-1]
                 p["_interest_basis"][-1] = _interest_basis
             p["_ii"].append(_contract_row["interest"] if _contract_row is not None else _interest_basis * r / ppyf); p["_ie"].append(0.0)
-            _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg, "own_balance_begin": beg, "own_balance_end": end,
+            _pf_inc, _pf_cost = _project_fee_streams(p, q, {"own_balance": avg, "own_balance_begin": beg, "own_balance_end": end,
                                                             **({"_profile_monthly_operands": {"own_balance":[x['average'] for x in p['_repayment_profile']['monthly']], "own_balance_begin":[x['beginning'] for x in p['_repayment_profile']['monthly']], "own_balance_end":[x['ending'] for x in p['_repayment_profile']['monthly']], "distributed_balance":[x['distributed'] for x in p['_repayment_profile']['monthly']], "product_funded_flow":p['_repayment_profile']['monthly_funded_volume']}} if p.get('_repayment_profile') is not None else {}),
                                                             **({"product_funded_flow": _linked_level["funded_volume"][q - 1]}
                                                                if _linked_level and "funded_volume" in _linked_level else {}),
@@ -1064,6 +1064,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 p["_fv"].append(fv); p["_fvadj"].append(fv - p["_bal"][q])
             else:
                 p["_fv"].append(None); p["_fvadj"].append(0.0)
+
+    _finish_fee_links(require_complete=True)
 
     # Fee-stream quantities are now complete. Interest-bearing balances may consume
     # one of those canonical quantity Series (for example Migrated MAB) without
@@ -1384,6 +1386,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                     "managed_notional_end": _dp["_mn_end"][q - 1],
                     "cost_pool": _cost_pool_ctx(q), "customer_acquisition_count": _cac_customer_count_ctx(q), "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,
                     "capture_stream_qty": _fee_stream_qty_series, "capture_stream_economics": _fee_stream_econ_series,
+                    "linked_stream_qty": _fee_stream_qty_series,
+                    "linked_stream_defs": {sid:_fee_links.nodes[node] for sid,node in _fee_links.ids.items()} if _fee_links else {},
                     "growth_context": _growth_ctx}, ppy)
                 _dp["_fee"][q] = _avg * (_dp.get("fee_yield_ann") or 0) / ppyf + _inc + _sweep_fee
                 _dp["_fcost"][q] = _cost

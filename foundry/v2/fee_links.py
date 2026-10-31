@@ -1,4 +1,4 @@
-"""Stable quantity links across fee-product owners; quantities, never revenue.
+"""Stable quantity links across all product owners; quantities, never revenue.
 
 Opt-in: configurations without fee_stream_quantity drivers use the old evaluator.
 All stream nodes are sorted, allowing A -> B -> A across owners when the actual
@@ -14,11 +14,12 @@ def has_links(a):
 class FeeLinkPlan:
     def __init__(self,a):
         from .income_modules import fee_quantity_kind
-        self.products=a.get('obs_exposures') or []
+        self.products=[];self.owners={};self.families={}
+        for key in ('obs_exposures','deposit_products','lending_products'):
+            for i,p in enumerate(a.get(key) or []):
+                pi=len(self.products);self.products.append(p)
+                self.owners[(key,i)]=pi;self.families[pi]=key
         self.nodes={};self.ids={};self.local={};self.deps={};self.kinds={}
-        for key in ('deposit_products','lending_products'):
-            if any((s.get('driver') or {}).get('source')=='fee_stream_quantity' for p in a.get(key) or [] for s in p.get('fee_streams') or []):
-                raise ValueError('Linked fee-stream quantities are authored on Fee Products; deposit/lending links use their existing typed selectors')
         all_ids={}
         for key in ('obs_exposures','deposit_products','lending_products'):
             for p in a.get(key) or []:
@@ -50,6 +51,9 @@ class FeeLinkPlan:
                 if len(hits)!=1:raise ValueError('Same-product fee reference is missing or ambiguous: '+ref)
                 dep=hits[0]
             self.deps[node]=dep
+        for node,dep in self.deps.items():
+            if dep is not None and (self.nodes[node].get('driver') or {}).get('source')=='fee_stream_quantity' and not self.exportable(dep):
+                raise ValueError('A linked stream cannot export a retention-pool balance before its bank-state allocation; use the published deposit/pool balance formula source instead')
         self.order=[];visiting=set();done=set()
         def visit(node):
             if node in done:return
@@ -66,23 +70,45 @@ class FeeLinkPlan:
                 if kind=='money':raise ValueError('Durbin pricing requires transaction counts, not monetary throughput')
                 if not st.get('quantity_series_id'):raise ValueError('A linked Durbin stream requires its own quantity_series_id')
 
-    def evaluate(self,contexts,n,ppy):
+    def exportable(self,node):
+        """Pool balance quantities are provisional until the bank-state loop."""
+        seen=set()
+        while node not in seen:
+            seen.add(node);owner=self.products[node[0]]
+            source=(self.nodes[node].get('driver') or {}).get('source')
+            if self.families[node[0]]=='deposit_products' and owner.get('balance_mode')=='pool' and source in {'own_balance','distributed_balance'}:return False
+            if self.deps[node] is None:return True
+            node=self.deps[node]
+        return True  # DFS reports cycles separately, with a precise message.
+
+    def evaluate(self,contexts,n,ppy,*,completed=None,require_complete=True):
+        """Evaluate ready nodes once. Contexts arrive as parent balances are projected.
+
+        Upstream fee quantities can feed deposit/lending balances before all loan
+        contexts exist; unresolved nodes wait, never publish fabricated zeroes.
+        """
         from .income_modules import fee_stream_q
-        totals={(pi,q):[0.,0.] for pi,_ in enumerate(self.products) for q in range(1,n+1)}
+        completed=set() if completed is None else completed
+        totals={}
         definitions={sid:self.nodes[node] for sid,node in self.ids.items()}
         for q in range(1,n+1):
-            for pi in range(len(self.products)):
-                ctx=contexts[(pi,q)];ctx['stream_qty']={};ctx['stream_defs']={str(s.get('name') or ''):s for s in self.products[pi].get('fee_streams') or []}
-                ctx['linked_stream_defs']=definitions;ctx['linked_stream_qty']=ctx['capture_stream_qty']
             for node in self.order:
-                pi,si=node;ctx=contexts[(pi,q)];st=self.nodes[node];sid=str(st.get('quantity_series_id') or '').strip()
+                pi,si=node;key=(node,q);dep=self.deps[node]
+                if key in completed or (pi,q) not in contexts or (dep is not None and (dep,q) not in completed):continue
+                ctx=contexts[(pi,q)];st=self.nodes[node];sid=str(st.get('quantity_series_id') or '').strip()
+                ctx.setdefault('stream_qty',{})
+                ctx['stream_defs']={str(s.get('name') or ''):s for s in self.products[pi].get('fee_streams') or []}
+                ctx['linked_stream_defs']=definitions;ctx['linked_stream_qty']=ctx['capture_stream_qty']
                 if sid:
                     arr=ctx['capture_stream_qty'].setdefault(sid,[0.]*n)
                     while len(arr)<n:arr.append(0.)
                 drv=st.get('driver') or {};coef=(drv.get('params') or {}).get('coefficient') or {}
                 if coef.get('kind')=='pct' and not coef.get('semantics'):
-                    st=copy.deepcopy(st);dep=self.deps[node];kind=self.kinds.get(dep,'count' if drv.get('source')=='customer_acquisition_count' else 'native')
+                    st=copy.deepcopy(st);kind=self.kinds.get(dep,'count' if drv.get('source')=='customer_acquisition_count' else 'native')
                     st['driver']['params']['coefficient']['semantics']='share' if kind=='count' else 'flow'
                 inc,cost=fee_stream_q(st,q,ctx,ppy)
-                totals[(pi,q)][0]+=inc;totals[(pi,q)][1]+=cost
+                total=totals.setdefault((pi,q),[0.,0.]);total[0]+=inc;total[1]+=cost
+                completed.add(key)
+        if require_complete and len(completed)!=len(self.nodes)*n:
+            raise ValueError('Linked stream evaluation is incomplete: a parent balance or source quantity is not available')
         return totals

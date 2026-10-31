@@ -19,7 +19,7 @@ def count_source_catalog(a):
     from .fee_links import FeeLinkPlan
     plan = FeeLinkPlan(a)
     def independent(node, seen=frozenset()):
-        if node in seen or plan.nodes[node].get('basis') != 'account': return False
+        if node in seen or plan.families[node[0]] != 'obs_exposures' or plan.nodes[node].get('basis') != 'account': return False
         d = plan.nodes[node].get('driver') or {}
         dep = plan.deps[node]
         if dep is not None: return independent(dep, seen | {node})
@@ -45,7 +45,7 @@ def source_catalog(a):
             seen.add(i)
             if plan:
                 def globally_upstream(node, visited):
-                    if node in visited:return False
+                    if node in visited or plan.families[node[0]]!='obs_exposures':return False
                     visited=visited|{node};d=plan.nodes[node].get('driver') or {}
                     dep=plan.deps[node]
                     if dep is not None:return globally_upstream(dep,visited)

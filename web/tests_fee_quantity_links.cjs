@@ -8,5 +8,5 @@ let options=ctx.feeQuantityCandidates(0,0);assert.equal(options.length,2);assert
 ctx.feeQuantitySelect(0,0,'candidate:1:0');const sid=products[1].fee_streams[0].quantity_series_id;assert.equal(sid,'new-1');assert.equal(products[0].fee_streams[0].driver.ref,sid);assert.equal(renders,1);assert.equal(refreshes,1);assert.equal(ctx._feeStreamQuantityKind(0,0),'money');
 products[1].name='Renamed';products[1].fee_streams[0].name='Renamed TPV';products.reverse();options=ctx.feeQuantityCandidates(2,0);assert(options.some(x=>x.value===sid&&x.label.includes('Renamed')));
 products[2].fee_streams[0].basis='balance';options=ctx.feeQuantityCandidates(2,0);assert(!options.some(x=>x.value===sid));
-assert(html.includes('Linked stream quantity — across fee products'));assert(html.includes('if(_fi>=0&&_fi<1000&&'));
+assert(html.includes('Linked stream quantity — across products'));assert(html.includes('if(_fi>=0&&["balance","transaction","account"].includes(basis))'));
 console.log('PASS cross-product choices, lazy stable ID, rename/reorder, unit inference, cycle exclusion, stock/flow filtering');
