@@ -1,0 +1,18 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const H=fs.readFileSync('web/console_v2.html','utf8'),escape=s=>String(s).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;');
+const fd={channels:[{name:'Direct'},{name:'Digital'}]},monthly=[.28,.56,.56].map((n,i)=>({beg_cust:i,new_cust:n+2,cust_lost:.01,end_cust:i+1,beg_auc:1,new_auc:2,auc_lost:.1,end_auc:3,total_spend:21.624,channels:[{new_customers:n,spend:0,new_auc:0},{new_customers:2,spend:21.624,new_auc:0}]}));
+const result={monthly,customerEndByMonth:[2.27,4.82,7.37],aucEndByMonth:[3,4,5]},ctx={esc:escape,PPY:()=>4,lastErrs:null,_cacnRes:()=>result};vm.createContext(ctx);
+vm.runInContext(H.slice(H.indexOf('function _resultNumbersLink('),H.indexOf('function _nieNumbersRows(')),ctx);
+vm.runInContext(H.slice(H.indexOf('function _cacnNumbersLink('),H.indexOf('function _cacnRo(')),ctx);
+const data=(fd,ci)=>{const html=ctx._cacnNumbersLink('Practices',fd,ci);assert(!html.includes('<table'));return JSON.parse(html.match(/data-result-numbers="([^"]+)"/)[1].replaceAll('&quot;','"').replaceAll('&amp;','&'));};
+const before=JSON.stringify({fd,result}),all=data(fd,null),direct=data(fd,0),digital=data(fd,1);
+assert.equal(all.periodTag,'M');assert(all.note.includes('quarterly'));assert.equal(all.rows.find(r=>r.name==='Ending customers').values[0],2.27);
+assert.deepEqual(Array.from(direct.rows[0].values),[.28,.56,.56]);assert.deepEqual(Array.from(digital.rows[0].values),[2,2,2]);
+assert.equal(digital.rows.find(r=>r.name==='Acquisition spend').values[0],21.624);assert.equal(digital.rows[1].unit,'$000s');
+assert(all.rows.some(r=>r.name==='Direct · gross new customers'));assert(all.rows.some(r=>r.name==='Customers lost to attrition'));
+assert(ctx._resultNumbersTsv(direct.rows,true,direct.periodTag).includes('M1\tM2\tM3'));assert.equal(JSON.stringify({fd,result}),before);
+result.flowEligibility='interpolated_net';assert(data(fd,null).rows.some(r=>r.name==='Modeled additions (not a published gross flow)'));assert(data(fd,null).note.includes('interpolates customer stocks'));
+ctx.lastErrs=['incomplete'];assert(data(fd,0).stale);assert.equal(ctx._cacnNumbersLink('Practices',fd,20),'');ctx._cacnRes=()=>null;assert.equal(ctx._cacnNumbersLink('Practices',fd,0),'');
+assert(H.includes('${_cacnChart(mo,v=>_cacnN(v,1))}${_cacnNumbersLink(fn,fd,editing)}'));
+assert(H.includes('${_cacnChart(ser||[])}${_cacnNumbersLink(fn,fd,null)}'));
+console.log('PASS acquisition Numbers: feed/channel scope, monthly chart labels at quarterly cadence, precision, units, copying, stale/empty states, placement and read-only snapshots');

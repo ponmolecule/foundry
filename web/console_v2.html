@@ -9135,13 +9135,35 @@ function _cacnChannelTable(fn,fd,editing){
   if(!(fd.channels||[]).length)h+=`<tr class="none"><td></td><td colspan="7" class="mut">No channels yet. Add one below; each channel adds new customers through its own equation.</td></tr>`;
   return h+`</tbody>${a0?`<tfoot><tr><td></td><td>Feed total</td><td>${_cacnN(tn)}</td><td>100%</td><td>${+a0.new_auc?_cacnN(a0.new_auc):'—'}</td><td>${_cacnN(a0.total_spend)}</td><td>${+a0.blended_cac?'$'+_cacnN(a0.blended_cac):'—'}</td><td></td></tr></tfoot>`:''}</table>`;
 }
+// r426: inspect the monthly observations already shown by the acquisition chart.
+function _cacnNumbersLink(fn,fd,editing){
+  const r=_cacnRes(fn);if(!r)return '';
+  const months=r.monthly||[],rows=[],add=(name,unit,values)=>{if(values.length)rows.push({name,unit,values:values.slice()});};
+  if(editing!=null){
+    const channel=(fd.channels||[])[editing];if(!channel)return '';
+    const values=key=>months.map(m=>((m.channels||[])[editing]||{})[key]??null);
+    add('Gross new customers','count',values('new_customers'));
+    add('Acquisition spend','$000s',values('spend'));add('New AUC','$000s',values('new_auc'));
+  }else{
+    const values=key=>months.map(m=>m[key]??null);
+    add('Beginning customers','count',values('beg_cust'));add(r.flowEligibility==='interpolated_net'?'Modeled additions (not a published gross flow)':'Gross new customers','count',values('new_cust'));
+    add(r.flowEligibility==='interpolated_net'?'Modeled customer reduction':'Customers lost to attrition','count',values('cust_lost'));add('Ending customers','count',r.customerEndByMonth||[]);
+    (fd.channels||[]).forEach((ch,i)=>add((ch.name||'Channel '+(i+1))+' · gross new customers','count',months.map(m=>((m.channels||[])[i]||{}).new_customers??null)));
+    add('Beginning AUC','$000s',values('beg_auc'));add('New AUC','$000s',values('new_auc'));
+    add('AUC lost to attrition','$000s',values('auc_lost'));add('Ending AUC','$000s',r.aucEndByMonth||[]);
+    add('Acquisition spend','$000s',values('total_spend'));
+  }
+  return _resultNumbersLink(rows,!!(typeof lastErrs!=='undefined'&&lastErrs&&lastErrs.length),{
+    periodTag:'M',title:fn+(editing!=null?' · '+fd.channels[editing].name:'')+' · monthly numbers',
+    note:'Monthly observations matching the acquisition chart, including in quarterly or yearly engagements. Channel additions are included in the feed total; do not add them again.'+(r.flowEligibility==='interpolated_net'?' This feed interpolates customer stocks; modeled feed movements are not published gross acquisition/attrition flows.':'')});
+}
 function _cacnRo(fn,fd,editing){
   const r=_cacnRes(fn),a=(r&&r.annual)||[];
   if(editing!=null){const ch=(fd.channels||[])[editing]||{},mo=((r&&r.monthly)||[]).map(m=>+(((m.channels||[])[editing]||{}).new_customers)||0),ys=a.map(x=>(x.channels||[])[editing]||{});
-    return `<div class="cacn-roh"><span>${esc((ch.name||'Channel').toUpperCase())} · NEW CUSTOMERS / MONTH</span></div>${_cacnChart(mo,v=>_cacnN(v,1))}<div class="cacn-k">${ys.slice(0,3).map((x,k)=>`<div><span>New · Y${k+1}</span><b>${_cacnN(x.new_customers)}</b></div>`).join('')}<div><span>CAC · Y1</span><b>${ys[0]&&+ys[0].cac?'$'+_cacnN(ys[0].cac):'—'}</b></div></div>${ys.length?`<div class="cacn-inc"><span>Spend · Y1 → Y${ys.length}</span><b>${_cacnN(ys[0].spend)} → ${_cacnN(ys[ys.length-1].spend)} $000s</b></div><div class="cacn-inc"><span>Share of feed new customers · Y1</span><b>${a[0]&&+a[0].new_cust?(100*(+ys[0].new_customers||0)/(+a[0].new_cust)).toFixed(0)+'%':'—'}</b></div>`:''}`;}
+    return `<div class="cacn-roh"><span>${esc((ch.name||'Channel').toUpperCase())} · NEW CUSTOMERS / MONTH</span></div>${_cacnChart(mo,v=>_cacnN(v,1))}${_cacnNumbersLink(fn,fd,editing)}<div class="cacn-k">${ys.slice(0,3).map((x,k)=>`<div><span>New · Y${k+1}</span><b>${_cacnN(x.new_customers)}</b></div>`).join('')}<div><span>CAC · Y1</span><b>${ys[0]&&+ys[0].cac?'$'+_cacnN(ys[0].cac):'—'}</b></div></div>${ys.length?`<div class="cacn-inc"><span>Spend · Y1 → Y${ys.length}</span><b>${_cacnN(ys[0].spend)} → ${_cacnN(ys[ys.length-1].spend)} $000s</b></div><div class="cacn-inc"><span>Share of feed new customers · Y1</span><b>${a[0]&&+a[0].new_cust?(100*(+ys[0].new_customers||0)/(+a[0].new_cust)).toFixed(0)+'%':'—'}</b></div>`:''}`;}
   const v=_cacnView.get(fd)||'cust',ser=v==='auc'?(r&&r.aucEndByMonth):(r&&r.customerEndByMonth);
   const seg=`<div class="cacn-seg">${[['cust','Customers'],['auc','AUC']].map(([k,l])=>`<button type="button" class="${v===k?'on':''}" onclick="cacnView('${k}')">${l}</button>`).join('')}</div>`;
-  return `<div class="cacn-roh"><span>${v==='auc'?'AUC · MONTH END · $000s':'CUSTOMERS · MONTH END'}</span>${seg}</div>${_cacnChart(ser||[])}<div class="cacn-k">${a.slice(0,3).map((x,k)=>`<div><span>End Y${k+1}</span><b>${_cacnN(v==='auc'?x.end_auc:x.end_cust)}</b></div>`).join('')}<div><span>Lost, Y1–Y${a.length||'n'}</span><b>${a.length?_cacnN(a.reduce((s,x)=>s+(+x.cust_lost||0),0)):'—'}</b></div></div>${a.length&&+a[0].blended_cac?`<div class="cacn-inc"><span>Blended CAC</span><b>$${_cacnN(a[0].blended_cac)} → $${_cacnN(a[a.length-1].blended_cac)}</b></div>`:''}`;
+  return `<div class="cacn-roh"><span>${v==='auc'?'AUC · MONTH END · $000s':'CUSTOMERS · MONTH END'}</span>${seg}</div>${_cacnChart(ser||[])}${_cacnNumbersLink(fn,fd,null)}<div class="cacn-k">${a.slice(0,3).map((x,k)=>`<div><span>End Y${k+1}</span><b>${_cacnN(v==='auc'?x.end_auc:x.end_cust)}</b></div>`).join('')}<div><span>Lost, Y1–Y${a.length||'n'}</span><b>${a.length?_cacnN(a.reduce((s,x)=>s+(+x.cust_lost||0),0)):'—'}</b></div></div>${a.length&&+a[0].blended_cac?`<div class="cacn-inc"><span>Blended CAC</span><b>$${_cacnN(a[0].blended_cac)} → $${_cacnN(a[a.length-1].blended_cac)}</b></div>`:''}`;
 }
 function _cacnSelected(){const F=_cacnFeeds();if(!window._cacnSel)return null;return F.find(([,f])=>f.series_id===window._cacnSel)||null;}
 function cacnSelect(k){const F=_cacnFeeds();window._cacnSeenAll=true;window._cacnSel=k==null||k<0?null:(((F[k]||[])[1])||{}).series_id||null;renderContent();}
