@@ -135,18 +135,29 @@ def _resolve_operand_monthly(spec, months, semantic, *, assumptions=None, growth
         raw = {"source": "entered", "trajectory": "flat", "value": float(default_value or 0.0)}
     s = normalize_series_spec(raw, default_value=default_value)
     if s["source"] == "link":
+        if "series_ids" in s["link"] and s["link"].get("kind")!="acquisition_channel_new_customers":
+            raise ValueError("Multiple acquisition pool sources must be channel new-customer flows")
         if s['link'].get('kind')=='acquisition_channel_new_customers':
             if semantic!='flow':raise ValueError('Acquisition channel new customers must feed a count-flow operand')
             if s['link'].get('aggregation')!='sum':raise ValueError('Acquisition channel new-customer flow requires sum aggregation')
-            sid=str(s['link'].get('series_id') or '')
-            matches=[ch for f in (assumptions or {}).get('cac_feeds',{}).values() for ch in f.get('channels',[]) if (ch.get('derived_series_ids') or {}).get('new_customers')==sid]
-            if not sid or len(matches)!=1:raise ValueError('Acquisition channel source is missing or ambiguous: '+sid)
-            stack=tuple(channel_stack)
-            if sid in stack:raise ValueError('Circular acquisition channel link: '+' -> '.join(stack+(sid,)))
-            rows=_channel_monthly(matches[0],months,assumptions=assumptions,growth_context=growth_context,engine_ppy=engine_ppy,channel_stack=stack+(sid,))
-            values=[float(r['new_customers']) for r in rows]
-            if any(not math.isfinite(v) or v<0 for v in values):raise ValueError('Linked acquisition flow must be finite and nonnegative')
-            return values
+            link=s['link'];refs=link['series_ids'] if 'series_ids' in link else [link.get('series_id')]
+            if not isinstance(refs,list) or not refs or any(not isinstance(x,str) or not x.strip() for x in refs):
+                raise ValueError('Acquisition pool requires at least one selected channel source')
+            if len(set(refs))!=len(refs):raise ValueError('Acquisition pool has duplicate channel sources')
+            if 'series_ids' in link and link.get('series_id')!=refs[0]:
+                raise ValueError('Acquisition pool primary source must match the first selected source')
+            total=[0.0]*int(months)
+            for sid in refs:
+                matches=[ch for f in (assumptions or {}).get('cac_feeds',{}).values() for ch in f.get('channels',[]) if (ch.get('derived_series_ids') or {}).get('new_customers')==sid]
+                if len(matches)!=1:raise ValueError('Acquisition channel source is missing or ambiguous: '+sid)
+                stack=tuple(channel_stack)
+                if sid in stack:raise ValueError('Circular acquisition channel link: '+' -> '.join(stack+(sid,)))
+                rows=_channel_monthly(matches[0],months,assumptions=assumptions,growth_context=growth_context,engine_ppy=engine_ppy,channel_stack=stack+(sid,))
+                values=[float(r['new_customers']) for r in rows]
+                if any(not math.isfinite(v) or v<0 for v in values):raise ValueError('Linked acquisition flow must be finite and nonnegative')
+                total=[x+y for x,y in zip(total,values)]
+            if any(not math.isfinite(v) for v in total):raise ValueError('Acquisition pool sum must be finite')
+            return total
         return [float(x or 0.0) for x in resolve_series_spec(
             s, assumptions or {}, int(months), 12, context=growth_context,
             default_value=default_value)]

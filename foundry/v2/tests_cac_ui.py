@@ -113,7 +113,7 @@ const selfChannelDisabled=!!selfChannelOption?.disabled;
 window.nop=0;
 console.log(JSON.stringify({acquisitionLink,acquisitionPreview,selfChannelDisabled,multiplierDefault,multiplierValues,multiplierFteLink,seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,gaPreview,opexLinkOptions,fteLink,ftePreview,method:fd.channels[0].method,unitProbe,flowTrajectoryExplicit,flowTrajectoryFlat,attrTrajectoryExplicit,attrTrajectoryFlat,reordered,reorderedUp,crossFeedGuard}));
 '''
-    br=subprocess.run(["node","-e",prefix+helpers+js+suffix],text=True,capture_output=True)
+    br=subprocess.run(["node","-"],input=prefix+helpers+js+suffix,text=True,capture_output=True)
     bj={}
     if br.returncode==0 and br.stdout.strip():
         try: bj=json.loads(br.stdout.strip().splitlines()[-1])
