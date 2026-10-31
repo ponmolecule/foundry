@@ -514,6 +514,9 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
         for f in (a.get('cac_feeds') or {}).values():
             r = cac_auc_rollforward(f, Q, ppy, assumptions=a, growth_context=_growth_ctx)
             _cac_monthly_counts[f.get('customer_count_series_id')] = {'period_end':r['customer_end_by_month'], 'period_average':r['customer_average_by_month'], 'annual_count':r['customer_annual_count_by_month']}
+            comp=r.get('population_composition') or {}
+            for item in list((comp.get('bands') or {}).values())+([comp['population']] if comp.get('population') else []):
+                _cac_monthly_counts[item['series_id']]={'period_end':item['customer_end_by_month'],'period_average':item['customer_average_by_month'],'annual_count':item['customer_annual_count_by_month']}
     _activity_stream_owners = {s.get('quantity_series_id'):p.get('fee_streams') or [] for p in obs+dep+lend for s in p.get('fee_streams') or []}
     _ibm = None
 

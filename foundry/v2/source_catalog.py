@@ -104,7 +104,7 @@ def catalog(a):
         if feed.get('intra_period_path') == 'straight_line':
             rows.append(dict(series_id=str(feed.get('customer_count_series_id') or feed.get('series_id') or name)+'::gross_unavailable', label='Customer acquisition › '+name+' › Gross customer flows unavailable', family='Customer acquisition', unit='count', temporal='flow', measures=[], consumers=[], driver='unavailable', unavailable_reason='Straight-line stock interpolation supplies net movements, not gross acquisitions or attrition. Keep the existing stock path or explicitly author Monthly flows before using a per-new-customer input.'))
     for x in cac_customer_count_catalog(a):
-        rows.append(dict(x,label='Customer acquisition › '+x['feed']+' › Customers',family='Customer acquisition',unit='count',temporal='level',measures=['period_end','period_average'],consumers=['fee_customer_count'],driver='customer_acquisition_count'))
+        rows.append(dict(x,label='Customer acquisition › '+x.get('label',x['feed']+' › Customers'),family='Customer acquisition',unit='count',temporal='level',measures=['period_end','period_average'],consumers=['fee_customer_count'],driver='customer_acquisition_count'))
     for x in cost_pool_catalog(a):
         rows.append(dict(x,label='Cost pool › '+x['name'],family='Cost pool',unit='money_flow',temporal='flow',measures=[],consumers=['fee_cost_pool'],driver='cost_pool'))
     for sid,label in [('bank.total_assets','Total assets'),('bank.equity','Equity'),('bank.cash','Cash'),('bank.net_income','Net income')]:

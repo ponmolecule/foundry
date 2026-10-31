@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),H=fs.readFileSync('web/console_v2.html','utf8');
+let id=0,refreshes=0,alerts=[];const fd={beginning_customers:0,channels:[{name:'Sales',derived_series_ids:{new_customers:'sales'}}]},ctx={cfg:{assumptions:{cac_feeds:{Test:fd}}},window:null,esc:s=>String(s).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;'),_seriesId:()=> 'id'+(++id),_pf:Number,_cacEnsureDerivedIds:ch=>ch.derived_series_ids,renderContent(){},refresh(){refreshes++},alert:s=>alerts.push(s),_cacnRes:()=>null};ctx.window=ctx;vm.createContext(ctx);
+vm.runInContext(H.slice(H.indexOf('const _cacCompDraft='),H.indexOf('function _cacnSelected(')),ctx);
+const original=JSON.stringify(fd);assert(ctx._cacCompositionHtml('Test',fd).includes('+ Population composition'));assert.equal(JSON.stringify(fd),original);
+ctx.cacCompositionEdit('Test');let html=ctx._cacCompositionHtml('Test',fd);assert(html.includes('value="none" selected'));assert(html.includes('table-layout:fixed'));assert(html.includes('max-width:100%'));assert(!html.includes('<textarea'));assert.equal(JSON.stringify(fd),original);
+ctx.cacCompositionAdd('Test');assert.equal(JSON.stringify(fd),original);assert.equal(refreshes,0);
+let draft=vm.runInContext('_cacCompDraft.get(cfg.assumptions.cac_feeds.Test)',ctx),b0=draft.bands[0].id,b1=draft.bands[1].id;
+ctx.cacCompositionShare('Test','sales',b0,'40');ctx.cacCompositionShare('Test','sales',b1,'40');ctx.cacCompositionApply('Test');assert(alerts.some(x=>x.includes('100%')));assert.equal(JSON.stringify(fd),original);assert.equal(refreshes,0);
+ctx.cacCompositionShare('Test','sales',b1,'60');ctx.cacCompositionApply('Test');assert.equal(fd.population_composition.rounding,'none');assert.equal(refreshes,1);assert.equal(fd.population_composition.channel_shares.sales[b0],.4);
+const saved=JSON.stringify(fd);ctx.cacCompositionEdit('Test');ctx.cacCompositionField('Test',-1,'rounding','up');assert.equal(JSON.stringify(fd),saved);ctx.cacCompositionCancel('Test');assert.equal(JSON.stringify(fd),saved);assert.equal(refreshes,1);
+ctx.cacCompositionEdit('Test');ctx.cacCompositionField('Test',-1,'rounding','up');ctx.cacCompositionApply('Test');assert.equal(fd.population_composition.rounding,'up');assert.equal(refreshes,2);
+ctx.cfg.assumptions.other={ref:fd.population_composition.bands[0].series_id};ctx.cacCompositionEdit('Test');ctx.cacCompositionDelete('Test',0);assert(alerts.some(x=>x.includes('linked elsewhere')));
+assert(H.includes('composition.className=\'cacn-composition\''));assert(H.includes('before band rounding'));assert(H.includes('composition.innerHTML=_cacCompositionHtml(fn,fd)'));
+console.log('PASS compact staged matrix, default None, explicit Round up + Apply, share validation, read-only draft/cancel, stable IDs and referenced-band guard');
