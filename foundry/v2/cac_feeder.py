@@ -354,6 +354,9 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
                                         growth_context=growth_context, engine_ppy=ppy)
                        for ch in channels]
 
+    from .population_composition import allocate as allocate_composition, rollforward as composition_rollforward
+    allocate_composition(cac_cfg or {}, channel_monthly)
+
     attr_rates = _attrition_monthly_rate_path(cac_cfg or {}, months, assumptions=assumptions or {},
                                                growth_context=growth_context, engine_ppy=ppy)
     attr_period = _attrition_period(cac_cfg or {})
@@ -522,7 +525,7 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             sid = str(ids.get(semantic) or "").strip()
             if not sid:
                 continue
-            canonical = [float(channel_monthly[ci][mi].get(field) or 0.0) for mi in range(months)]
+            canonical = [float(channel_monthly[ci][mi].get("equation_"+field,channel_monthly[ci][mi].get(field)) or 0.0) for mi in range(months)]
             if ppy == 12:
                 native = canonical[:int(Q)]
             else:
@@ -565,6 +568,8 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             "year_end_customers": year_end_customers,
             "monthly": monthly, "annual": annual, "derived_series": derived_series,
             "calculation_cadence": "month"}
+    composition=composition_rollforward(cac_cfg or {},monthly,int(Q),ppy,attr_width)
+    if composition is not None:_out["population_composition"]=composition
     return _out
 def cac_customer_count_catalog(assumptions):
     """Catalog CAC-owned customer-count Series by stable Series ID."""
@@ -576,6 +581,10 @@ def cac_customer_count_catalog(assumptions):
             continue
         out.append({"series_id": sid, "feed": str(name or sid),
                     "unit_semantic": "customer_count_level", "canonical_cadence": "month"})
+        comp=feed.get('population_composition') or {}
+        for band in comp.get('bands') or []:
+            if band.get('series_id'):out.append(dict(series_id=band['series_id'],feed=str(name),label=str(name)+' › '+str(band.get('name') or 'Band')+' › Active customers',band_id=band.get('id'),unit_semantic='customer_count_level',canonical_cadence='month'))
+        if comp.get('population_series_id'):out.append(dict(series_id=comp['population_series_id'],feed=str(name),label=str(name)+' › '+str(comp.get('population_name') or 'Associated population'),population=True,unit_semantic='customer_count_level',canonical_cadence='month'))
     ids = [x["series_id"] for x in out]
     if len(ids) != len(set(ids)):
         raise ValueError("CAC customer_count_series_id values must be unique")
@@ -588,6 +597,8 @@ def cac_customer_count_series_map(assumptions, Q, ppy=4, *, growth_context=None)
     for meta in cac_customer_count_catalog(assumptions):
         feed = ((assumptions or {}).get("cac_feeds") or {}).get(meta["feed"]) or {}
         r = cac_auc_rollforward(feed, Q, ppy, assumptions=assumptions, growth_context=growth_context)
+        from .population_composition import selected_counts
+        r=selected_counts(r,meta)
         out[meta["series_id"]] = [float(x or 0.0) for x in r.get("customer_level_by_period") or []]
     return out
 
@@ -618,6 +629,8 @@ def cac_customer_count_measure_series_map(assumptions, Q, ppy=4, *, growth_conte
     for meta in cac_customer_count_catalog(assumptions):
         feed = ((assumptions or {}).get("cac_feeds") or {}).get(meta["feed"]) or {}
         r = cac_auc_rollforward(feed, Q, ppy, assumptions=assumptions, growth_context=growth_context)
+        from .population_composition import selected_counts
+        r=selected_counts(r,meta)
         out[meta["series_id"]] = {
             "annual_count": [float(x or 0.0) for x in r.get("customer_annual_count_by_period") or []],
             "period_end": [float(x or 0.0) for x in r.get("customer_level_by_period") or []],

@@ -84,7 +84,8 @@ def catalog(a):
     ids=[x['series_id'] for x in out]
     if any(not isinstance(x,str) or not x.strip() for x in ids) or len(ids)!=len(set(ids)):
         raise ValueError('Account activity Series IDs must be nonblank and unique')
-    reserved={x.get('customer_count_series_id') for x in (a.get('cac_feeds') or {}).values()} | {x.get('series_id') for x in (a.get('cac_feeds') or {}).values()}
+    from .cac_feeder import cac_customer_count_catalog
+    reserved={x['series_id'] for x in cac_customer_count_catalog(a)} | {x.get('customer_count_series_id') for x in (a.get('cac_feeds') or {}).values()} | {x.get('series_id') for x in (a.get('cac_feeds') or {}).values()}
     reserved|={s.get('quantity_series_id') for k in ('obs_exposures','lending_products','deposit_products') for p in a.get(k) or [] for s in p.get('fee_streams') or []}
     if set(ids)&reserved:raise ValueError('Account activity Series ID collides with another publisher')
     return out

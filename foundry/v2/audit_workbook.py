@@ -368,6 +368,17 @@ def _cac_monthly_acquisition_rows(cfg, n, ppy):
                 ])
     return rows
 
+def _cac_composition_rows(cfg,n,ppy):
+    from .cac_feeder import cac_auc_rollforward
+    a=cfg.get('assumptions') or {};rows=[]
+    for name,feed in (a.get('cac_feeds') or {}).items():
+        if not feed.get('population_composition'):continue
+        r=cac_auc_rollforward(feed,n,ppy,assumptions=a,growth_context=growth_context_from_cfg(cfg,ppy));c=r['population_composition']
+        for b in c['bands'].values():
+            for i,m in enumerate(b['monthly'][:n*(12//ppy)]):
+                rows.append([name,b['name'],b['series_id'],i+1,c['rounding'],m['beginning'],m['additions'],m['lost'],m['ending'],b['units_per_customer'],m['ending']*b['units_per_customer']])
+    return rows
+
 def _cac_rollforward_rows(cfg, n, ppy):
     a = cfg.get("assumptions") or {}
     if not (a.get("cac_feeds") or {}):
@@ -2063,6 +2074,12 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         formats={3:"0",4:"0",5:"0",8:_RAW_NUM_FMT,9:_RAW_NUM_FMT,10:_RAW_MONEY_FMT,11:_RAW_MONEY_FMT,
                  12:_RAW_NUM_FMT,13:_RAW_NUM_FMT,14:_RAW_NUM_FMT,15:_RAW_MONEY_FMT,16:_RAW_NUM_FMT,
                  17:_RAW_MONEY_FMT,18:_RAW_MONEY_FMT,19:_RAW_MONEY_FMT,20:'0.00%',21:'0.00%'}, freeze_col=7)
+    composition_rows=_cac_composition_rows(cfg,n,ppy)
+    if composition_rows:
+        _write_long_rows(wb.create_sheet('Population Composition'),title='Population Composition · Monthly Audit',
+            subtitle='Channel additions are allocated monthly. Rounding is off unless the user selects Round up. Active bands sum to the feed; associated population = active band × units per customer.',
+            headers=['Feed','Band','Series ID','Month','Rounding','Beginning customers','Allocated additions','Attrition','Ending customers','Units / customer','Associated population'],
+            rows=composition_rows,widths=[24,24,32,12,14,22,22,20,22,20,24],formats={4:'0',**{k:_RAW_NUM_FMT for k in range(6,12)}},freeze_col=3)
     _write_long_rows(
         wb.create_sheet("CAC Annual Rollforward"),
         title="Customer Acquisition Annual Rollforward · Audit",

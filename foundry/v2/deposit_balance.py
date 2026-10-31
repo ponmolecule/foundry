@@ -210,9 +210,11 @@ def customer_balance(product, a, n, ppy, growth_context=None, quantities=None):
         raise ValueError('Customer-linked deposits require monthly or quarterly cadence')
     feed = a['cac_feeds'][matches[0]['feed']]
     r = cac_auc_rollforward(feed, n, ppy, assumptions=a, growth_context=growth_context)
+    from .population_composition import selected_counts
+    r=selected_counts(r,matches[0])
     monthly_end = _check(r['customer_end_by_month'], 'Deposit customer count')
     counts = (monthly_end if measure == 'period_end' else
-              monthly_balance_measure_series(float(feed.get('beginning_customers') or 0), monthly_end, 'period_average'))
+              monthly_balance_measure_series(float(r.get('opening',feed.get('beginning_customers')) or 0), monthly_end, 'period_average'))
     amounts, detail = per_customer_amount(product,a,n*(12//ppy),growth_context,(str(product.get('source_catalog_id') or ''),))
     shares = _check(resolve_entered_series(d.get('balance_share_spec') or {'source':'entered','trajectory':'flat','value':1}, n*(12//ppy),12,context=growth_context),'Deposit balance share',True)
     if len(counts) != len(amounts):

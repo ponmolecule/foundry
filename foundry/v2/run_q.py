@@ -660,6 +660,7 @@ def run_v2(cfg):
                 for _ch in _x.get("channels") or []:
                     _ch["new_auc"] = float(_ch.get("new_auc") or 0.0) / 1000.0
                     _ch["spend"] = float(_ch.get("spend") or 0.0) / 1000.0
+                    if "equation_new_auc" in _ch:_ch["equation_new_auc"]=float(_ch["equation_new_auc"])/1000.0
                     _ops = _ch.get("operands") or {}
                     for _ok in ("spend", "comp_per_fte", "avg_auc_per_customer"):
                         if _ok in _ops:
@@ -687,6 +688,8 @@ def run_v2(cfg):
                 "rateUnits": "decimal",
                 "cacUnits": "$ per acquired customer",
             }
+            if _cr.get('population_composition') is not None:
+                _cac_out[_nm]['populationComposition']=copy.deepcopy(_cr['population_composition'])
         results["customer_acquisition"] = _cac_out
 
     if (cfg.get('assumptions') or {}).get('account_adoption') or (cfg.get('assumptions') or {}).get('cac_feeds'):
