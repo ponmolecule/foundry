@@ -123,7 +123,7 @@ console.log(JSON.stringify({acquisitionLink,acquisitionPreview,selfChannelDisabl
     ck("Productivity multiplier defaults to 100%, loads percentage schedules and preserves workforce link", bj.get("multiplierDefault")==1 and bj.get("multiplierValues")==[0,.5,1] and bj.get("multiplierFteLink")=="wf-rm")
     ck("driver dials are equation-driven, not hard-coded to channel names",
        br.returncode==0 and sd.get("m0")==["avg_auc_per_customer","conversion_rate","pool"]
-       and sd.get("m1")==["avg_auc_per_customer","cac","spend"], br.stderr.strip())
+       and sd.get("m1")==["avg_auc_per_customer","cac","effectiveness_multiplier","spend"], br.stderr.strip())
     ck("CAC Explicit paste editors are closed by default", bj.get("poolDefaultClosed") is True)
     ck("explicit CAC values load through a pastebox instead of one cell per period",
        bj.get("poolLoaded")==[1000,2500,3000] and (bj.get("pool") or {}).get("values")==[1000,2500,3000])
