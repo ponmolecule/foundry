@@ -7833,7 +7833,7 @@ function _feeCountBreakdownHtml(i,j,sb,spec){
  let h=`<div class="fcb"><div class="fcb-main"><p class="count-equation">count = ${esc(ref)} × Σ (share × ${esc(label)})</p>`;
  h+=`<div class="fcb-mix" aria-hidden="true"><div class="fcb-bar">${cs.map((c,k)=>F.sh[k]!=null?`<i style="width:${Math.max(0,Math.min(100,F.sh[k]*100)).toFixed(3)}%;background:${_FCB_COL[k%_FCB_COL.length]}"></i>`:'').join('')}${tot!=null&&tot<1-1e-8?`<i class="gap" style="width:${((1-tot)*100).toFixed(3)}%"></i>`:''}</div>
   <div class="fcb-mixl"><span>Mix of ${esc(ref)} by band · first period</span><span>${tot==null?'see each period below':totOk?'<b class="fcb-ok">100.00% ✓</b>':`<b class="fcb-warn">${_fcbPct(tot)}%</b>`}</span></div></div>`;
- h+=`<div class="fcb-scroll"><table class="fcb-t"><colgroup><col style="width:34%"><col style="width:24%"><col style="width:2%"><col style="width:24%"><col style="width:12%"><col style="width:4%"></colgroup><thead><tr><th>Band</th><th class="n">Share (%)</th><th></th><th class="n">${esc(label)}</th><th class="n" title="share × count per source unit">Weighted</th><th></th></tr></thead><tbody>`;
+ h+=`<div class="fcb-scroll"><table class="fcb-t"><colgroup><col style="width:34%"><col style="width:24%"><col style="width:2%"><col style="width:24%"><col style="width:12%"><col style="width:34px"></colgroup><thead><tr><th>Band</th><th class="n">Share (%)</th><th></th><th class="n">${esc(label)}</th><th class="n" title="share × count per source unit">Weighted</th><th></th></tr></thead><tbody>`;
  cs.forEach((c,k)=>{const path=sb+'.driver.params.count_multiplier_spec.components.'+k,ow=_fcbOpenKey===`${i}|${j}|${k}|w`,oa=_fcbOpenKey===`${i}|${j}|${k}|a`,band=F.rec?F.rec.bands[k]:null;
   const con=F.sh[k]!=null&&F.ct[k]!=null?F.sh[k]*F.ct[k]:(band?band.contribution[0]:null);
   h+=`<tr class="${ow||oa?'on':''}"><td><i class="fcb-sw" style="background:${_FCB_COL[k%_FCB_COL.length]}"></i><input class="fcb-name" aria-label="Band ${k+1} name" value="${esc(c.name)}" onchange="setPath('${path}.name',this.value);refresh()"></td><td class="n" data-label="Share (%)">${_fcbCell(i,j,k,'w',c.weight_spec,F.sh[k],band)}</td><td class="n fcb-x">×</td><td class="n" data-label="${esc(label)}">${_fcbCell(i,j,k,'a',c.amount_spec,F.ct[k],band)}</td><td class="n fcb-con" data-label="Weighted contribution">${_fcbNum(con)}</td><td class="n"><button type="button" class="fcb-rm" aria-label="Remove band ${k+1}" title="Remove band" onclick="_fcbOpenKey=null;feeCountPart(${i},${j},${k},true)">×</button></td></tr>`;
@@ -11297,6 +11297,7 @@ window.faSeriesClear=function(path){
   // Clear the live draft before render captures/restores authoring inputs.
   const id="fasp_"+path.replace(/[^a-zA-Z0-9]/g,"_");
   _clearPasteDraft(id);
+  for(const g of ["fxsp_","fxsfa_"]){const gid=g+path.replace(/[^a-zA-Z0-9]/g,"_");_clearPasteDraft(gid);if(window._fxPasteOpen)window._fxPasteOpen[gid]=false;}   // r440: the period-grid paste drafts too
   const sp=_faSeriesEnsure(path,0);sp.values=[];
   window._faSeriesExplicitOpen[String(path)]=true;
   renderContent();refresh();
@@ -19090,7 +19091,7 @@ function fxAfterRender(){if(typeof document==='undefined')return;
   if(lab)seg.setAttribute('aria-label',lab);
   opts.forEach((o,k)=>{const b=document.createElement('button');b.type='button';b.textContent=labs[k];b.setAttribute('role','radio');b.setAttribute('aria-checked',String(o.value===s.value));
    if(o.value===s.value)b.className='on';b.disabled=!!(s.disabled||o.disabled);
-   b.onclick=()=>{if(s.value===o.value)return;s.value=o.value;s.dispatchEvent(new Event('change',{bubbles:true}));};seg.appendChild(b);});
+   b.onclick=()=>{if(s.value===o.value)return;s.value=o.value;s.dispatchEvent(new Event('change',{bubbles:true}));if(seg.isConnected)[...seg.children].forEach((bb,k)=>{const on=opts[k].value===s.value;bb.classList.toggle('on',on);bb.setAttribute('aria-checked',String(on));});};seg.appendChild(b);});   // r440: highlight follows the stored choice without waiting for a full render
   s.insertAdjacentElement('afterend',seg);});
  if(typeof fxsSpaceAfterRender==='function')fxsSpaceAfterRender();}   // r435
 
@@ -19116,7 +19117,7 @@ function _fxSchedGridHtml(o){
   h+='</div>';}
  return h+`<div class="fxs-sched-foot">${esc(o.hint)}</div></div>`;}
 /* dense Series schedules (values[] by cadence), e.g. participation share on an explicit schedule */
-function fxsSeriesSet(path,k,val,scale){const sp=getPath(path);if(!sp)return;const t=String(val==null?'':val).trim();if(t==='')return;
+function fxsSeriesSet(path,k,val,scale){const sp=getPath(path);if(!sp)return;const t=String(val==null?'':val).trim();if(t===''){if(typeof appStatus==='function')appStatus('err','Each period in a schedule needs a value. Enter a number, or use Clear to remove the whole schedule.');setTimeout(()=>renderContent(),0);return;}   // r440: blank is rejected and the stored value shown again
  sp.values=Array.isArray(sp.values)?sp.values:[];while(sp.values.length<k-1)sp.values.push(sp.values.length?sp.values[sp.values.length-1]:0);
  sp.values[k-1]=_pf(t)/scale;refresh();setTimeout(()=>renderContent(),0);}
 function _fxsSeriesHtml(path,spec,title,kind,removeHtml){
@@ -19173,7 +19174,7 @@ function _fxsCrows(rows){rows.forEach(r=>{const lab=r.firstElementChild;if(!lab|
    number (rate ÷100; count/multiple/dollars/days as typed; money ×1000), then the series is resized the same way. */
 function _fxsFaScale(kind){return kind==='rate'?100:((kind==='multiple'||kind==='count'||kind==='dollars'||kind==='days')?1:0.001);}
 function _fxsFaStore(kind,x){return kind==='rate'?(+x||0)/100:((kind==='multiple'||kind==='count'||kind==='dollars'||kind==='days')?(+x||0):(+x||0)*1000);}   // = faSeriesPaste's map
-window.fxsFaSet=function(path,k,val,kind){const t=String(val==null?'':val).trim();if(t==='')return;const sp=_faSeriesEnsure(path,0);
+window.fxsFaSet=function(path,k,val,kind){const t=String(val==null?'':val).trim();if(t===''){if(typeof appStatus==='function')appStatus('err','Each period in a schedule needs a value. Enter a number, or use Clear to remove the whole schedule.');setTimeout(()=>renderContent(),0);return;}   /* r440: blank is rejected and the stored value shown again */ const sp=_faSeriesEnsure(path,0);
  sp.values=Array.isArray(sp.values)?sp.values:[];while(sp.values.length<k-1)sp.values.push(sp.values.length?sp.values[sp.values.length-1]:0);
  sp.values[k-1]=_fxsFaStore(kind,_pf(t));_resizeSeriesValues(sp,sp.values[sp.values.length-1]);refresh();setTimeout(()=>renderContent(),0);};
 function _fxsFaGrid(path,spec,kind){const cad=spec.cadence||_nativeFlowPeriod(),vals=Array.isArray(spec.values)?spec.values:[],N=Math.max(1,_seriesSourcePeriods(cad)),scale=_fxsFaScale(kind);

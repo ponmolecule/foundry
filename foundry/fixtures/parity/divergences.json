@@ -1,5 +1,5 @@
 {
- "_doc": "r436: cells where the engine deliberately departs from the predecessor's parity values. Each cell is pinned to the current engine value (same tolerance), so any further movement still fails. Reasons: r152 corrected NIM to the earning-asset basis (ratios.nim, pf_a fixtures); r284 replaced period NOL with the tax-year NOL ledger and ASC 740-270 interim provisions (is.nol; in pf_a_ots_msr the Q12 tax, NI and the retained earnings / equity / securities / total assets it flows into, and ROA/ROE). See docs/R284_TAX_METHOD.md.",
+ "_doc": "r436: cells where the engine deliberately departs from the predecessor's parity values. Each cell is pinned to the current engine value (same tolerance), so any further movement still fails. Reasons: r152 changed NIM to an average-total-assets basis (ratios.nim, pf_a fixtures); r284 replaced period NOL with the tax-year NOL ledger and ASC 740-270 interim provisions (is.nol; in pf_a_ots_msr the Q12 tax, NI and the retained earnings / equity / securities / total assets it flows into, and ROA/ROE). See docs/R284_TAX_METHOD.md.",
  "fixtures": {
   "pf_a_base": {
    "is.nol[0]": 0.0,

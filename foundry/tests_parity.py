@@ -440,20 +440,17 @@ def main():
             for i, (e2, g2) in enumerate(zip(ev, gv)):
                 if e2 is not None and g2 is not None and abs(e2 - g2) > 0.02:
                     diffs.append(f"ratios.{rk}[{i}]: expected {e2}, got {g2}")
-        # r436: documented deliberate departures from the predecessor (r152 NIM basis, r284 tax-year NOL ledger)
-        # are checked against their pinned current value instead; anything else still fails against the predecessor.
+        # r436/r440: documented deliberate departures from the predecessor (r152 NIM on average total assets, r284 tax
+        # ledger). Every pinned cell is checked against its current value unconditionally (so a reversion to the
+        # predecessor fails too); every other cell is still checked against the predecessor.
         _dv = (json.load(open(os.path.join(HERE, "fixtures", "parity", "divergences.json"), encoding="utf-8"))["fixtures"]).get(k, {})
-        _kept = []
-        for d in diffs:
-            cell = d.split(":", 1)[0]
-            if cell in _dv:
-                sec, rest = cell.split(".", 1); key, idx = rest.split("["); idx = int(idx.rstrip("]"))
-                cur = ((got.get(sec) or {}).get(key) or [None] * (idx + 1))[idx]
-                tol = 0.02 if sec == "ratios" else TOL
-                if cur is not None and abs(cur - _dv[cell]) <= tol:
-                    continue
-                d = f"{cell}: pinned divergence {_dv[cell]}, got {cur}"
-            _kept.append(d)
+        _kept = [d for d in diffs if d.split(":", 1)[0] not in _dv]
+        for cell, pin in _dv.items():
+            sec, rest = cell.split(".", 1); key, idx = rest.split("["); idx = int(idx.rstrip("]"))
+            cur = ((got.get(sec) or {}).get(key) or [None] * (idx + 1))[idx]
+            tol = 0.02 if sec == "ratios" else TOL
+            if cur is None or abs(cur - pin) > tol:
+                _kept.append(f"{cell}: pinned divergence {pin}, got {cur}")
         diffs = _kept
         if diffs:
             print(f"  PARITY FAIL {k}: {len(diffs)} line-quarters out of tolerance; first: {diffs[0]}")

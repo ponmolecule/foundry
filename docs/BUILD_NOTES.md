@@ -2104,3 +2104,6 @@ Path vocabulary (built on r437): display labels "Explicit" / "Explicit schedule"
 
 ## r439
 Schedule wording tidy (built on r438): three doubled phrases reworded; reference coverage re-scanned. Text only.
+
+## r440
+Review fixes (built on r439). validate_q: funded-flow distributed_balance fee needs allocation_group_id or repayment_profile (matches engine_q_a). faSeriesClear also clears fxsp_/fxsfa_ paste drafts. fxsSeriesSet / fxsFaSet refuse a blank cell (status message, re-render; stored value kept). Segmented buttons sync .on / aria-checked after dispatching change. tests_parity checks every pinned divergence cell unconditionally; divergences doc corrected to r152 average-total-assets NIM. Weighted-table last column 34px (removes 4px overflow at 1440). No engine change. Tests: tests_r440_review_fixes (py + node).
