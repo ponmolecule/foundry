@@ -12,10 +12,12 @@ Loan-production panels (separate payment and prepayment rates) now use the label
 
 Product schedules (yield, rate paid, loan-production paths and any other explicit Series on lending, deposit and off-balance-sheet products) are period grids instead of the "View / edit schedule" panel. A cell writes value ÷ 100 for rates, the typed value for counts / multiples / dollars / days, and × 1,000 for $000s amounts, then resizes the series exactly as paste does. Paste values… and Clear remain on the grid; Load closes the paste box.
 
+A row that holds a schedule grid keeps its label at the top, beside the path.
+
 Product settings panel (Edit settings): product name, balance method, opening balance, measurement, product type and reporting category on one label column.
 
 Tests changed for the new layout (assertions on stored values unchanged): tests_r381_deposit_pricing now expects "Rate bounds" in place of the two rows; tests_r389_authoring opens paste from the grid and reads loaded values from the cells.
 
-Validation: tests_r435_space (py + node): grid vs paste storage equivalence for seven unit kinds, inside and beyond the entered values; the yield grid replacing the old panel and writing 7.25 as 0.0725; Rate bounds side by side writing the cap; settings labels on one edge; fee path beside the fee and still writing; Revenue months; opening book writing opening customers. Full suite compared against the r434 baseline.
+Validation: tests_r435_space (py + node): grid vs paste storage equivalence for seven unit kinds, inside and beyond the entered values; the yield grid replacing the old panel and writing 7.25 as 0.0725; Rate bounds side by side writing the cap; settings labels on one edge; fee path beside the fee and still writing; Revenue months; opening book writing opening customers. Full suite (before the final label-alignment CSS line): no new failures against the r434 baseline (51 of 262 failing; r434 had 51 of 260; the two new modules pass). After that line: the field-system, layout, deposit and count-breakdown browser tests rerun and pass.
 
 ZIP contains delivery/foundry-full.bundle. BUILD_STAMP = foundry-r435-space-and-schedules.
