@@ -791,6 +791,17 @@ def _validate_fee_stream_shape(stream):
             raise ValueError("Formula cost ramp belongs in an explicit formula factor")
     if presentation == "contra_revenue" and ck == "pct_of_revenue":
         raise ValueError("contra-revenue presentation cannot also use revenue-share contra treatment")
+    transform = drv.get("quantity_transform")
+    if transform not in {None, "positive_monthly_change"}:
+        raise ValueError("Unsupported linked quantity transform")
+    if transform:
+        if basis != "transaction" or src not in {"stream_ref", "fee_stream_quantity"} or traj != "flat":
+            raise ValueError("Positive monthly change requires Transaction basis, linked Account stream and flat source path")
+        opening = drv.get("opening_count")
+        if opening is None or not math.isfinite(float(opening)) or float(opening) < 0:
+            raise ValueError("Positive monthly change requires an explicit nonnegative opening count")
+        if (drv.get("params") or {}).get("share_spec") is not None:
+            raise ValueError("Apply participation to the upstream Account count before calculating its increase")
     if src in {"stream_ref", "fee_stream_quantity"}:
         if not str(drv.get("ref") or "").strip():
             raise ValueError("fee stream_ref source requires driver.ref")

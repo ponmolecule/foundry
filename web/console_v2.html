@@ -7186,6 +7186,7 @@ _feeGlobal.feeStreamBasisChange=function(i,si,v){
   // Never carry one silently across a basis change just because both use the same JSON key.
   if(oldBasis!==v) delete st.rate.params.rate_path;
   if(v!=="transaction") delete st.rate.params.pricing_basis;
+  if(v!=="transaction"){delete st.driver.quantity_transform;delete st.driver.opening_count;}
   // A natural-period coefficient is a Transaction/throughput-only driver fact. When the
   // user changes basis, retire that incompatible draft state immediately instead of letting
   // a hidden transaction field block an otherwise-valid Account/Balance/Flat/Event stream.
@@ -7213,6 +7214,7 @@ _feeGlobal.feeStreamDriverSourceChange=function(i,si,v){
   if(selectedCount!==null){if(!_feeCustomerCountOptions().some(o=>o.series_id===selectedCount))return;v="customer_acquisition_count";}
   const st=_stOwner(i).fee_streams[si];st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.driver.params=st.driver.params||{};st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
   const d=st.driver,old=String(d.source||"constant");
+  if(old!==v&&!["stream_ref","fee_stream_quantity"].includes(v)){delete d.quantity_transform;delete d.opening_count;}
   // A pasted/manual Account count path is valuable authored work. Linking the stream to the
   // CAC-owned Ending bank customers Series must hide, not destroy, that path. Keep params in
   // place and remember only the active manual trajectory so switching back restores it exactly.
@@ -7956,6 +7958,7 @@ function fieldsFor(fam, p, base){
 }
 // r232: the fee-stream workspace, shared by fee products, loans and deposits. _fi is the stream owner code:
 // a fee product's index (unchanged), or 1000+i for loans and 2000+i for deposits (resolved by _stOwner).
+function feeCountActivityChange(i,si,v){const d=_stOwner(i).fee_streams[si].driver;if(v==='positive_monthly_change'){d.quantity_transform=v;d.trajectory='flat';}else{delete d.quantity_transform;delete d.opening_count;}renderContent();refresh();}
 function _stOwner(i){ // r232: resolve a stream owner code to its product (fee product index; 1000+i loan; 2000+i deposit)
   const a=(((typeof cfg!=='undefined'&&cfg)||{}).assumptions)||{}; i=+i;
   if(i>=2000) return (a.deposit_products||[])[i-2000];
@@ -8069,6 +8072,10 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         h+=`<a href="#" class="cadd" onclick="browseFeeSources(${_fi},${si});return false">Browse / search sources</a>`;
         h+=`<div class="fld wide"><label>Source quantity</label><select onchange="feeQuantitySelect(${_fi},${si},this.value)"><option value="">Select a compatible stream…</option>${missing?`<option value="${esc(ref)}" selected>Missing / incompatible source: ${esc(ref)}</option>`:''}${choices.map(x=>`<option value="${esc(x.value)}"${x.value===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo" style="margin:4px 0 0">Links the source quantity, not its revenue. Rename or reorder either card without changing the reference.</span></div>`;
       }
+      if(basis==='transaction'&&['stream_ref','fee_stream_quantity'].includes(src)){
+        h+=`<div class="fld"><label>Linked activity</label><select onchange="feeCountActivityChange(${_fi},${si},this.value)"><option value=""${!st.driver.quantity_transform?' selected':''}>Use source quantity</option><option value="positive_monthly_change"${st.driver.quantity_transform==='positive_monthly_change'?' selected':''}>Positive monthly increase · account count</option></select></div>`;
+        if(st.driver.quantity_transform==='positive_monthly_change')h+=`<div class="fld"><label>Opening source accounts</label><input type="number" min="0" step="any" value="${st.driver.opening_count==null?'':st.driver.opening_count}" onchange="setPath('${sb}.driver.opening_count',this.value===''?null:Number(this.value));refresh()"><span class="memo">Monthly increase = max(0, month-end source count − prior month-end). Opening count is used in M1. Source must be an Account stream.</span></div>`;
+      }
       if(src==='account_activity'){
         const opts=_accountActivityOptions(basis),ref=String(st.driver.ref||'');
         h+=`<div class="fld wide"><label>Activity source</label><select data-nofit onchange="setPath('${sb}.driver.ref',this.value);renderContent();refresh()"><option value="">Select a ${basis==='account'?'subscriber count':'customer / subscriber flow'}…</option>${ref&&!opts.some(x=>x.series_id===ref)?`<option selected value="${esc(ref)}">Missing source: ${esc(ref)}</option>`:''}${opts.map(x=>`<option value="${esc(x.series_id)}"${x.series_id===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo">Create shared adoption sources under Customer acquisition. Count flows post no revenue or cost by themselves.</span></div>`;
@@ -8142,7 +8149,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         if(_eft==="growth")h += `<div class="fld wide"><label>Driver growth</label>${growthSpecInline(`${sb}.driver.params.flow_path.growth_spec`,_ef.growth_spec,null,false)}</div>`;
         if(_eft==="explicit_schedule"){const _efid=`feeEnteredFlowPaste_${_fi}_${si}`;h += `<div class="fld wide"><label>Monetary throughput schedule ($000s per ${_efp})</label><textarea id="${_efid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_efid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_efid}_load" class="pillbtn" disabled onclick="_feeSetEnteredFlowSchedule(${_fi},${si},document.getElementById('${_efid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearEnteredFlowSchedule(${_fi},${si})"${Object.keys(_ef.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_ef.schedule,1/1000,_efp)}</div><span class="memo" style="margin:3px 0 0">Entered monetary flows sum across months when the model cadence is quarterly. Set pricing to 0% when this stream is only a non-posting source for another stream.</span></div>`;}
       } else {
-        h += `<div class="fld"><label>${(_isAccountCount||_isCACAccountCount)?"Count path":"Trajectory (how the driver moves)"}</label><select${(_isCostPool||_isActivity||_isCACAccountCount)?" disabled":""} onchange="feeStreamTrajectoryChange(${_fi},${si},this.value)">${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
+        h += `<div class="fld"><label>${(_isAccountCount||_isCACAccountCount)?"Count path":"Trajectory (how the driver moves)"}</label><select${(_isCostPool||_isActivity||_isCACAccountCount||st.driver.quantity_transform==='positive_monthly_change')?" disabled":""} onchange="feeStreamTrajectoryChange(${_fi},${si},this.value)">${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
         if(basis==="transaction"&&src==="constant")h += `<div class="fld wide"><button class="btn-plain" onclick="_feeEnsureEnteredFlow(${_fi},${si});renderContent();refresh();return false">Use entered monetary flow path</button><span class="memo" style="margin:4px 0 0">Adds Flat / Growth / Explicit authoring in $000s per Month / Quarter / Year. Existing legacy constant quantities remain unchanged until selected.</span></div>`;
       }
       if(src==="constant" && traj!=="explicit_schedule" && !_isEnteredFlow){

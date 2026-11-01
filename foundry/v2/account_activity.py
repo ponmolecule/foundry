@@ -172,7 +172,7 @@ def needs_monthly(stream, definitions, seen=None):
     seen=set(seen or ());ident=id(stream)
     if ident in seen:return False
     seen.add(ident);d=stream.get('driver') or {}
-    if d.get('source')=='account_activity' or (stream.get('cost') or {}).get('kind')=='per_account' or (d.get('params') or {}).get('share_spec') is not None:return True
+    if d.get('quantity_transform')=='positive_monthly_change' or d.get('source')=='account_activity' or (stream.get('cost') or {}).get('kind')=='per_account' or (d.get('params') or {}).get('share_spec') is not None:return True
     if d.get('source') in {'stream_ref','fee_stream_quantity'}:
         parent=definitions.get(str(d.get('ref') or ''))
         return bool(parent and needs_monthly(parent,definitions,seen))
@@ -198,6 +198,11 @@ def monthly_fee(stream,q,ctx,ppy,evaluator,*,force=False):
                     if owner is not None:parent=next((x for x in owner if x.get('name')==ref),None)
                 if parent is None:raise ValueError('Monthly activity source is missing: '+ref)
                 _,_,qty,_=eval_month(parent,mi)
+                if d.get('quantity_transform')=='positive_monthly_change':
+                    if parent.get('basis')!='account':raise ValueError('Positive monthly change requires an Account source stream')
+                    prior=eval_month(parent,mi-1)[2] if mi else float(d['opening_count'])
+                    if not all(math.isfinite(x) and x>=0 for x in (qty,prior)):raise ValueError('Account source counts must remain finite and nonnegative')
+                    qty=max(0.,qty-prior)
                 c[keyname][ref]=qty if source=='stream_ref' else [0.]*mi+[qty]
         if src=='account_activity':
             sid=d.get('ref');meta=(ctx.get('account_activity') or {}).get(sid)
@@ -334,6 +339,7 @@ def validate_fee_paths(a,n,ppy,growth_context=None):
                 elif src in {'stream_ref','fee_stream_quantity'}:
                     parent=external.get(d.get('ref')) if src=='fee_stream_quantity' else next((x for x in owners.get(node.get('quantity_series_id'),p.get('fee_streams') or []) if x.get('name')==d.get('ref')),None)
                     if parent is None:raise ValueError('Monthly activity upstream stream is missing')
+                    if d.get('quantity_transform')=='positive_monthly_change' and parent.get('basis')!='account':raise ValueError('Positive monthly change requires an Account source stream')
                     visit(parent)
                 elif src not in {'constant','customer_acquisition_count'}:
                     raise ValueError('Account activity / per-account costs require a canonical monthly count source')
