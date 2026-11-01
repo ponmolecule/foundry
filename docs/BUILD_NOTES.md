@@ -2101,3 +2101,6 @@ Field system on Configuration editors (built on r436). fxsConfigAfterRender (cal
 
 ## r438
 Path vocabulary (built on r437): display labels "Explicit" / "Explicit schedule" → "Schedule" in the console (options, chips, summaries, hints, reference index), fee_guide trajectory label and steps, audit workbook "Scheduled new customers", data-check locations. "Explicit customers" → "Scheduled customers"; "Explicit driver path" → "Scheduled driver path". Stored values unchanged. Reference coverage re-scanned. Test: tests_r438_schedule_vocabulary.
+
+## r439
+Schedule wording tidy (built on r438): three doubled phrases reworded; reference coverage re-scanned. Text only.
