@@ -8,6 +8,6 @@ Built on r437 (2392484). Wording only: stored values are unchanged (`explicit` /
 - Names where "explicit" meant "entered directly" were renamed to read naturally rather than replaced blindly: the acquisition method is **Scheduled customers**, and "Scheduled driver path". "Explicit recognized balances" and "Explicit series" keep their wording; they are not paths.
 - A scan of every Configuration module, product step and fee-stream step finds no visible "Explicit" path wording left.
 
-Validation: tests_r438_schedule_vocabulary; three existing tests updated for the new word (count-breakdown path options, weighted counts, Guide Me steps). Full suite: see below.
+Validation: tests_r438_schedule_vocabulary; three existing tests updated for the new word (count-breakdown path options, weighted counts, Guide Me steps). Full suite: 0 of 265 failing.
 
 ZIP contains delivery/foundry-full.bundle. BUILD_STAMP = foundry-r438-schedule-vocabulary.
