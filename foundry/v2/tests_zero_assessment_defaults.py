@@ -24,6 +24,7 @@ def main():
     # r284 intentionally adds the tax-year ledger; preserve the complete-result guard.
     # r300 adds category component reporting series (financials verified identical); pin moves 4c3613f2d783 -> 80760d2e12e0.
     # r436: reporting-only result additions r360-r419 (see tests_result_identity) move it 80760d2e12e0 -> 7c01eeede6ff.
-    assert run_v2(c)['run_hash']=='7c01eeede6ff'   # r436 also: two Call Report reference entries (no values)
+    # r445: adds product provision and target-allowance diagnostics; statement fingerprint unchanged.
+    assert run_v2(c)['run_hash']=='39ca913ffca3'   # r436 also: two Call Report reference entries (no values)
     print('PASS Profile A/B missing FDIC = explicit zero; explicit 5 still accrues; explicit-5 core result fingerprint pinned')
 if __name__=='__main__':main()

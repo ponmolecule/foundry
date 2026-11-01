@@ -1626,6 +1626,12 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
  .fxs-pane .lfx-grid .loan-profile-panel>.loan-profile-field>:not(label){grid-column:1}
 }
 
+
+/* r445: native and decorated product controls share one field geometry. */
+.fxs-pane .lfx-grid .fld>label{white-space:normal!important;text-align:right!important;justify-content:flex-end!important}
+.fxs-pane .lfx-grid .fld>.lfx-seg{justify-self:start;width:auto!important;max-width:100%;flex-wrap:wrap;height:auto!important}
+.fxs-pane .lfx-grid .fld>.lfx-seg button{white-space:normal}
+
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -8972,7 +8978,7 @@ function _lfxSetupHtml(i,p,base){
     b+=_lfxF('Day count',_lfxN(base+'.day_count','','days / yr'),prof?'s2':'');
     b+=_lfxF('Target retained share',_lfxN(base+'.target_retention_share','pct','%'));
     b+=_lfxF('Funded volume held aside',_lfxN(base+'.reserve_share','pct','% of funded'));
-    b+=_lfxF('Interest accrues on',_lfxSeg([['period_begin','Beginning'],['period_average',prof?'Monthly average':'Average'],['period_end','Ending']],_im,`setPath('${base}.interest_balance_measure','%v');renderContent();refresh()`,'Interest balance measure'),'s2');
+
     b+='</div>';
     if(prof)b+=`<div class="lfx-grid"><div class="lfx-f s4 lfx-legacy">${_loanRepaymentProfileHtml(i,base,p)}</div></div>`;
     b+='<div class="lfx-grid">'+_lfxF('Shared balance cap',_lfxSel(`<select aria-label="Shared balance cap" onchange="loanAllocationGroupChange(${i},this.value)"><option value="">None · balance is uncapped</option>${_groups.map(g=>`<option value="${esc(g.id)}"${_gid===g.id?' selected':''}>${esc(g.id)}</option>`).join('')}</select>`),'s2');
@@ -9012,6 +9018,7 @@ function _lfxSetupHtml(i,p,base){
     else b+=`<div class="lfx-f s4 lfx-legacy">${_loanFixedYieldEditor(p,base)}</div>`;
     const rq=P&&P.rateQ&&P.rateQ.length?P.rateQ:null;
     b+=_lfxF(fl?`All-in yield, ${_lfxQ(1)} → ${_lfxQ(rq?rq.length:(+(cfg.assumptions||{}).n_periods||1))}`:'Yield applied',_lfxLiveHtml('yield',i),fl?'':'s2');
+    b+=_lfxF('Interest accrues on',_lfxSeg([['period_begin','Beginning'],['period_average',p.repayment_profile?'Monthly average':'Average'],['period_end','Ending']],p.interest_balance_measure||'period_average',`setPath('${base}.interest_balance_measure','%v');renderContent();refresh()`,'Interest balance measure'),'s2');
     b+='</div>';
     const sum=_lfxLiveHtml('psum',i);
     const rail=`<p>Interest earned on the retained balance. Floating rates reference the engagement's rate curves.</p><div class="fx"><span class="eq">${fl?'yield(t) = index(t) + spread':'yield = fixed rate'}</span><span class="eq">interest = basis × yield ÷ ${typeof PPY==='function'?PPY():12}</span></div>`;
@@ -9088,6 +9095,7 @@ function _lfgGrp(el,fam){
   if(fam==='deposit'&&el.dataset&&el.dataset.depositGroup)return el.dataset.depositGroup;
   if(fam==='lending'&&el.getAttribute&&el.getAttribute('data-loan-contract-group'))return el.getAttribute('data-loan-contract-group');
   if(fam==='lending'){const t=[...el.querySelectorAll('[onchange],[oninput],[onclick]')].map(x=>(x.getAttribute('onchange')||'')+(x.getAttribute('oninput')||'')+(x.getAttribute('onclick')||'')).join(' ')+' '+(el.getAttribute&&(el.getAttribute('data-loan-customer-count-preview')!=null)?'balance_driver':'');
+    if(/\.runoff_per_period|\.runoff_q/.test(t))return 'timing';   // r445: repayments belong to Structure & timing on every lending path
     if(/ending_balance_spec|balance_driver|loanBalanceDriver|loanAmount|loanShared|allocation_group|loanAllocationGroup|cap_spec|cap_ratio|cap_source/.test(t))return 'balance';
     if(/loanAddEconomics|fee_streams|flowLegacyFee|loanFlowTrajectory|loanFlowSchedule|interest_balance_measure/.test(t))return 'pricing';}
   if(fam!=='obs')return _prdGrpOf(el,fam);
@@ -19186,6 +19194,10 @@ function _fxsSeriesHtml(path,spec,title,kind,removeHtml){
    Presentation only: every control keeps its own handler; labels are lifted into the label column, rows are regrouped. */
 function fxsProductsAfterRender(){if(typeof document==='undefined')return;
  document.querySelectorAll('.lfx.lnv .lnv-pane .lfx-b>.lfx-body:not(.fxs-pane)').forEach(b=>b.classList.add('fxs-pane'));   // r435: loan-production panels included
+ // r445: native funded-flow fields use the same label column as the other product paths.
+ document.querySelectorAll('.fxs-pane .lfx-grid>.lfx-f').forEach(f=>{
+  if(f.querySelector(':scope>label')||f.querySelector(':scope>.sec-managed-series'))f.classList.add('fld');
+ });
  // managed-series rows (Yield, Rate paid, …): the row's own caption becomes the field label
  document.querySelectorAll('.fxs-pane .fld:not([data-fxs-lift])').forEach(f=>{f.setAttribute('data-fxs-lift','');
   const lab=f.querySelector(':scope>label');const cap=f.querySelector(':scope>.sec-managed-series>.sec-managed-series-row:first-child>.sec-book-label');

@@ -2119,3 +2119,6 @@ Built on r442. Restore separation between native product fields and align all re
 
 ## r444 — Repayment-profile population sources
 Built on r443. Include derived acquisition size-band/population count measures in the canonical monthly graph used to replay linked purchase funding. Resolves Canonical monthly customer count unavailable for these chains. Existing result fingerprints unchanged. See RELEASE_r444.md.
+
+## r445 — Consistent product controls and provision inspection
+Built on r444. Shared field geometry across native/decorated product editors; consistent placement of runoff and interest-balance controls. Publish missing lending provision/target-allowance series for Numbers. Reporting-only complete-result pin changes; financial fingerprints unchanged. All 273 modules pass. See RELEASE_r445.md.

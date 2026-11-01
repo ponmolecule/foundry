@@ -44,10 +44,12 @@ PINNED_R300 = {
 #   r436  universal only, deliberate: the template now exercises every fee source and cost kind (account activity,
 #         fee-stream quantity, funded flow, distributed balance; per-account, periodic-amount, % of balance and linked
 #         formula costs): seven streams and one funded-flow lending product. Financial results change by design.
+# r445: adds product-level provision / allowanceTarget reporting to non-contract lending;
+# only complete-result pins move. Financial fingerprints below remain unchanged.
 PINNED_CURRENT = {
-    "foundry/fixtures/core_bank_test_base.json": "670ae7ca4342",
+    "foundry/fixtures/core_bank_test_base.json": "a4e10638df79",
     "foundry/fixtures/patrick_default_v31.json": "2ead993f2caf",
-    "foundry/fixtures/universal_template_bank.json": "85bcf524cf2c",   # r436: template coverage additions (below)
+    "foundry/fixtures/universal_template_bank.json": "c4cad373c1a3",   # r436: template coverage additions (below)
 }
 # r436: the financial fingerprint covers only financial outputs, so reporting additions no longer hide (or mimic)
 # a calculation change. It must only move in a release that intends to change financial results.
