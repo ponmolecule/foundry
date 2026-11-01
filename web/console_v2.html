@@ -2130,9 +2130,9 @@ section#content table.ovt td:last-child,section#content table.ovt th:last-child,
 
 /* ============================ r204 PRODUCTS ============================ */
 #content.is-products{background:var(--k-canvas);padding:0;overflow:visible}
-.prd-shell{display:grid;grid-template-columns:300px minmax(0,1fr);align-items:start;min-height:calc(100vh - var(--appbar-h) - 44px)}
+.prd-shell{display:grid;grid-template-columns:clamp(240px,var(--prd-nav-width,300px),min(640px,45vw)) 6px minmax(0,1fr);align-items:start;min-height:calc(100vh - var(--appbar-h) - 44px)}
 .prd-nav{position:sticky;top:var(--appbar-h);height:calc(100vh - var(--appbar-h));overflow-y:auto;background:#EFEFEF;border-right:1px solid var(--k-line2);padding:20px 14px 24px;box-sizing:border-box}
-.prd-nav-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 12px}
+.prd-resizer{position:sticky;top:var(--appbar-h);height:calc(100vh - var(--appbar-h));cursor:col-resize;touch-action:none;background:transparent;z-index:4;outline-offset:-2px}.prd-resizer:hover,.prd-resizer:focus-visible{background:var(--k-gold)}body.prd-resizing,body.prd-resizing *{cursor:col-resize!important;user-select:none!important}.prd-nav-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 12px}
 .prd-nav-t{font-family:var(--k-disp);font-size:22px;font-weight:600;letter-spacing:-.02em;color:var(--k-tx1)}
 .prd-add{height:28px;padding:0 11px;border:0;border-radius:3px;background:var(--k-gold);color:#343434;font-size:12px;font-weight:600;cursor:pointer}
 .prd-add:hover{background:#BF975E}
@@ -2269,7 +2269,7 @@ table.prd-cmp td.num{text-align:right;font-variant-numeric:tabular-nums}
 .prd-famsel button{height:28px;padding:0 12px;border:0;border-right:1px solid var(--k-line2);background:#FFFFFF;font-size:12px;color:var(--k-tx2);cursor:pointer;font-family:inherit}
 .prd-famsel button:last-child{border-right:0}
 .prd-famsel button.on{background:var(--k-graph);color:#FFFFFF}
-@media(max-width:1100px){.prd-shell{grid-template-columns:minmax(0,1fr)}.prd-nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--k-line2)}}
+@media(max-width:1100px){.prd-resizer{display:none}.prd-shell{grid-template-columns:minmax(0,1fr)}.prd-nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--k-line2)}}
 
 /* r204: add-stream tiles as one compact row; card headings left-aligned */
 .prd-tiles{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(214px,1fr));gap:10px;align-items:stretch}
@@ -6374,6 +6374,11 @@ function productValidationHtml(stale){
  return `<div class="prd-banner"><b>${q.length?q.length+' input'+(q.length===1?'':'s')+' to complete':'The latest run did not finish'}.</b> ${stale?'Figures are muted from the last complete run.':'Figures appear once inputs are complete.'}<ul>${q.slice(0,4).map(m=>'<li>'+esc(m)+'</li>').join('')}${lastRunFailure?'<li>'+esc(lastRunFailure.message||'')+'</li>':''}</ul></div>`;
 }
 function friendlyInputError(message){return String(message).replace(/obs_exposures\[(\d+)\]\.fee_streams\[(\d+)\]/g,(_,i,j)=>{const p=cfg?.assumptions?.obs_exposures?.[+i],st=p?.fee_streams?.[+j];return [p?.name,st?.name].filter(Boolean).join(' → ')||'Fee stream';});}
+// Product navigation width is a local display preference, never engagement data.
+function prdSidebarWidth(value){const width=Math.max(240,Math.min(640,Math.floor(innerWidth*.45),value));document.documentElement.style.setProperty('--prd-nav-width',width+'px');try{localStorage.setItem('foundry.productSidebarWidth',String(width));}catch(e){}return width;}
+try{const width=Number(localStorage.getItem('foundry.productSidebarWidth'));if(Number.isFinite(width)&&width>=240&&width<=640)document.documentElement.style.setProperty('--prd-nav-width',width+'px');}catch(e){}
+function prdResizeStart(event){if(event.button!==0)return;event.preventDefault();const handle=event.currentTarget,shell=handle.closest('.prd-shell'),left=shell.getBoundingClientRect().left;handle.setPointerCapture(event.pointerId);document.body.classList.add('prd-resizing');const move=e=>prdSidebarWidth(e.clientX-left);const end=()=>{document.body.classList.remove('prd-resizing');handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',end);handle.removeEventListener('pointercancel',end);handle.removeEventListener('lostpointercapture',end);};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);handle.addEventListener('lostpointercapture',end);}
+function prdResizeKey(event){if(!['ArrowLeft','ArrowRight','Home'].includes(event.key))return;event.preventDefault();const current=event.currentTarget.closest('.prd-shell').querySelector('.prd-nav').getBoundingClientRect().width;prdSidebarWidth(event.key==='Home'?300:current+(event.key==='ArrowRight'?20:-20));}
 function refreshProductValidation(){const e=document.getElementById('productValidation');if(e)e.innerHTML=productValidationHtml(!!window._prdLastGood);document.querySelector('.prd-shell')?.classList.toggle('prd-stale',!lastRes&&!!window._prdLastGood);}
 function paintChrome(){
   document.getElementById("status").textContent = lastRes ? "engine run " + lastRes.run_hash : (lastRunFailure ? "engine run failed" : "fail-closed: configuration incomplete");
@@ -14220,7 +14225,7 @@ function _renderContentBody(){
         h+=`<div class="product-card prd-row${sel?' sel':''}" data-q="${esc(String(x.p.name||'').toLowerCase())}" draggable="true" title="Drag to reorder" ondragstart="productDragStart(event,'${fam}',${x.i});prdDragImage(event)" ondragend="productDragEnd(event)" ondragover="prdRowDragOver(event,'${fam}',${x.i})" ondragleave="productDragLeave(event)" ondrop="productDrop(event,'${fam}',${x.i})"><span class="prd-grip" aria-hidden="true">\u22EE\u22EE</span><span class="mi">${ICONS[_famIcon[fam]]||''}</span><a href="#" class="prd-row-t" draggable="false" onclick="prdSelect('${fam}',${x.i});return false"><span class="ml">${esc(x.p.name||'Unnamed product')}</span><span class="sl${_needs(x.p.name)?' need':''}">${esc(_needs(x.p.name)?'Needs inputs':subl)}</span></a><span class="v">${(r&&!_needs(x.p.name))?fmt0(r.revenue):'\u2014'}</span></div>`; });
     });
     h+='</div>';
-    h+=`<div class="prd-nav-foot">${_stale?'Muted figures are from the last complete run, $000s.':'Figures from the latest engine run, $000s.'}</div></nav><div class="prd-stage">`;
+    h+=`<div class="prd-nav-foot">${_stale?'Muted figures are from the last complete run, $000s.':'Figures from the latest engine run, $000s.'}</div></nav><div class="prd-resizer" role="separator" aria-label="Product sidebar width" aria-orientation="vertical" tabindex="0" title="Drag to resize product list; double-click to reset" onpointerdown="prdResizeStart(event)" onkeydown="prdResizeKey(event)" ondblclick="prdSidebarWidth(300)"></div><div class="prd-stage">`;
     h+='<div id="productValidation" aria-live="polite">'+productValidationHtml(_stale)+'</div>';
 
     if(view==='product'){
