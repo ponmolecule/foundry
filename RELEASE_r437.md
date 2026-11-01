@@ -8,6 +8,6 @@ Built on r436 (a635fa3). Presentation only: controls move into the label column;
 - **Capital raises and scheduled borrowings**: small tables with column headings (Month, Amount; Borrowing, Month, Amount, Rate, Term) instead of inline captions; a borrowing no longer wraps out of its card.
 - Securities, tax, rates and assessments already used label-and-value rows and are unchanged.
 
-Validation: tests_r437_config_fields (py + node): non-mutation across every module, label alignment, path buttons writing count and category paths, the growth line under the count, role name still editing, capital table headings and one-line rows inside the card, other income rows. Full suite: see below.
+Validation: tests_r437_config_fields (py + node): non-mutation across every module, label alignment, path buttons writing count and category paths, the growth line under the count, role name still editing, capital table headings and one-line rows inside the card, other income rows. Full suite: 0 of 264 failing.
 
 ZIP contains delivery/foundry-full.bundle. BUILD_STAMP = foundry-r437-config-fields.
