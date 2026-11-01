@@ -183,7 +183,7 @@ _TRAJECTORY_LABELS = {
     "flat": "Flat",
     "proportional": "Proportional growth",
     "ramp_to_target": "Ramp to target",
-    "explicit_schedule": "Explicit schedule",
+    "explicit_schedule": "Schedule",
     "derived": "Derived (× source)",
 }
 _RATE_LABELS = {
@@ -486,7 +486,7 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   driver_trajectory=explicit_schedule. If the resolution is economically required but omitted, ask
   whether the EOP levels should Step or Smooth; never invent rounding.
 - For balance rate_behavior=annual_change, pricing_trajectory describes the annual change path,
-  not the starting rate: Flat / Growth / Explicit. Annual changes use Year and Step only;
+  not the starting rate: Flat / Growth / Schedule. Annual changes use Year and Step only;
   first change applies after Year 1. Preserve annual_change when the user explicitly requests it.
 - If a balance is described as a percentage of another stock (for example reserves as % of Avg AUC),
   use balance + the sourced stock + driver_trajectory=derived + stock_multiplier_trajectory. This is a
@@ -782,7 +782,7 @@ def validate_guide_plan(plan):
         elif (item["basis"] == "transaction" and item["driver_source"] == "constant"
               and item.get("entered_driver_kind") == "money_flow"):
             if item["driver_trajectory"] not in {"flat", "proportional", "explicit_schedule"}:
-                raise ValueError("Guide Me entered monetary flow requires Flat, Growth, or Explicit trajectory")
+                raise ValueError("Guide Me entered monetary flow requires a Flat, Growth or Schedule path")
             if item["driver_period"] not in {"month", "quarter", "year"}:
                 raise ValueError("Guide Me entered monetary flow requires Month, Quarter, or Year")
             item["driver_resolution"] = None
@@ -1015,7 +1015,7 @@ def _stream_steps(item):
     if basis == "account" and item["driver_source"] == "constant":
         traj = item["driver_trajectory"]
         if traj == "explicit_schedule":
-            steps.append("Set Count path to “Explicit schedule”.")
+            steps.append("Set Count path to “Schedule”.")
             steps.append(
                 f"Set Count schedule period to “{item['driver_period'].title()}” and Resolution to “{item['driver_resolution'].title()}”."
             )
@@ -1080,7 +1080,7 @@ def _stream_steps(item):
         if traj == "explicit_schedule":
             steps.append(
                 f"Paste the source-model {noun.lower()} schedule into “{noun} schedule by {item['coefficient_period']}” and click Load (replace). "
-                f"The single “{field}” field is not used for Explicit Schedule." +
+                f"The single “{field}” field is not used for Schedule." +
                 (" Enter monetary amounts in $000s per source unit." if is_amount else "")
             )
         elif traj == "growth":
@@ -1156,7 +1156,7 @@ def _stream_steps(item):
             steps.append("Enter the Starting Fee ($000s/account) and the stated Fee growth assumption.")
         else:
             steps.append("Enter the fee in “Fee ($000s/account)”.")
-        steps.append("Leave Rate behavior at “Flat”; the Fee path owns Flat / Growth / Explicit pricing changes.")
+        steps.append("Leave Rate behavior at “Flat”; the Fee path owns Flat / Growth / Schedule pricing changes.")
     elif basis == "flat":
         fat = item.get("flat_amount_trajectory") or "flat"
         steps.append(f"Set Amount path to “{fat.replace('_schedule',' schedule').replace('_',' ').title()}”.")
@@ -1173,7 +1173,7 @@ def _stream_steps(item):
     if item["rate_behavior"] == "cost_recovery":
         steps.append("Cost side remains None: the cost pool is non-posting here. Linked expenses are already owned upstream; entered cost-base assumptions are pricing-only.")
     elif item["cost_kind"] == "periodic_amount_opex":
-        steps.append("Set Cost side to “Product cost — periodic amount”, choose Explicit schedule and its natural Month / Quarter / Year period, then paste the positive Product cost schedule ($000s). Foundry posts it to Fee Product Costs, not contra-revenue.")
+        steps.append("Set Cost side to “Product cost — periodic amount”, choose Schedule and its natural Month / Quarter / Year period, then paste the positive Product cost schedule ($000s). Foundry posts it to Fee Product Costs, not contra-revenue.")
     else:
         steps.append(f"Set Cost side to “{_COST_LABELS[item['cost_kind']]}”.")
     steps.append("Set Revenue start/end/ramp only if your source model specifies timing; otherwise leave the default start and no end.")
