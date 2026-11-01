@@ -2159,7 +2159,7 @@ def t57():
     for m in re.finditer(r"<style[^>]*>(.*?)</style>", h, re.S):
         css = m.group(1)
         spans = []
-        for mm in re.finditer(r"@media[^{]*\{", css):
+        for mm in re.finditer(r"@(?:media|container|supports)[^{]*\{", css):   # r436: container queries are conditional blocks too
             d, j = 1, mm.end()
             while d and j < len(css):
                 if css[j] == "{": d += 1
