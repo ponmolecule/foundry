@@ -2095,3 +2095,6 @@ Test debt (built on r435): 51 of 262 failing modules to 0. See RELEASE_r436.md f
 - Console: four paste boxes on the live-activation contract; _consumedPasteId reset via setTimeout; r435 paste drawers carry data-paste-surface; reference coverage re-scanned; duplicate top-level CSS rules merged (tests_protocol T57a now treats @container/@supports like @media).
 - Harnesses: node scripts via stdin; FOUNDRY_INDEX constants loaded where balance-method options are used; many stale UI expectations updated with `r436:` notes.
 - Universal template: coverage streams for every fee source and cost kind, plus a funded-flow lending product.
+
+## r437
+Field system on Configuration editors (built on r436). fxsConfigAfterRender (called at the start of fxAfterRender, after fxsProductsAfterRender) regroups: workforce role cards (.wf-role-card → .fxs-cfg.fxs-wf; path selects moved from the Advanced disclosure beside Count / Compensation; "… trajectory" growth lines moved under their value), expense category cards (.opex-item-card), other income sleeves (#card-income details.sec-managed-sleeve) and capital raise / borrowing rows (#card-cap, headings + grid). Segment conversion now accepts .wf-role-card.fxs-cfg; _FX_SHORT maps "Escalation (default)" to "Escalation". Tests: tests_r437_config_fields (py + node).

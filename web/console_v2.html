@@ -4011,6 +4011,32 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 .fxs-drawer .lnv-dgrid .lfx-seg button+button{border-left:1px solid #CFCCC6!important}.fxs-drawer .lnv-dgrid .lfx-seg button.on{background:#2C2C2C!important;color:#fff!important}
 /* a row that holds a schedule grid: its label sits at the top, beside the path, not halfway down the grid */
 .fxs-pane .fld:has(.fxs-sched)>label,.fxs-pane .loan-contract-field:has(.fxs-sched)>label,.lfx-st .lfx-sted .st-body .fld:has(.fxs-sched)>label{align-self:start!important;padding-top:8px}
+/* r437: Configuration editors on the label column */
+.fxs-cfg .fxs-cfgrow{display:grid!important;grid-template-columns:150px minmax(0,1fr);column-gap:20px;align-items:center;margin:0 0 10px!important;padding:0!important;border:0!important}
+.fxs-cfg .fxs-cfgrow>.fxs-cl{text-align:right;font-size:12px;color:#4A4945;line-height:1.3;display:flex;justify-content:flex-end;align-items:center;gap:5px}
+.fxs-cfg .fxs-cfgrow .fxs-c{display:flex!important;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px;min-width:0}
+.fxs-cfg .fxs-cfgrow input:not([type=checkbox]){height:32px!important;width:110px!important;text-align:right;flex:none}
+.fxs-cfg .fxs-cfgrow input.opex-item-name,.fxs-cfg .fxs-cfgrow input.wf-role-name{width:320px!important;text-align:left;font-weight:600}
+.fxs-cfg .fxs-cfgrow select:not(.fxs-hid){height:32px!important;width:auto!important;min-width:0;flex:none}
+.fxs-cfg .fxs-cfgrow .cu,.fxs-cfg .fxs-cfgrow .sec-book-unit{font-size:11.5px;color:#76736C;white-space:nowrap}
+.fxs-cfg .fxs-cfgrow .wf-static{font-size:11.5px;color:#76736C}
+.fxs-cfg .opex-item-head.fxs-cfghead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.fxs-cfg .opex-item-head .fxs-cac-rm{margin-left:auto;color:#A4625A!important;font-size:11.5px;font-weight:600;position:static!important;width:auto!important;height:auto!important;border:0!important;background:none!important}
+.fxs-cfg.fxs-wf details.fxs-wfadv{margin-top:6px}
+.fxs-cfg.fxs-wf details.fxs-wfadv>summary{font-size:11.5px}
+.fxs-cfg.fxs-wf details.fxs-wfopen>summary{display:none!important}
+.fxs-cfg.fxs-wf details.fxs-wfopen{border-top:0!important;padding-top:0!important;margin:0 0 0 170px!important}
+#card-income .fxs-cfg{padding:6px 0 10px}#card-income .fxs-cfg>summary{margin-bottom:10px}
+#card-income .fxs-cfg .sec-managed-series{border:0!important;background:none!important;padding:0!important;margin:0!important}
+#card-income .fxs-cfg .fxs-cfgrow input[onchange^="setPath"]{width:320px!important;text-align:left}
+#card-income .fxs-rmline{margin-left:170px!important;color:#A4625A!important;font-size:11.5px;font-weight:600;border:0!important;background:none!important}
+#card-cap .fxs-cap-h,#card-cap .crow.fxs-cap-row{display:grid!important;column-gap:8px;align-items:center;margin:0 0 6px!important}
+#card-cap .fxs-cap-raise{grid-template-columns:72px 130px 24px}
+#card-cap .fxs-cap-borrow{grid-template-columns:minmax(0,1fr) 64px 92px 58px 54px 24px}
+#card-cap .fxs-cap-h span{font-size:10.5px;color:#76736C;text-align:right;line-height:1.2}#card-cap .fxs-cap-h span:first-child{text-align:left}
+#card-cap .crow.fxs-cap-row>input,#card-cap .crow.fxs-cap-row>select{width:100%!important;min-width:0!important;height:30px;box-sizing:border-box}
+#card-cap .crow.fxs-cap-row>input:not(:first-child){text-align:right}
+#card-cap .fxs-cap-raise.crow>input{text-align:right}
 </style>
 </head>
 <body>
@@ -19031,7 +19057,7 @@ function rptExportBlock(){const V=_rptView();if(!_rptList().length||!V||_rptPend
      DOM, visually hidden, and is driven by the buttons);
    - explicit schedules are edited in a year × period grid (paste stays available as an action). */
 var _fxPasteOpen={};
-const _FX_SHORT={'Explicit schedule':'Schedule','Explicit':'Schedule','Proportional growth':'Growth','Follows source unchanged (100%)':'Follows source','Ramp to target':'Ramp','Derived (× source)':'× Source'};
+const _FX_SHORT={'Explicit schedule':'Schedule','Explicit':'Schedule','Proportional growth':'Growth','Follows source unchanged (100%)':'Follows source','Ramp to target':'Ramp','Derived (× source)':'× Source','Escalation (default)':'Escalation'};
 function _fxKind(vals){const s=new Set(vals);
  if(s.has('flat')&&(s.has('growth')||s.has('proportional'))&&(s.has('explicit')||s.has('explicit_schedule')))return 'path';
  if(vals.length>=2&&vals.every(v=>['month','quarter','year'].includes(v)))return 'period';
@@ -19048,10 +19074,11 @@ function fxAfterRender(){if(typeof document==='undefined')return;
   const kids=[...f.children].filter(c=>c.tagName!=='LABEL'&&!c.classList.contains('memo')&&!c.classList.contains('fxs-sched')&&!c.classList.contains('fxs-paste')&&!c.classList.contains('fxs-c'));
   if(kids.length>=2&&kids.every(c=>/^(INPUT|SELECT|SPAN|BUTTON)$/.test(c.tagName))){const w=document.createElement('div');w.className='fxs-c fxs-multi';kids[0].before(w);kids.forEach(c=>w.appendChild(c));}});
  if(typeof fxsProductsAfterRender==='function')fxsProductsAfterRender();   // r434
+ if(typeof fxsConfigAfterRender==='function')fxsConfigAfterRender();   // r437
  document.querySelectorAll('.lfx-st .lfx-sted .st-body select:not([data-fx]), .fxs-pane select:not([data-fx]), .fxs-cac select:not([data-fx])').forEach(s=>{
   if(s.multiple||s.closest('.fxs-noseg'))return;
   const par=s.parentElement;if(!par||!(par.matches('.fld')||par.matches('.fxs-c')||par.matches('.sec-managed-series-row')||par.matches('.fee-change-inline')))return;   // only a field's own control, never a nested editor
-  if(s.closest('.opex-cost-pool-component,.count-authoring,.wf-role-card,.cost-pool-editor'))return;
+  if(s.closest('.opex-cost-pool-component,.count-authoring,.wf-role-card:not(.fxs-cfg),.cost-pool-editor'))return;   // r437: configuration cards on the field system take segments
   const cac=!!s.closest('.fxs-cac');if(!cac&&par.classList.contains('fxs-multi')&&par.querySelectorAll(':scope>select').length>1)return;   // a compact inline phrase (e.g. 2% per Year · Step at Model year) keeps its dropdowns
   const opts=[...s.options];if(opts.length<2||opts.length>4)return;
   const kind=_fxKind(opts.map(o=>o.value));if(!kind)return;
@@ -19203,6 +19230,67 @@ function fxsSpaceAfterRender(){if(typeof document==="undefined"||!_FXS_PAIRS)ret
   if(per){const ps=per.querySelector(':scope>select.fxs-hid'),pg=per.querySelector(':scope>.fxs-seg'),g=document.createElement('span');g.className='fxs-pergrp';g.append(_fxsCap('per'));if(ps)g.appendChild(ps);g.appendChild(pg);w.appendChild(g);per.setAttribute('data-fxs-sp','merged');per.classList.add('fxs-gone');_fxsHide(per);}
   const nl=n.querySelector(':scope>label');if(nl)nl.after(w);else n.prepend(w);n.querySelectorAll(':scope>.fxs-c:empty').forEach(e=>e.remove());
   P.setAttribute('data-fxs-sp','merged');P.classList.add('fxs-gone');_fxsHide(P);n.setAttribute('data-fxs-sp','pathval');});
+}
+
+/* r437: the field system on Configuration editors (operating expense categories and workforce populations first).
+   Presentation only: controls move into a label column; their handlers, values and names are unchanged. */
+function _fxsRow(label,cls){const r=document.createElement('div');r.className='fxs-crow fxs-cfgrow'+(cls?' '+cls:'');const l=document.createElement('span');l.className='fxs-cl';l.textContent=label;const c=document.createElement('div');c.className='fxs-c fxs-multi';r.append(l,c);return [r,c];}
+function _fxsSpan(t,cls){const s=document.createElement('span');s.className=cls||'cu';s.textContent=t;return s;}
+function fxsConfigAfterRender(){if(typeof document==='undefined')return;
+ // operating expense category: Category name, Amount (path · value · period), Growth (rate · per · method · anchor)
+ document.querySelectorAll('.cfg-md-detail .opex-item-card:not([data-fxs])').forEach(card=>{card.setAttribute('data-fxs','');card.classList.add('fxs-cac','fxs-cfg');
+  const head=card.querySelector(':scope>.opex-item-head'),name=head&&head.querySelector('input.opex-item-name');
+  const rows=[];
+  if(name){const [r,c]=_fxsRow('Category');c.appendChild(name);rows.push(r);const x=head.querySelector('a.cx');if(x){x.classList.add('fxs-cac-rm');x.textContent='Remove category';}}
+  const crow=card.querySelector(':scope>.crow');
+  if(crow&&crow.querySelector(':scope>select[onchange^="nieCatTrajectory"]')){const kids=[...crow.children];
+   const gi=kids.findIndex(k=>(k.getAttribute('onchange')||'').startsWith('setGrowthField'));
+   const amt=gi<0?kids:kids.slice(0,gi),gro=gi<0?[]:kids.slice(gi);
+   const [ra,ca]=_fxsRow('Amount');amt.forEach(k=>{if(k.classList.contains('cu')){const t=k.textContent.trim();if(t==='base')return k.remove();if(/\/$/.test(t))k.textContent=t.replace(/\s*\/$/,'')+' per';}ca.appendChild(k);});rows.push(ra);
+   if(gro.length){const [rg,cg]=_fxsRow('Growth');gro.forEach(k=>cg.appendChild(k));rows.push(rg);}
+   crow.replaceWith(...rows.slice(name?1:0));}
+  if(name)head.after(rows[0]);
+  if(head&&name)head.classList.add('fxs-cfghead');});
+ // workforce population: one row per value; each path beside the value it shapes
+ document.querySelectorAll('.cfg-md-detail .wf-role-card:not(.opex-item-card):not([data-fxs])').forEach(card=>{const grid=card.querySelector(':scope>.wf-role-grid');if(!grid)return;card.setAttribute('data-fxs','');card.classList.add('fxs-cac','fxs-cfg','fxs-wf');
+  const f=c=>grid.querySelector(':scope>label.wf-field.'+c);const kidsOf=l=>l?[...l.children].filter(k=>!k.classList.contains('wf-field-label')):[];const capOf=l=>l?((l.querySelector('.wf-field-label')||{}).textContent||'').trim():'';
+  const det=card.querySelector(':scope>details.wf-series-details'),pr=det&&det.querySelector(':scope>.crow');
+  const pathSel=re=>pr?[...pr.querySelectorAll('select')].find(s=>re.test((s.closest('label')||{}).textContent||'')):null;
+  const rows=[];const add=(lab,nodes,cls)=>{if(!nodes.length)return;const [r,c]=_fxsRow(lab,cls);nodes.forEach(n=>c.appendChild(n));rows.push(r);};
+  const title=f('wf-role-title');add(capOf(title)||'Population',kidsOf(title));
+  const cnt=f('wf-count'),cps=pathSel(/Count path/);add('Count',[...(cps?[cps]:[]),...kidsOf(cnt)]);
+  const comp=f('wf-compensation'),pps=pathSel(/Compensation path/),cv=comp&&comp.querySelector('.wf-comp-value');
+  if(comp){const ns=[];if(pps)ns.push(pps);let bs=[];if(cv){const [v,b,p]=[...cv.children];if(v)ns.push(v,_fxsSpan('$000s'));if(b)bs.push(b);if(p){[...p.options].forEach(o=>{o.textContent=o.textContent.replace(/^\/\s*/,'');});bs.push(_fxsSpan('per'),p);}}add('Compensation',ns);add('Amount basis',bs);}
+  const st=f('wf-start'),en=f('wf-end');if(st){const sw=st.querySelector('.wf-start-wrap');const ns=sw?[...sw.children]:kidsOf(st);if(en){ns.push(_fxsSpan('to month'));kidsOf(en).forEach(k=>{if(k.matches('input')&&!k.getAttribute('placeholder'))k.setAttribute('placeholder','open');ns.push(k);});}add('Active from',ns);}
+  const ld=f('wf-load');if(ld){const v=ld.querySelector('.sec-book-value');add(capOf(ld).replace(/\s*%$/,''),[...(v?[...v.children]:kidsOf(ld)),_fxsSpan('% of compensation')]);}
+  const es=f('wf-escalation');if(es){const s=es.querySelector('.wf-static');if(s&&!/path/i.test(s.textContent))add(capOf(es),[s]);}
+  const cm=[...card.querySelectorAll(':scope>.crow>label.wf-field')].find(l=>/Count method/.test(capOf(l)));if(cm){add('Count method',kidsOf(cm));cm.parentElement.remove();}
+  const del=grid.querySelector(':scope>a.cx');if(del){del.classList.add('fxs-gone');}
+  grid.replaceWith(...rows);
+  if(det){if(pr&&!pr.querySelector('select'))pr.remove();det.classList.add('fxs-wfadv');
+   // the paths now sit beside their values; what remains here is the growth / schedule detail for a non-flat path
+   // a growth path's rate line moves under the value it grows ("Count growth", "Compensation growth")
+   [...det.querySelectorAll(':scope>.crow')].forEach(cr=>{const cap=cr.querySelector(':scope>span.cu');const t=cap&&cap.textContent.trim();const m=t&&/^(Count|Compensation) trajectory$/.exec(t);if(!m)return;
+    const anchor=rows.find(r=>(r.querySelector('.fxs-cl')||{}).textContent===m[1]);const [r,c]=_fxsRow(m[1]+' growth');cap.remove();[...cr.children].forEach(k=>{if(k.classList.contains('cmut'))return;c.appendChild(k);});
+    const note=cr.querySelector('.cmut');if(note)note.remove();if(anchor)anchor.after(r);cr.remove();});
+   if([...det.children].some(k=>k.tagName!=='SUMMARY')){if(!det.open)det.setAttribute('open','');det.classList.add('fxs-wfopen');}else det.classList.add('fxs-gone');}});
+ // other income lines: Name, Classification, Source, then the amount with its period on one row
+ document.querySelectorAll('#card-income details.sec-managed-sleeve:not([data-fxs])').forEach(sl=>{sl.setAttribute('data-fxs','');sl.classList.add('fxs-cac','fxs-cfg');
+  const hd=sl.querySelector(':scope>div:not(.sec-managed-series)'),rows=[];
+  if(hd){[...hd.querySelectorAll(':scope>label')].forEach(l=>{const t=[...l.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim();const ctl=[...l.children];const [r,c]=_fxsRow(t||'');ctl.forEach(k=>c.appendChild(k));rows.push(r);});
+   const x=hd.querySelector(':scope>button');if(x){x.textContent='Remove line';x.classList.add('fxs-rmline');}}
+  const ser=sl.querySelector(':scope>.sec-managed-series');
+  if(ser){const [r1,r2]=ser.querySelectorAll(':scope>.sec-managed-series-row');const lab=r1&&r1.querySelector(':scope>.sec-book-label');
+   if(r1){const [r,c]=_fxsRow(lab?lab.textContent.trim():'Amount');[...r1.children].filter(k=>k!==lab).forEach(k=>c.appendChild(k));
+    if(r2){const ps=r2.querySelector('select');if(ps){c.appendChild(_fxsSpan('per'));c.appendChild(ps);}r2.remove();}
+    [...ser.children].forEach(k=>rows.push(k));r1.replaceWith(r);rows.splice(rows.indexOf(r1),1,r);}}
+  if(hd){const x=hd.querySelector(':scope>button');hd.replaceWith(...rows.filter(r=>!ser||!ser.contains(r)));if(x)sl.appendChild(x);}});
+ // capital raises and scheduled borrowings: one small table each, column headings instead of inline captions
+ document.querySelectorAll('#card-cap .ccols>div').forEach(col=>{const h=col.querySelector(':scope>.csub');if(!h||col.hasAttribute('data-fxs'))return;const t=h.textContent.trim();
+  const spec=/^Staged raises/.test(t)?{sel:':scope>.crow:not(.secrow)',cols:['Month','Amount ($000s)',''],cls:'fxs-cap-raise'}:/^Scheduled borrowings/.test(t)?{sel:':scope>.crow.secrow',cols:['Borrowing','Month','Amount ($000s)','Rate (%)','Term (qtrs)',''],cls:'fxs-cap-borrow'}:null;
+  if(!spec)return;col.setAttribute('data-fxs','');const rs=[...col.querySelectorAll(spec.sel)];if(!rs.length)return;
+  const hd=document.createElement('div');hd.className='fxs-cap-h '+spec.cls;spec.cols.forEach(c=>{const s=document.createElement('span');s.textContent=c;hd.appendChild(s);});rs[0].before(hd);
+  rs.forEach(r=>{r.classList.add('fxs-cap-row',spec.cls);r.querySelectorAll(':scope>span').forEach(s=>s.classList.add('fxs-gone'));[...r.childNodes].forEach(n=>{if(n.nodeType===3&&n.textContent.trim())n.remove();});});});
 }
 
 renderTabs();
