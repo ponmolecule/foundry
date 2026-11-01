@@ -2110,3 +2110,6 @@ Review fixes (built on r439). validate_q: funded-flow distributed_balance fee ne
 
 ## r441 — Collapsible schedule grids
 Built on r440. Shared UI-only collapse/edit disclosure for participation, fee-stream and product schedule grids, retaining loaded-count and first/last-value summaries. Grid paste close hides the editor without a redundant closed banner. Configuration and draft values survive collapse/reopen. See RELEASE_r441.md.
+
+## r442 — Repayment-profile loss-rate label
+Built on r441. Give the profile loss-rate Series its own labeled field row so the annual/lifetime rate label stays with its controls, not at the top of the cohort panel. Accessible input naming added. No calculation changes. See RELEASE_r442.md.
