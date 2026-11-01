@@ -26,10 +26,11 @@ await pass();const cfg0=await page.evaluate(()=>JSON.stringify(cfg));await pass(
 const diff=await page.evaluate(c0=>{const a=JSON.parse(c0),out=[];const walk=(x,y,p)=>{if(JSON.stringify(x)===JSON.stringify(y))return;if(x&&y&&typeof x==='object'&&typeof y==='object'){for(const k of new Set([...Object.keys(x),...Object.keys(y)]))walk(x[k],y[k],p+'.'+k);}else out.push(p+' '+JSON.stringify(x)+' -> '+JSON.stringify(y));};walk(a,cfg,'cfg');return out;},cfg0);
 assert.deepStrictEqual(diff,[],'rendering mutated the configuration');
 // 2. Lending balance: one right-aligned label column, amounts sized to content.
+// r445: runoff is now in Structure & timing, leaving origination amount and growth in Balance.
 await open('lending',0);await settle();await go(0);
 const P=page.locator('.lnv-pane section.lnv-on .lfx-body.fxs-pane');assert.strictEqual(await P.count(),1,'field system on the step');
 const labs=await P.locator('.fld>label:visible').evaluateAll(ls=>ls.map(l=>({a:(getComputedStyle(l).textAlign==='right'||getComputedStyle(l).justifyContent==='flex-end')?'right':getComputedStyle(l).textAlign+'/'+getComputedStyle(l).justifyContent,r:Math.round(l.getBoundingClientRect().right)})));
-assert(labs.length>=3&&labs.every(l=>l.a==='right'),'right-aligned labels '+JSON.stringify(labs));assert.strictEqual(new Set(labs.map(l=>l.r)).size,1,'one label edge '+JSON.stringify(labs));
+assert(labs.length>=2&&labs.every(l=>l.a==='right'),'right-aligned labels '+JSON.stringify(labs));assert.strictEqual(new Set(labs.map(l=>l.r)).size,1,'one label edge '+JSON.stringify(labs));
 const iw=await P.locator('.lfx-in').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().width));assert(iw.length&&iw.every(w=>w<=212),'amounts sized to content '+iw);
 // 3. Lending pricing: yield caption lifted once; path segments drive the series select.
 await go(2);const Y=page.locator('.lnv-pane section.lnv-on .fld.fxs-lifted');assert.strictEqual(await Y.count(),1,'yield row');

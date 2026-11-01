@@ -1916,6 +1916,16 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                     'deferredPrepaymentCatchup','deferredNetBalance','loanCarryingAmount',
                     'allowanceTarget','provision'):
                     if _key in _rows[0]: _pr[_key] = [row[_key] for row in _rows]
+            # r445: publish the product's own allowance ledger at every lending method.
+            # This is the same identity used by the statement provision; contract outputs above
+            # retain their authored target and release policy. No financial calculation changes.
+            if fam == 'lending':
+                if 'provision' not in _pr:
+                    _pr['provision'] = [0.0 if p.get('_is_fv') else
+                        p['_alll'][q] - p['_alll'][q-1] + p['_co'][q]
+                        for q in range(1, Q+1)]
+                if 'allowanceTarget' not in _pr:
+                    _pr['allowanceTarget'] = list(_pr['alll'] or [0.0]*Q)
             if fam == "deposit" and p.get("balance_mode", "rollforward") != "rollforward":
                 _pr["balanceMode"] = p["balance_mode"]
                 if p.get('balance_mode') == 'linked_customer_level':
