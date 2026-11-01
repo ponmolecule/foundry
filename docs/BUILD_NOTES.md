@@ -2107,3 +2107,6 @@ Schedule wording tidy (built on r438): three doubled phrases reworded; reference
 
 ## r440
 Review fixes (built on r439). validate_q: funded-flow distributed_balance fee needs allocation_group_id or repayment_profile (matches engine_q_a). faSeriesClear also clears fxsp_/fxsfa_ paste drafts. fxsSeriesSet / fxsFaSet refuse a blank cell (status message, re-render; stored value kept). Segmented buttons sync .on / aria-checked after dispatching change. tests_parity checks every pinned divergence cell unconditionally; divergences doc corrected to r152 average-total-assets NIM. Weighted-table last column 34px (removes 4px overflow at 1440). No engine change. Tests: tests_r440_review_fixes (py + node).
+
+## r441 — Collapsible schedule grids
+Built on r440. Shared UI-only collapse/edit disclosure for participation, fee-stream and product schedule grids, retaining loaded-count and first/last-value summaries. Grid paste close hides the editor without a redundant closed banner. Configuration and draft values survive collapse/reopen. See RELEASE_r441.md.

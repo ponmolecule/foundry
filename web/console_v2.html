@@ -1610,6 +1610,8 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .fcb-label-editor{margin-top:12px;font-size:11px;color:#76736C}.fcb-label-editor summary{cursor:pointer}.product-card .fcb-label-editor label{display:block;margin-top:10px;font-size:11px}.product-card .fcb-label-editor input[type=text]{display:block;width:min(100%,350px)!important;min-width:0!important;box-sizing:border-box;margin-top:6px;color:#35342F;background:#FFF;height:34px}.fcb-label-editor p{font-size:11px}
 @container(max-width:620px){.fcb-scroll table.fcb-t,.fcb-t tbody{display:block;width:100%}.fcb-t colgroup,.fcb-t thead{display:none}.fcb-t tbody>tr:not(.fcb-edr):not(.fcb-tot){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 24px;border:1px solid #E3E1DC;border-radius:4px;padding:8px;margin-top:10px;gap:5px 8px}.fcb-t tr>td{border:0;min-width:0;text-align:left!important}.fcb-t tr>td:first-child{grid-column:1/3}.fcb-t tr>td:last-child{grid-column:3;grid-row:1;align-self:center}.fcb-t tr>td.fcb-x{display:none}.fcb-t td[data-label]::before{content:attr(data-label);display:block;font-size:10px;color:#76736C;margin-bottom:6px}.fcb-t td.fcb-con{grid-column:1/3}.fcb-t tr.fcb-edr{display:block}.fcb-edr td{display:block;width:100%}.fcb-t tr.fcb-tot{display:grid;grid-template-columns:1fr 1fr;margin-top:12px}.fcb-t tr.fcb-tot>td{grid-column:auto;grid-row:auto}.fcb-t tr.fcb-tot>td:empty{display:none}.fcb-t tr.fcb-tot>td:last-child{display:none}.fcb-explain>summary>span{display:block;margin:6px 0 0}.fcb-equation-chain{gap:7px;padding:10px}.fcb-equation-chain b{font-size:13px}}
 
+
+.fxs-sched [hidden],.fxs-paste[hidden]{display:none!important}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -13657,6 +13659,14 @@ function _decoratePasteSurfaces(root){
   boxes.forEach(ta=>{
     const id=String(ta.id||'');if(!id||id==='feeGuideDesc'||ta.classList.contains('model-free-text'))return;
     const scope=ta.parentElement||ta;scope.dataset.pasteSurface=id;
+    // r441: grid schedules own their paste disclosure; no redundant closed-paste banner.
+    if(scope.classList.contains('fxs-paste')){
+      scope.classList.remove('paste-surface-collapsed');
+      scope.querySelectorAll('.paste-surface-toggle,.paste-surface-closed-note').forEach(e=>e.remove());
+      let close=scope.querySelector('[data-fxs-paste-close]');
+      if(!close){close=document.createElement('button');close.type='button';close.className='fxs-link';close.dataset.fxsPasteClose='';close.textContent='Close paste';close.onclick=()=>{_fxPasteOpen[id]=false;scope.hidden=true;};scope.appendChild(close);}
+      return;
+    }
     // Generated Close/Edit controls must never count as a domain-native Close control.
     // r72 accidentally saw its own inserted Close button on the second decoration pass,
     // opted out of the generic controller, and immediately undid the collapse.
@@ -19093,7 +19103,7 @@ function fxAfterRender(){if(typeof document==='undefined')return;
    if(o.value===s.value)b.className='on';b.disabled=!!(s.disabled||o.disabled);
    b.onclick=()=>{if(s.value===o.value)return;s.value=o.value;s.dispatchEvent(new Event('change',{bubbles:true}));if(seg.isConnected)[...seg.children].forEach((bb,k)=>{const on=opts[k].value===s.value;bb.classList.toggle('on',on);bb.setAttribute('aria-checked',String(on));});};seg.appendChild(b);});   // r440: highlight follows the stored choice without waiting for a full render
   s.insertAdjacentElement('afterend',seg);});
- if(typeof fxsSpaceAfterRender==='function')fxsSpaceAfterRender();}   // r435
+ if(typeof fxsSpaceAfterRender==='function')fxsSpaceAfterRender();fxScheduleDisclosures();}   // r435
 
 /* ---- schedule grid ---- */
 function _fxSchedObj(kind,fi,si){const st=_stOwner(fi).fee_streams[si];
@@ -19102,14 +19112,37 @@ function _fxSchedScale(kind,obj){if(kind==='stock')return 100;if(kind==='coef')r
 function fxSchedSet(kind,fi,si,k,val){const obj=_fxSchedObj(kind,fi,si);if(!obj)return;obj.schedule=obj.schedule||{};const t=String(val==null?'':val).trim();
  if(t==='')delete obj.schedule[String(k)];else{const n=_pf(t);obj.schedule[String(k)]=n/_fxSchedScale(kind,obj);}
  refresh();setTimeout(()=>renderContent(),0);}
-function fxPasteToggle(id){_fxPasteOpen[id]=!_fxPasteOpen[id];const el=document.getElementById(id+'_wrap');if(el)el.hidden=!_fxPasteOpen[id];}
+// r441: disclosure is UI state only; collapsing never writes assumptions or clears drafts.
+var _fxScheduleClosed={};
+function fxScheduleDisclosures(){
+ document.querySelectorAll('.fxs-sched[data-fxs-key]').forEach(grid=>{
+  if(grid.dataset.fxsDisclosure)return;
+  const key=grid.dataset.fxsKey,top=grid.querySelector(':scope>.fxs-sched-top');if(!top)return;grid.dataset.fxsDisclosure='1';
+  let body=grid.querySelector(':scope>.fxs-schedule-body');
+  if(!body){body=document.createElement('div');body.className='fxs-schedule-body';[...grid.children].filter(e=>e!==top).forEach(e=>body.appendChild(e));grid.appendChild(body);}
+  let toggle=top.querySelector('[data-fxs-collapse]');
+  if(!toggle){toggle=document.createElement('button');toggle.type='button';toggle.className='fxs-link';toggle.dataset.fxsCollapse='';top.appendChild(toggle);}
+  let summary=grid.querySelector(':scope>.fxs-schedule-summary');
+  if(!summary){summary=document.createElement('div');summary.className='fxs-schedule-summary';summary.style.cssText='font-size:12px;color:var(--muted);margin-top:5px';grid.appendChild(summary);}
+  const sync=()=>{
+   const closed=!!_fxScheduleClosed[key];body.hidden=closed;summary.hidden=!closed;
+   toggle.textContent=closed?'Edit schedule':'Collapse';toggle.setAttribute('aria-label',closed?'Edit schedule':'Collapse schedule');toggle.setAttribute('aria-expanded',String(!closed));
+   top.querySelectorAll('button:not([data-fxs-collapse])').forEach(b=>b.hidden=closed);
+   const cells=[...body.querySelectorAll('input.fxs-cell')].filter(c=>c.value!=='');
+   summary.textContent=cells.length?`${cells[0].title}: ${cells[0].value} · … · ${cells[cells.length-1].title}: ${cells[cells.length-1].value}`:'No values entered';
+   if(closed){const paste=document.getElementById(key+'_wrap');if(paste){paste.hidden=true;_fxPasteOpen[key]=false;}}
+  };
+  toggle.onclick=()=>{_fxScheduleClosed[key]=!_fxScheduleClosed[key];sync();};sync();
+ });
+}
+function fxPasteToggle(id){window._pasteSurfaceClosed[id]=false;_fxPasteOpen[id]=!_fxPasteOpen[id];const el=document.getElementById(id+'_wrap');if(el)el.hidden=!_fxPasteOpen[id];}
 function _fxFmt(v){const a=Math.abs(v);return v.toLocaleString('en-US',{maximumFractionDigits:a>=1000?0:a>=1?4:6});}
 function _fxSchedGridHtml(o){
  const months=(typeof NP==='function'&&typeof PPY==='function')?Math.round(NP()*12/PPY()):36;
  const per=o.per||'year',N=per==='month'?months:per==='quarter'?Math.ceil(months/3):Math.ceil(months/12),cols=per==='month'?12:per==='quarter'?4:Math.min(N,10);
  const sched=(o.obj&&o.obj.schedule)||{},scale=_fxSchedScale(o.kind,o.obj),keys=Object.keys(sched).filter(k=>sched[k]!=null);
  const tag=per==='month'?'M':per==='quarter'?'Q':'Y';
- let h=`<div class="fxs-sched" data-fxs-sched="${o.kind}"><div class="fxs-sched-top"><b>${esc(o.title)}</b><span>${keys.length} of ${N} ${per}s entered · ${esc(o.unit)}</span><button type="button" class="fxs-link" onclick="fxPasteToggle('${o.pasteId}')">Paste values…</button><button type="button" class="fxs-link" onclick="${o.clear}"${keys.length?'':' disabled'}>Clear</button></div>`;
+ let h=`<div class="fxs-sched" data-fxs-key="${o.pasteId}" data-fxs-sched="${o.kind}"><div class="fxs-sched-top"><b>${esc(o.title)}</b><span>${keys.length} of ${N} ${per}s entered · ${esc(o.unit)}</span><button type="button" class="fxs-link" onclick="fxPasteToggle('${o.pasteId}')">Paste values…</button><button type="button" class="fxs-link" onclick="${o.clear}"${keys.length?'':' disabled'}>Clear</button></div>`;
  if(per!=='year')h+=`<div class="fxs-sg fxs-sg-h" style="--c:${cols}"><span></span>${Array.from({length:cols},(_,c)=>`<i>${tag}${c+1}</i>`).join('')}</div>`;
  for(let r=0;r*cols<N;r++){h+=`<div class="fxs-sg" style="--c:${cols}"><span>${per==='year'?'':'Year '+(r+1)}</span>`;
   for(let c=0;c<cols;c++){const k=r*cols+c+1;if(k>N){h+='<em></em>';continue;}const v=sched[String(k)],has=v!=null&&v!=='';
@@ -19126,7 +19159,7 @@ function _fxsSeriesHtml(path,spec,title,kind,removeHtml){
  const N=cad==='month'?months:cad==='quarter'?Math.ceil(months/3):Math.ceil(months/12),cols=cad==='month'?12:cad==='quarter'?4:Math.min(N,10),tag=cad==='month'?'M':cad==='quarter'?'Q':'Y';
  const vals=Array.isArray(spec.values)?spec.values:[],pid='fxsp_'+path.replace(/[^a-zA-Z0-9]/g,'_');
  let h=`<div class="fxs-c"><select aria-label="${esc(title)} path" onchange="faSeriesTrajectory('${path}',this.value)"><option value="flat">Flat</option><option value="growth">Growth</option><option value="explicit" selected>Schedule</option></select>${removeHtml||''}</div>`;
- h+=`<div class="fxs-sched"><div class="fxs-sched-top"><span>${vals.length} of ${N} ${cad}s entered · ${unit||'value'}</span><button type="button" class="fxs-link" onclick="fxPasteToggle('${pid}')">Paste values…</button><button type="button" class="fxs-link" onclick="faSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button></div><div class="fxs-sched-cad"><span>Entered by</span><span class="fxs-c"><select aria-label="${esc(title)} schedule cadence" onchange="faSeriesCadence('${path}',this.value)">${(typeof _seriesCadenceOptions==='function'?_seriesCadenceOptions():['month','quarter','year']).map(x=>`<option value="${x}"${x===cad?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></span>${(typeof _seriesResolutionUseful!=='function'||_seriesResolutionUseful(cad))?`<span class="fxs-c"><select aria-label="${esc(title)} resolution" onchange="faSeriesResolution('${path}',this.value)"><option value="step"${(spec.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${spec.resolution==='smooth'?' selected':''}>Smooth</option></select></span>`:''}</div>`;
+ h+=`<div class="fxs-sched" data-fxs-key="${pid}"><div class="fxs-sched-top"><span>${vals.length} of ${N} ${cad}s entered · ${unit||'value'}</span><button type="button" class="fxs-link" onclick="fxPasteToggle('${pid}')">Paste values…</button><button type="button" class="fxs-link" onclick="faSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button></div><div class="fxs-sched-cad"><span>Entered by</span><span class="fxs-c"><select aria-label="${esc(title)} schedule cadence" onchange="faSeriesCadence('${path}',this.value)">${(typeof _seriesCadenceOptions==='function'?_seriesCadenceOptions():['month','quarter','year']).map(x=>`<option value="${x}"${x===cad?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></span>${(typeof _seriesResolutionUseful!=='function'||_seriesResolutionUseful(cad))?`<span class="fxs-c"><select aria-label="${esc(title)} resolution" onchange="faSeriesResolution('${path}',this.value)"><option value="step"${(spec.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${spec.resolution==='smooth'?' selected':''}>Smooth</option></select></span>`:''}</div>`;
  h+=`<div class="fxs-paste" data-paste-surface id="${pid}_wrap"${_fxPasteOpen[pid]?'':' hidden'}><textarea id="${pid}" rows="3" aria-label="Paste ${cad} values (${unit||'value'})" placeholder="Paste ${cad} values in ${unit||'value'}" oninput="_seriesExplicitPasteInput('${pid}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${pid}_load" class="pillbtn" disabled onclick="faSeriesPaste('${path}','${pid}','${kind}')">Load (replace)</button></div></div>`;
  if(cad!=='year')h+=`<div class="fxs-sg fxs-sg-h" style="--c:${cols}"><span></span>${Array.from({length:cols},(_,c)=>`<i>${tag}${c+1}</i>`).join('')}</div>`;
  for(let r=0;r*cols<N;r++){h+=`<div class="fxs-sg" style="--c:${cols}"><span>${cad==='year'?'':'Year '+(r+1)}</span>`;
@@ -19181,7 +19214,7 @@ function _fxsFaGrid(path,spec,kind){const cad=spec.cadence||_nativeFlowPeriod(),
  const cols=cad==='month'?12:cad==='quarter'?4:Math.min(N,10),tag=cad==='month'?'M':cad==='quarter'?'Q':'Y',pid='fxsfa_'+path.replace(/[^a-zA-Z0-9]/g,'_');
  const unit=kind==='rate'?'%':kind==='count'?'count':kind==='multiple'?'× multiple':kind==='dollars'?'$ / unit':kind==='days'?'days':kind==='multiplier'?'$000s / unit':'$000s';
  const fmt=v=>{const x=+v*scale;const a=Math.abs(x);return x.toLocaleString('en-US',{maximumFractionDigits:a>=1000?2:a>=1?4:6});};
- let h=`<div class="fxs-sched fxs-fagrid" data-fxs-path="${esc(path)}"><div class="fxs-sched-top"><span>${vals.length} of ${N} ${cad}s · ${esc(unit)}</span><button type="button" class="fxs-link" onclick="fxPasteToggle('${pid}')">Paste values…</button><button type="button" class="fxs-link" onclick="faSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button></div>`;
+ let h=`<div class="fxs-sched fxs-fagrid" data-fxs-key="${pid}" data-fxs-path="${esc(path)}"><div class="fxs-sched-top"><span>${vals.length} of ${N} ${cad}s · ${esc(unit)}</span><button type="button" class="fxs-link" onclick="fxPasteToggle('${pid}')">Paste values…</button><button type="button" class="fxs-link" onclick="faSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button></div>`;
  h+=`<div class="fxs-sg fxs-sg-h" style="--c:${cols}"><span></span>${Array.from({length:cols},(_,c)=>`<i>${tag}${c+1}</i>`).join('')}</div>`;
  for(let r=0;r*cols<N;r++){h+=`<div class="fxs-sg" style="--c:${cols}"><span>${cad==='year'?'':'Year '+(r+1)}</span>`;
   for(let c=0;c<cols;c++){const k=r*cols+c+1;if(k>N){h+='<em></em>';continue;}const has=k<=vals.length&&vals[k-1]!=null;
