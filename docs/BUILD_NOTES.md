@@ -1,3 +1,7 @@
+# r448 — Resizable product sidebar
+
+See RELEASE_r448.md. Local browser width preference; financial calculations and engagement data unchanged.
+
 # r447 — Live population weights for deposit amounts
 
 See RELEASE_r447.md. Opt-in active acquisition-band shares; existing entered weights and saved engagement results remain unchanged.
