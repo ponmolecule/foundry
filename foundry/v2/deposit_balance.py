@@ -157,12 +157,74 @@ def per_customer_amount(product, a, months, growth_context=None, seen=()):
         hits=[p for p in a.get('deposit_products',[]) if p.get('source_catalog_id')==sid]
         if len(hits)!=1 or hits[0].get('balance_mode')!='linked_customer_level':raise ValueError('Linked deposit per-customer amount is unavailable')
         return per_customer_amount(hits[0],a,months,growth_context,seen+(sid,))
+    if source=='weighted_sum' and raw.get('weight_source', 'entered') not in {'entered', 'active_population'}:
+        raise ValueError('Unsupported deposit weight source')
+    if source=='weighted_sum' and raw.get('weight_source') == 'active_population':
+        return population_amount(product, a, months, growth_context)
     if source=='weighted_sum':
         values,detail=SharedAssumptions(a,months,12,growth_context).resolve(raw,'money_per_unit')
         return _check(values,'Deposit amount per customer'),detail
     spec=normalize_series_spec(raw)
     if spec['source']!='entered':raise ValueError('Choose an entered amount, local breakdown or another deposit per-customer amount')
     return _check(resolve_entered_series(spec,months,12,context=growth_context),'Deposit balance per customer'),[]
+
+
+def population_amount(product, a, months, growth_context=None):
+    """Resolve dollars per customer from live active-band shares, monthly first.
+
+    Zero populations have zero weights and amount. Dollar amounts remain authored
+    locally; stable band IDs, rather than names or row order, identify each count.
+    """
+    from .cac_feeder import cac_auc_rollforward
+    from .shared_assumptions import SharedAssumptions, DIMENSIONLESS
+    from .balance_measures import monthly_balance_measure_series
+    d = product.get('balance_driver') or {}
+    if d.get('source', 'customer_acquisition_count') != 'customer_acquisition_count':
+        raise ValueError('Active population weights require the whole Customer Acquisition feed count')
+    hits = [f for f in (a.get('cac_feeds') or {}).values()
+            if f.get('customer_count_series_id') == d.get('series_id')]
+    if len(hits) != 1 or not hits[0].get('population_composition'):
+        raise ValueError('Active population weights require a feed with population composition; select its total customer count')
+    feed = hits[0]
+    rows = (d.get('balance_per_customer_spec') or {}).get('components') or []
+    ids = [r.get('id') for r in rows]
+    if not ids or any(not x for x in ids) or len(ids) != len(set(ids)):
+        raise ValueError('Population-weighted components require unique stable IDs')
+    if (d.get('balance_per_customer_spec') or {}).get('unit', 'money_per_unit') != 'money_per_unit':
+        raise ValueError('Population-weighted amount unit must be money_per_unit')
+    band_ids = {b['id'] for b in feed['population_composition']['bands']}
+    mapped = [r.get('population_band_id') for r in rows]
+    if len(mapped) != len(band_ids) or set(mapped) != band_ids:
+        raise ValueError('Active population weights require every acquisition band exactly once')
+    measure = d.get('measure', 'period_end')
+    if measure not in {'period_end', 'period_average'}:
+        raise ValueError('Unsupported active population count measure')
+    roll = cac_auc_rollforward(feed, months, 12, assumptions=a, growth_context=growth_context)
+    bands = roll['population_composition']['bands']
+    counts = {bid: (list(bands[bid]['customer_end_by_month']) if measure == 'period_end' else
+              monthly_balance_measure_series(bands[bid]['opening'], bands[bid]['customer_end_by_month'], 'period_average'))
+              for bid in band_ids}
+    totals = [sum(v[m] for v in counts.values()) for m in range(months)]
+    result = [0.] * months
+    detail = []
+    for row in rows:
+        bid = row['population_band_id']
+        amount = SharedAssumptions(a, months, 12, growth_context).evaluate(row.get('amount_spec') or {}, 'money_per_unit')
+        weight = [counts[bid][m] / totals[m] if totals[m] else 0. for m in range(months)]
+        weighted = [v * w for v, w in zip(amount, weight)]
+        result = [x + y for x, y in zip(result, weighted)]
+        detail.append(dict(component_id=row.get('id'), name=row.get('name') or bands[bid]['name'],
+                           unit='money_per_unit', amount=amount, weight=weight, weighted_amount=weighted,
+                           weight_source='active_population', population_band_id=bid, count=counts[bid]))
+    for factor in (d.get('balance_per_customer_spec') or {}).get('factors') or []:
+        unit = factor.get('unit', 'scalar')
+        if unit not in DIMENSIONLESS:
+            raise ValueError('Assumption factors must be dimensionless')
+        values = SharedAssumptions(a, months, 12, growth_context).evaluate(factor, unit)
+        result = [x * y for x, y in zip(result, values)]
+        detail.append(dict(name=factor.get('name') or 'Factor', unit=unit, values=values))
+    detail.append(dict(name='Resolved amount per customer', unit='money_per_unit', values=list(result)))
+    return _check(result, 'Population-weighted deposit amount'), detail
 
 
 def stream_count_balance(product, a, n, ppy, quantities, growth_context=None):

@@ -1,3 +1,7 @@
+# r447 — Live population weights for deposit amounts
+
+See RELEASE_r447.md. Opt-in active acquisition-band shares; existing entered weights and saved engagement results remain unchanged.
+
 # r307 — Guide Me vocabulary and annual-change mapping repair
 
 See R307_RELEASE_NOTES.md and R307_VALIDATION.md. Engine and saved engagement results unchanged.
