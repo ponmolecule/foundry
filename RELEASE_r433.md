@@ -13,7 +13,7 @@ The fee-stream editor's four steps (Activity, Pricing, Timing, Costs) now share 
 - Results live only in the right-hand column at 980px+ container width; the in-form duplicate is hidden. Below 640px the form stacks to one column.
 - Nested editors (shared cost pool, weighted breakdown) keep their own layout.
 
-Validation: tests_r433_field_system (Python wrapper + Playwright harness) checks render non-mutation across all steps of six streams, label alignment, control widths and heights, the results column, grid edits and blank removal, segmented path switching, the count row, participation share grid storage (75 → 0.75) and removal, cadence segments, and the narrow layout. Full suite compared against the r432 baseline.
+Validation: tests_r433_field_system (Python wrapper + Playwright harness) checks render non-mutation across all steps of six streams, label alignment, control widths and heights, the results column, grid edits and blank removal, segmented path switching, the count row, participation share grid storage (75 → 0.75) and removal, cadence segments, and the narrow layout. Full suite: no new failures against the r432 baseline (51 of 258 failing; r432 had 52 of 256. tests_r417_reporting_integrity.cjs passes on r433; it is timing-sensitive under load).
 
 Next (release 2): the same rules for lending, deposits, fee products and customer acquisition.
 
