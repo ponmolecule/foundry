@@ -2113,3 +2113,6 @@ Built on r440. Shared UI-only collapse/edit disclosure for participation, fee-st
 
 ## r442 — Repayment-profile loss-rate label
 Built on r441. Give the profile loss-rate Series its own labeled field row so the annual/lifetime rate label stays with its controls, not at the top of the cohort panel. Accessible input naming added. No calculation changes. See RELEASE_r442.md.
+
+## r443 — Product field spacing and profile alignment
+Built on r442. Restore separation between native product fields and align all repayment-profile labels consistently, with responsive stacking. UI only. See RELEASE_r443.md.

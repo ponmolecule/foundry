@@ -21,7 +21,7 @@ assert.strictEqual(await row.count(),1);
 const label=row.locator(':scope>label'),value=row.locator('input[aria-label="Annual loss rate"]');
 assert.strictEqual(await label.innerText(),'Annual loss rate');
 assert.strictEqual(await value.count(),1);
-const box=await label.boundingBox(),vb=await value.boundingBox();assert(Math.abs((box.y+box.height/2)-(vb.y+vb.height/2))<35,'label beside rate');
+const box=await label.boundingBox(),vb=await value.boundingBox();assert(vb.y>=box.y-20&&vb.y-(box.y+box.height)<65,'label stays local to rate (beside or stacked)');   // r443: narrow panels stack consistently
 assert.strictEqual(await page.locator('section.lnv-on').getByText('Annual loss rate',{exact:true}).count(),1,'label appears once');
 const before=await page.evaluate(()=>JSON.stringify(cfg));
 await page.evaluate(()=>renderContent());await page.waitForTimeout(80);
