@@ -2116,3 +2116,6 @@ Built on r441. Give the profile loss-rate Series its own labeled field row so th
 
 ## r443 — Product field spacing and profile alignment
 Built on r442. Restore separation between native product fields and align all repayment-profile labels consistently, with responsive stacking. UI only. See RELEASE_r443.md.
+
+## r444 — Repayment-profile population sources
+Built on r443. Include derived acquisition size-band/population count measures in the canonical monthly graph used to replay linked purchase funding. Resolves Canonical monthly customer count unavailable for these chains. Existing result fingerprints unchanged. See RELEASE_r444.md.
