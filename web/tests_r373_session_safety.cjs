@@ -19,7 +19,11 @@ await page.waitForFunction(()=>window._retry===1);assert(await page.evaluate(()=
 assert.strictEqual(await page.locator('#sessionSafetyPassword').inputValue(),'');
 // Another user's local copy must never be offered. Recovery requires an explicit choice.
 await page.evaluate(()=>{sessionSafety.saved(JSON.stringify(cfg));localStorage.setItem('foundry-recovery-v1:someone-else:x',JSON.stringify({user:'someone-else',at:Date.now(),config:{scenario_name:'private'}}));return sessionSafety.offer(true);});
-assert(!(await page.locator('#sessionSafetyDialog').evaluate(e=>e.open)),'cross-account draft offered');
+// r436: since f7a9990e5 (r402) offer(true) is the on-demand recovery review and always opens its panel; with no copy for
+// this account it says so. The cross-account copy must still not be listed.
+assert(await page.locator('#sessionSafetyDialog').evaluate(e=>!e.open||(/No recovery copies are available for this account/.test(e.textContent)&&!e.querySelector('#recoveryCopyChoice'))),'cross-account draft offered');
+assert(!(await page.locator('#sessionSafetyDialog').evaluate(e=>e.textContent.includes('private'))),'cross-account draft offered');
+await page.evaluate(()=>{const d=document.getElementById('sessionSafetyDialog');if(d.open)d.close();}); // r436: close the empty review before the next offer
 await page.evaluate(()=>{cfg.assumptions.test_recovery=456;sessionSafety.checkpoint();window._unrestored=JSON.stringify(cfg);return sessionSafety.offer(true);});
 assert(await page.locator('#sessionSafetyDialog').evaluate(e=>e.open),'no reload recovery offer');assert(await page.evaluate(()=>JSON.stringify(cfg)===window._unrestored),'offer silently replaced model');
 await page.locator('#sessionSafetyDismiss').click();

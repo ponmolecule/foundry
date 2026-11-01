@@ -137,6 +137,10 @@ def main():
         return R, pr["managedNotionalAvg"]
     R0, a0 = mn(fx)
     fx2 = copy.deepcopy(fx); fx2["assumptions"]["cac_feeds"][fn].update({"intra_period_path": "straight_line", "path_anchor": "year"})
+    # r436: a straight-line feed publishes no monthly acquisition flows, so streams that consume them (the template's
+    # account-activity coverage stream) are taken out of this variant; validation rightly rejects them otherwise.
+    for _p in fx2["assumptions"].get("obs_exposures") or []:
+        _p["fee_streams"] = [s for s in _p.get("fee_streams") or [] if (s.get("driver") or {}).get("source") != "account_activity"]
     R1, a1 = mn(fx2)
     ends = R1["customer_acquisition"][fn]["aucEndByMonth"]
     ck("end to end: product average AUC follows the straight-line feed path",

@@ -25,6 +25,10 @@ def main():
     ck("labels use their own class (no collision with r283's .fsx-n section numbers)",
        "'fsx-lab'" in html and ".fsx-row>.fsx-lab{" in html)
     i = html.find("/* r288: r287 layout layer retired."); j = html.find("</style>", i)
+    # r436: later releases (r392 onward, 6a2f4f240) appended their own style blocks after r288's in the same <style>;
+    # r436: bound the r288 block at the first comment that opens another release's block, so only r288's rules are scanned.
+    _nx = re.search(r"/\* r(?!288\b)\d+", html[i + 1:j]) if i >= 0 else None  # r436
+    if _nx: j = i + 1 + _nx.start()  # r436
     blk = html[i:j]
     ck("r288 styles use no absolute or fixed positioning (no overlapping boxes)",
        i > 0 and not re.search(r"position:\s*(absolute|fixed)", blk))
@@ -32,7 +36,9 @@ def main():
        "@container stage (max-width:1000px){" in html and "@container stage (max-width:1180px){" in html)
     ck("every section collapses when the user arrives (by tab or by module), not on re-renders",
        "if(t==='config'&&typeof currentTab!=='undefined'&&currentTab!=='config') window._fsxOpen={};" in html
-       and "if(key==='sec'&&was!=='sec'&&typeof fsxAll==='function') fsxAll(false);" in html)
+       # r436: r326 (8b18c0993, focused Securities authoring) deliberately replaced collapse-all on module arrival with
+       # r436: focusing the single active editor; still gated on arrival (was!=='sec'), never on re-render.
+       and "if(key==='sec'&&was!=='sec'&&typeof fsxGo==='function') fsxGo(_fsxActiveKey());" in html)
     print(f"\n{p} passed, {f} failed")
     return 0 if f == 0 else 1
 

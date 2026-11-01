@@ -690,9 +690,11 @@ def validate_config_v2(cfg):
             try:
                 from .income_modules import _validate_fee_stream_shape
                 _validate_fee_stream_shape(stream)
+                # r436: a funded-flow loan with a retention share also publishes its distributed balance (the
+                # engine replays it from the repayment profile, r3xx), so it is a valid source there too.
                 if ((stream.get("driver") or {}).get("source") == "distributed_balance"
-                        and not prod.get("allocation_group_id")):
-                    raise ValueError("distributed_balance requires an allocation group")
+                        and not prod.get("allocation_group_id") and prod.get("balance_mode") != "funded_flow_level"):
+                    raise ValueError("distributed_balance requires an allocation group or a funded-flow balance")
                 if ((stream.get("driver") or {}).get("source") == "product_funded_flow"
                         and prod.get("balance_mode") != "funded_flow_level"):
                     raise ValueError("product_funded_flow requires funded_flow_level balance")

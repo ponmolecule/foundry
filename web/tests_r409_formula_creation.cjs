@@ -12,6 +12,7 @@ await page.route('**/*',r=>{
 });await page.goto('http://foundry.test');await page.setContent(html);
 await page.evaluate(({config,sources})=>{cfg=config;sourceCatalogRows=sources;sourceCatalogKey=_sourceCatalogKey();refresh=()=>{};currentTab='products';lastRes=null;lastErrs=[];window.testFi=cfg.assumptions.obs_exposures.length-1;const owner=_stOwner(window.testFi);window._prdSel=owner;window._prdView='product';window._prdTab='streams';window._prdSeen=new WeakSet(allProducts().map(x=>x.p));window._prdSeenInit=true;renderContent();},data);
 const signature=await page.evaluate(()=>JSON.stringify(cfg));
+await page.getByText('Create a new formula cost',{exact:true}).click(); // r436: 5ca657df8 (r410) put the create button in a collapsed 'Create a new formula cost' disclosure; open it as tests_r410_formula_workflow does
 await page.getByRole('button',{name:'+ Formula cost stream',exact:true}).click();
 const dlg=page.getByRole('dialog',{name:'New formula cost stream'});
 assert(await dlg.isVisible());assert(await dlg.getByRole('button',{name:'Create stream',exact:true}).isDisabled());

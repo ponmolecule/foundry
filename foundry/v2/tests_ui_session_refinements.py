@@ -49,18 +49,27 @@ console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}))
        '_opexModeTile !== "off"' in html and 'else if(act==="nie"){ opexToggle(); }' in html)
 
     # Explicit saves must retire crash recovery; boot must also suppress stale duplicates from older builds.
+    # r436: r388 (d3313274d) deliberately stopped blind deletion of the shared recovery slugs ("Successful saves do
+    # not blindly delete unrelated shared recovery copies"); a confirmed save now retires this tab's browser draft
+    # by exact content. Check that replacement on both explicit save paths.
     ck("both explicit save paths purge crash-recovery drafts after successful save",
        html.count("await _purgeRecoveryDrafts();") >= 2
-       and '"unsaved-engagement-crash-recovery", "working-session-autosaved"' in html)
+       and "sessionSafety.saved(guardSnapshot);" in html and "sessionSafety.saved(saveSnapshot);" in html  # r436
+       and "if(d&&JSON.stringify(d.config)===snapshot)localStorage.removeItem(key());" in html)  # r436: was the two-slug purge loop
+    # r436: r388 removed boot-time duplicate detection (_duplicateOfSaved / LC._ser compare) and r402 (f7a9990e5)
+    # moved recovery review off startup entirely: boot calls offer() with no argument, which returns without any
+    # prompt; on-demand review compares each copy with the saved revision and states it is not a failed save.
     ck("boot suppresses an already-saved duplicate recovery draft instead of warning",
-       "_duplicateOfSaved" in html and "LC._ser(savedCfg) === LC._ser(draftCfg)" in html)
+       "boot().then(()=>sessionSafety.offer());" in html and "if(!window.AUTHED||!show)return;" in html  # r436
+       and "A recovery checkpoint may be older than your saved work. It is not evidence that a save failed." in html  # r436
+       and "fetch('/api/v31/engagement/'+encodeURIComponent(sourceSlug)+'/revision'" in html)  # r436
 
     ck("login hero lift is responsive: airy on tall displays without colliding on laptop-height viewports",
        'class="welcome-main"' in html
        and '.welcome-main{transform:translateY(calc(-1 * clamp(3rem, 8vh, 8rem)))}' in html
        and 'translateY(-9rem)' not in html)
     ck("switching engagements closes transient paste editors instead of restoring visual clutter",
-       "function _resetTransientAuthoringUi(c)" in html
+       "function _resetTransientAuthoringUi(c,preserveSaveHead=false){" in html  # r436: r388 (d3313274d) added the preserveSaveHead parameter
        and "window._structuredPasteOpen={};" in html
        and "window._pasteSurfaceDefaultClosed=true" in html
        and "window._pasteSurfaceCloseAllOnNextRender=true" in html
@@ -144,8 +153,10 @@ console.log(JSON.stringify({presentation,high,auditSum,auditSumShown:fmtProductK
        "function productDetailSeries(p, key)" in html
        and "p.detailExact && p.detailExact[key]" in html
        and "rowBSProduct('Fee income', productDetailSeries(p, 'fees'))" in html
-       and "rowBSProduct('Operating costs', productDetailSeries(p, 'opex'))" in html
-       and "const _pc=productDetailSeries(p, 'passCost')" in html
+       # r436: r416 (0bb675b14) splits direct costs into base / fee-stream / total rows when pass-through costs exist
+       and "const _ox=productDetailSeries(p, 'opex'), _pc=productDetailSeries(p, 'passCost');" in html
+       and "h += rowBSProduct('Fee-stream direct costs', _pc);" in html
+       and "} else h += rowBSProduct('Operating costs', _ox); }" in html
        and "Math.abs(+x)>1e-9" in html)
 
     ck("Product cards expose persistent drag handles with insertion markers and keyboard movement",

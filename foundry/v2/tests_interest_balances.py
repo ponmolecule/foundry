@@ -81,9 +81,12 @@ def main():
            bs["prepaidOpex"][q]+bs["msr"][q]+bs["frbStock"][q]))<1e-5 for q in range(5)))
     html=Path("web/console_v2.html").read_text()
     ck("UI states per-MAB values are dollars and exposes canonical links",
-       "Per-MAB paste values are dollars, not $000s" in html and
+       # r436: r281 (49b0c2b8e) reworded the per-MAB note into the group note and kept the 'dollars' editor unit.
+       "Amounts per customer are entered in dollars." in html and  # r436: replaces "Per-MAB paste values are dollars, not $000s"
+       "ib.avg_interest_balance_per_mab_spec,'Interest-bearing balance per customer','dollars',false)" in html and  # r436: per-MAB editor is in dollars
        "Link Customer Acquisition" in html and "Link Fee Stream quantity" in html and
-       "Affiliated-bank interest begins" in html)
+       # r436: r281 split the start-period field into its own group ("Interest begins", later group renamed Remaining cash); same ibAffiliateStart control.
+       '<span class="sec-book-label">Interest begins</span><input type="number" min="1" step="1" style="width:72px" value="${Math.max(1,Math.round(+(ib.affiliated_cash_interest_start_period||1)))}" onchange="ibAffiliateStart(this.value)">' in html)
     print(f"\n{p} passed, {f} failed")
     if f: raise SystemExit(1)
 

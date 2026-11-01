@@ -6,7 +6,7 @@ const products=[{name:'Activity',fee_streams:[source]},{name:'Revenue',fee_strea
 let allow=false,prompt='',renders=0,refreshes=0;
 const ctx={cfg:{assumptions:{obs_exposures:products,deposit_retention_pools:[{name:'Program retention',source_balance:{series_id:'pool',source_series_id:'tpv'}}]}},_stOwner:i=>products[i],confirm:message=>(prompt=message,allow),renderContent:()=>renders++,refresh:()=>refreshes++};
 vm.createContext(ctx);vm.runInContext(code,ctx);
-assert.equal(ctx.feeQuantityLabel('tpv'),'Activity › TPV');
+assert.equal(ctx.feeQuantityLabel('tpv'),'Fee product › Activity › TPV'); // r436: a814e6d5c (r425) prefixes the owner family now that lending/deposit products also publish quantities
 ctx.feeRemoveStream(0,0);assert.equal(products[0].fee_streams.length,1);assert.equal(renders,0);assert(prompt.includes('Revenue'));assert(prompt.includes('Program retention'));assert(prompt.includes('block runs'));
 allow=true;ctx.feeRemoveStream(0,0);assert.equal(products[0].fee_streams.length,0);assert.equal(refreshes,1);assert.equal(consumer.driver.ref,'tpv');assert.equal(ctx.feeQuantityLabel('tpv'),'Missing source');
 products[0].fee_streams=[{name:'Root'},{name:'Local',driver:{source:'stream_ref',ref:'Root'}}];assert(ctx.feeDeletionConsumers(products[0],[products[0].fee_streams[0]]).some(x=>x.includes('Local')));

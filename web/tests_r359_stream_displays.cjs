@@ -8,7 +8,9 @@ const cfg={assumptions:{obs_exposures:[{name:'Fees',fee_streams:[
 const res={fee_stream_quantities:{series:{count:[2.8875,3.5],purchase:[66412.5,80500],gross:[66412.5,80500],network:[66412.5,80500],'loan-count':[2.8875,3.5]}}};
 const ctx={cfg,window:{},lastRes:res,PPY:()=>12,esc:String,_numInput:v=>String(v),_lfgArr:f=>cfg.assumptions[f==='obs'?'obs_exposures':f==='lending'?'lending_products':'deposit_products'],_lfgCtx:()=>({res,P:{fees:[1,2]},ref:1}),_lfxCtx:()=>({res,P:{fees:[1,2]},ref:1}),_loanBalanceMode:()=> 'funded_flow_level',_lfxPer:()=> 'month',_lfxQ:i=>'M'+i,_lfxAmt:String,_lfxSparkSvg:a=>'<spark>'+a.join(',')+'</spark>',_ensureWorkforce:()=>({})};
 vm.createContext(ctx);
-for(const [a,b] of [['function _stOwner(','function _feeStreamsSectionHtml('],['function _feeStreamQuantityKind(','function _feePctSemantics('],['// r360: dependent streams display','// r358: a fee stream previews'],['function _lfxLiveHtml(','function refreshLfxLive(']])vm.runInContext(H.slice(H.indexOf(a),H.indexOf(b,H.indexOf(a))),ctx);
+// r436: r423 (327bf1a) moved the summary-stat helper _feeStreamSummaryStats directly above _lfxLiveHtml; the slice now starts there so the renderer can call it.
+// r436: r368 (2273b9c) added the Numbers link (_resultNumbersLink) to stream readouts; load its block as tests_r360 does.
+for(const [a,b] of [['function _stOwner(','function _feeStreamsSectionHtml('],['function _feeStreamQuantityKind(','function _feePctSemantics('],['// r360: dependent streams display','// r358: a fee stream previews'],['function _feeStreamSummaryStats(','function refreshLfxLive('],['// Numeric inspection stays','function _lfxRoHtml(']])vm.runInContext(H.slice(H.indexOf(a),H.indexOf(b,H.indexOf(a))),ctx);
 const before=JSON.stringify(cfg);
 for(const si of [1,2,3]){const out=ctx._lfxLiveHtml('sro',0,si);assert(out.includes('$000s'));assert(out.includes('66.4125'));assert(out.includes('80.5'));assert(!out.includes('66,413'));assert(out.includes('Resolved volume'));}
 const counts=ctx._lfxLiveHtml('sro',0,0);assert(counts.includes('2.8875'));assert(counts.includes('<b>count</b>'));

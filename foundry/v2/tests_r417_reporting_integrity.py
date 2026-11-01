@@ -54,7 +54,7 @@ class ReportingIntegrityTests(unittest.TestCase):
         meas = {m["class"]: m for m in v["reconciliation"]["measures"]}
         self.assertTrue(meas["provision"]["ok"] and meas["allowance"]["ok"])
         bank_prov = sum(res["financials"]["is"]["prov"])
-        self.assertAlmostEqual(bank_prov, 9498.65, places=2)
+        self.assertAlmostEqual(bank_prov, 9504.65, places=2)   # r436: + the template's funded-flow loan (1% reserve on its balance)
         self.assertAlmostEqual(sum(meas["provision"]["engine_bank"]), bank_prov, places=6)
         self.assertLess(abs(sum(meas["provision"]["engine_products"]) - bank_prov), 0.005 * 36 * 2,
                         "per-period rounding only (2-dp $000s)")

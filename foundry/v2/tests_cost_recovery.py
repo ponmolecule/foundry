@@ -594,11 +594,30 @@ def main():
     ha = html.index("function _feeCoeffScheduleText("); hb = html.index("function fieldsFor(", ha)
     fa = html.index("function fieldsFor("); fb = html.index("function lineOptionsFor", fa)
     hjs, fjs = html[ha:hb], html[fa:fb]
+
+    # r436: the sliced renderer now reaches helpers defined outside the slice (window.* handlers since a438e8760 r386,
+    # _mdPick stream selection, catalogSources since a1a03acf0 r272). Load the real helpers by name.
+    def _js_fn(name):
+        i = html.index("function " + name + "(")
+        j, d = html.index("{", i), 0
+        while True:
+            d += {"{": 1, "}": -1}.get(html[j], 0)
+            if d == 0:
+                return html[i:j + 1] + "\n"
+            j += 1
+    def _js_line(prefix):
+        i = html.index(prefix)
+        return html[i:html.index("\n", i)] + "\n"
+    # r436: with an empty sourceCatalogRows, catalogSources returns null and callers use their legacy feed scan.
+    helpers = "let sourceCatalogRows=[];\n" + _js_fn("_mdPick") + _js_fn("catalogSources")
+    # r436: fieldsFor renders the stream cards through _feeStreamsSectionHtml (stream rail and source chips; Products workspace since 35e28362f r204
+    # workspace); load its out-of-slice helpers too.
+    helpers += _js_line("const _PRD_CK=") + "".join(_js_fn(n) for n in ("_stSrcChip", "_stProvP", "_stSrcRows", "_stSrc", "_stSetupFeeRow", "_stCellHtml"))
     node = (
-        "const cfg={assumptions:{cac_feeds:{},nie_detail:{categories:[{series_id:'opex-tech',name:'Technology'}],workforce:{roles:[{series_id:'wf-count',compensation_series_id:'wf-comp',expense_series_id:'wf-exp',role:'Platform Ops',hire_period:1}]}},cost_pools:[{series_id:'pool-platform',owner_module:'cost_pool',name:'Platform Services Eligible Costs',components:[{kind:'operating_expense_category',series_id:'opex-tech',allocation_pct:.8},{kind:'workforce_role_expense',series_id:'wf-exp',allocation_pct:.4},{kind:'assumption_cost_base',series_id:'cost-base-entered',name:'Entered platform base',allocation_pct:1,flow_spec:{trajectory:'flat',value:1200000,period:'year'}}]}],obs_exposures:[]}};\n"
+        "const window=globalThis; const cfg={assumptions:{cac_feeds:{},nie_detail:{categories:[{series_id:'opex-tech',name:'Technology'}],workforce:{roles:[{series_id:'wf-count',compensation_series_id:'wf-comp',expense_series_id:'wf-exp',role:'Platform Ops',hire_period:1}]}},cost_pools:[{series_id:'pool-platform',owner_module:'cost_pool',name:'Platform Services Eligible Costs',components:[{kind:'operating_expense_category',series_id:'opex-tech',allocation_pct:.8},{kind:'workforce_role_expense',series_id:'wf-exp',allocation_pct:.4},{kind:'assumption_cost_base',series_id:'cost-base-entered',name:'Entered platform base',allocation_pct:1,flow_spec:{trajectory:'flat',value:1200000,period:'year'}}]}],obs_exposures:[]}};\n"
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
         "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0;} function _seriesId(p){return p+'-stub';} function _ensureLinkableSeriesIds(){} function _feeBasisTileHtml(){return '<tile>'; } function renderContent(){} function refresh(){} function appStatus(){} function alert(){}\n"
-        + hjs + fjs +
+        + helpers + hjs + fjs +
         "\nconst p={name:'Affiliate Platform Services',_fee_product:true,managed_notional:{day1:0,trajectory:'flat'},fee_streams:[{name:'Platform services fee',basis:'transaction',driver:{source:'cost_pool',ref:'pool-platform',trajectory:'flat',params:{}},rate:{behavior:'cost_recovery',params:{recovery_pct:.9,markup:{value:.1,trajectory:'flat',period:'year',resolution:'step'}}},cost:{kind:'none',params:{}},timing:{start_period:1}}]};"
         "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({ok:out.includes('Platform Services Eligible Costs')&&out.includes('Operating Expense: Technology')&&out.includes('Workforce expense: Platform Ops')&&out.includes('Recovery (% of eligible cost pool)')&&out.includes('Markup path')&&out.includes('Entered platform base')&&out.includes('Entered cost base · non-posting')&&out.includes('cost base is non-posting here')}));"
     )
@@ -612,9 +631,9 @@ def main():
 
     # Execute the entered-cost-base authoring callbacks, including explicit schedule parsing.
     node2 = (
-        "const cfg={assumptions:{cost_pools:[{series_id:'pool-manual',owner_module:'cost_pool',name:'Manual',components:[]}],nie_detail:{categories:[],workforce:{roles:[]}},obs_exposures:[],cac_feeds:{}}};\n"
+        "const window=globalThis; const cfg={assumptions:{cost_pools:[{series_id:'pool-manual',owner_module:'cost_pool',name:'Manual',components:[]}],nie_detail:{categories:[],workforce:{roles:[]}},obs_exposures:[],cac_feeds:{}}};\n"
         "function _pf(x){return +(String(x).replace(/,/g,''))||0;} function _seriesId(p){return p+'-id-'+Math.random().toString(36).slice(2);} function _ensureLinkableSeriesIds(){} function renderContent(){} function refresh(){} function appStatus(){} function alert(){} function fmtComma(x){return String(x);}\n"
-        + hjs +
+        + helpers + hjs +
         "\nfeeCostPoolAddEntered('pool-manual'); feeCostPoolEnteredTrajectory('pool-manual',0,'explicit'); feeCostPoolEnteredPeriod('pool-manual',0,'year'); _feeSetCostPoolEnteredSchedule('pool-manual',0,'1,200\t1,500'); const c=cfg.assumptions.cost_pools[0].components[0]; console.log(JSON.stringify({kind:c.kind,alloc:c.allocation_pct,period:c.flow_spec.period,vals:c.flow_spec.values}));"
     )
     nr2 = subprocess.run(["node", "-"], input=node2,  text=True, capture_output=True)
@@ -627,9 +646,9 @@ def main():
        and no2.get("vals") == [1_200_000, 1_500_000], nr2.stderr.strip())
 
     node3 = (
-        "const cfg={assumptions:{cost_pools:[{series_id:'pool-b',owner_module:'cost_pool',name:'Balance pool',components:[]}],nie_detail:{categories:[],workforce:{roles:[]}},obs_exposures:[],cac_feeds:{Wealth:{series_id:'cac-auc-ui',customer_count_series_id:'cac-count-ui',beginning_auc:0,channels:[]}}}};\n"
+        "const window=globalThis; const cfg={assumptions:{cost_pools:[{series_id:'pool-b',owner_module:'cost_pool',name:'Balance pool',components:[]}],nie_detail:{categories:[],workforce:{roles:[]}},obs_exposures:[],cac_feeds:{Wealth:{series_id:'cac-auc-ui',customer_count_series_id:'cac-count-ui',beginning_auc:0,channels:[]}}}};\n"
         "function esc(x){return String(x);} function _pf(x){return +(String(x).replace(/,/g,''))||0;} function _seriesId(p){return p+'-id';} function _ensureLinkableSeriesIds(){} function renderContent(){} function refresh(){} let statusMsg=''; function appStatus(_k,m){statusMsg=String(m||'');} function alert(){} function fmtComma(x){return String(x);} const lastRes={customer_acquisition:{Wealth:{aucEndByMonth:[83333.333,166666.667,250000],customerEndByMonth:[70,140,210],customerAverageByPeriod:[35,105,175]}}};\n"
-        + hjs +
+        + helpers + hjs +
         "\nfeeCostPoolAddBalance('pool-b'); feeCostPoolBalanceMeasure('pool-b',0,'period_average'); feeCostPoolBalanceRate('pool-b',0,'1.2'); feeCostPoolBalanceRatePeriod('pool-b',0,'year'); const c=cfg.assumptions.cost_pools[0].components[0]; const preview=_feeCostPoolBalancePreviewHtml(c.source_series_id,c.measure); feeCostPoolBalanceSource('pool-b',0,'cac-count-ui'); console.log(JSON.stringify({c:c,preview:preview,status:statusMsg}));"
     )
     nr3 = subprocess.run(["node", "-"], input=node3,  text=True, capture_output=True)

@@ -21,6 +21,8 @@ assert.strictEqual(await page.evaluate(()=>cfg.assumptions.deposit_products[0].b
 // The existing Formula control owns the flat add/subtract items; no expression-tree editor exists.
 assert.strictEqual(await page.locator('.formula-base-item').count(),4);
 assert.strictEqual(await page.locator('.linked-calc-node').count(),0);
+// r436: r389 (e3ca974) made Formula base items compact expandable rows (<details class="formula-base-item">); expand them the way a user would before editing.
+for(const sum of await page.locator('.formula-base-item > summary').all())await sum.click();
 await page.getByLabel('Base item sign',{exact:true}).nth(2).selectOption('-1');
 await page.getByLabel('Base balance measure',{exact:true}).first().selectOption('period_average');
 await page.getByLabel('Base rate source',{exact:true}).first().selectOption('prime');

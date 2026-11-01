@@ -33,9 +33,16 @@ def main():
 
     # Inventory every actual paste textarea in the shipped console. Guide Me is free text,
     # not a model-schedule pastebox, and is deliberately excluded.
-    paste_lines = [ln for ln in html.splitlines() if "<textarea" in ln and "feeGuideDesc" not in ln and "model-free-text" not in ln]
-    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 28, str(len(paste_lines)))
-    ck("every paste textarea has live per-box activation wiring", all("oninput=" in ln for ln in paste_lines))
+    # r436: r368 (2273b9c9d) added a hidden, output-only copy buffer to the result Numbers dialog
+    # ('Values ready for manual copying'); it never writes the model, so it is classified with the free-text exclusions.
+    _COPY_BUFFER = 'aria-label="Values ready for manual copying"'  # r436
+    paste_lines = [ln for ln in html.splitlines() if "<textarea" in ln and "feeGuideDesc" not in ln and "model-free-text" not in ln and _COPY_BUFFER not in ln]  # r436: + copy-buffer exclusion
+    # r436: inventory grew 28 -> 40 after r123: lending funded-flow schedules (r178 x2, r190 x2), entered monetary
+    # flow (r165), stock annual change (r305), repayment curve (r316), period-override paste (r387), cost-pool
+    # entered/markup boxes, and r435 period-grid paste drawers.
+    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 40, str(len(paste_lines)))  # r436: was 28
+    ck("every paste textarea has live per-box activation wiring", all("oninput=" in ln for ln in paste_lines),
+       "; ".join(re.sub(r"\s+"," ",ln[ln.index("<textarea"):ln.index("<textarea")+110]) for ln in paste_lines if "oninput=" not in ln))  # r436: name the offending boxes
 
     # Twenty-four scalar schedule families: eleven Fee Product paths (transaction coefficient, Transaction fee rate, Flat amount,
     # Account count, Balance stock %, Balance rate, Account fee, Cost-recovery markup, entered cost base,
@@ -64,7 +71,7 @@ def main():
     # directly-authored paths remain visually consistent.
     ck("all scalar Explicit families use the inspectable loaded-schedule preview",
        html.count("_explicitPreviewHtml(") >= 10
-       and html.count("_explicitSchedulePreviewHtml(") == 12
+       and html.count("_explicitSchedulePreviewHtml(") == 16  # r436: was 12; +4 new scalar families use it: funded flow (r190 x2), entered flow (r165), annual change (r305)
        and 'class="explicit-preview-toggle"' in html
        and "View all" in html and "Collapse" in html)
     ck("expanded schedule preview is bounded and scrollable instead of widening the authoring page",
@@ -222,7 +229,7 @@ console.log(JSON.stringify({parse,firstOnly,firstTwo,invalidDisabled,clearAOnly,
     # Free-text textareas must be explicitly classified so a model schedule cannot silently bypass
     # the pastebox contract. Guide Me and the optional pricing/regulatory memo are narrative text.
     all_textareas = [ln for ln in html.splitlines() if "<textarea" in ln]
-    nonpaste = [ln for ln in all_textareas if "oninput=" not in ln]
+    nonpaste = [ln for ln in all_textareas if "oninput=" not in ln and _COPY_BUFFER not in ln]  # r436: r368 output-only copy buffer is not model authoring
     ck("no model-authoring textarea silently bypasses the pastebox contract",
        len(nonpaste) == 2
        and any("feeGuideDesc" in ln for ln in nonpaste)

@@ -16,7 +16,7 @@ await page.evaluate(f=>{cfg=f.cfg;lastRes=f.result;refresh=()=>{};scheduleAutosa
 assert.deepStrictEqual(await page.evaluate(()=>TAB_DEFS.find(x=>x[0]==='index')),['index','Reference']);
 assert.deepStrictEqual(await page.locator('.ref-views button').allTextContents(),['Search','Subjects','A–Z','Coverage']);
 const n=await page.evaluate(()=>({full:REF_ENTRIES.length,opts:REF_ENTRIES.reduce((s,e)=>s+e.options.length,0),topics:FOUNDRY_INDEX.entries.length}));
-assert(n.full>=50&&n.opts>=150,'full entries '+JSON.stringify(n));assert.strictEqual(n.topics,102,'topic explanations are kept');
+assert(n.full>=50&&n.opts>=150,'full entries '+JSON.stringify(n));assert.strictEqual(n.topics,103,'topic explanations are kept'); // r436: 85b5d643c deliberately added topic 'acquisition-composition' (102 -> 103)
 // 2. Every full entry and every option renders; every topic renders.
 await page.evaluate(()=>{for(const e of REF_ENTRIES){for(let i=0;i<e.options.length;i++){refOpen(e.id,i);const t=document.getElementById('ref-title');if(!t||t.textContent!==e.title)throw Error('entry '+e.id);if(!document.querySelector('.ref-o.on .ref-ob'))throw Error('option '+e.id+' '+i);}}
   for(const e of FOUNDRY_INDEX.entries){refOpen(e.id);if(document.getElementById('ref-title')?.textContent!==e.title)throw Error('topic '+e.id);}});
@@ -61,6 +61,6 @@ await page.keyboard.press('Escape');assert.strictEqual(await page.locator('.ref-
 await q.click();await page.locator('.ref-pop .f button').click();
 assert.strictEqual(await page.evaluate(()=>currentTab),'index');assert(/Attrition path/i.test(await page.locator('#ref-title').innerText()));
 assert.deepStrictEqual(errors,[]);
-console.log('PASS r394 Reference: placement, '+n.full+' full entries ('+n.opts+' options) and 102 topics render, synonym search with best answer, subjects, A–Z, coverage, containment 1440/1024/768/390, read-only, open in Foundry, contextual help');
+console.log('PASS r394 Reference: placement, '+n.full+' full entries ('+n.opts+' options) and '+n.topics+' topics render, synonym search with best answer, subjects, A–Z, coverage, containment 1440/1024/768/390, read-only, open in Foundry, contextual help');
 }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});

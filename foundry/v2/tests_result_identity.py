@@ -41,10 +41,13 @@ PINNED_R300 = {
 #   r419  core, universal: nie_detail_series full-series rows for the Numbers dialogs
 #   r436  all three: the Call Report reference table gains msrAmort (detail, netted in RI 5.f) and ebtda (memo);
 #         no reported value changes (diffed: the only differences are those two reference entries)
+#   r436  universal only, deliberate: the template now exercises every fee source and cost kind (account activity,
+#         fee-stream quantity, funded flow, distributed balance; per-account, periodic-amount, % of balance and linked
+#         formula costs): seven streams and one funded-flow lending product. Financial results change by design.
 PINNED_CURRENT = {
     "foundry/fixtures/core_bank_test_base.json": "670ae7ca4342",
     "foundry/fixtures/patrick_default_v31.json": "2ead993f2caf",
-    "foundry/fixtures/universal_template_bank.json": "6426eab46ebd",
+    "foundry/fixtures/universal_template_bank.json": "85bcf524cf2c",   # r436: template coverage additions (below)
 }
 # r436: the financial fingerprint covers only financial outputs, so reporting additions no longer hide (or mimic)
 # a calculation change. It must only move in a release that intends to change financial results.
@@ -53,7 +56,7 @@ FINANCIAL_KEYS = ("financials", "annual", "capital", "capital_shortfall", "callr
 PINNED_FINANCIAL = {   # statement values unchanged r300 -> r436; r436 adds two Call Report reference entries (above)
     "foundry/fixtures/core_bank_test_base.json": "8cce7c30ccca",
     "foundry/fixtures/patrick_default_v31.json": "c944c8edfca7",
-    "foundry/fixtures/universal_template_bank.json": "e48f94cca661",
+    "foundry/fixtures/universal_template_bank.json": "2fa23900ed88",   # r436: deliberate - template coverage additions
 }
 
 

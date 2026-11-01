@@ -16,6 +16,7 @@ const input=html.slice(html.indexOf('function _seriesExplicitValues('),html.inde
  function editor(){return '<div style="height:900px"></div><div data-engine-preview="summary">'+output+'</div><div data-paste-surface="draft"><textarea id="draft" oninput="_seriesExplicitPasteInput(\\'draft\\')"></textarea><button id="draft_load" disabled>Load (replace)</button><button id="clear">Clear</button></div><input data-focus="ordinary" value="12345"><div style="height:1000px"></div>';}
  function _renderContentBody(){document.getElementById('content').innerHTML=editor();document.getElementById('draft_load').onclick=()=>renderContent();document.getElementById('clear').onclick=()=>renderContent();}
  function structuresSectionsHtml(){return editor();}function restoreCardSelects(){}function _decoratePasteSurfaces(){}
+ function refreshCacSummaries(){} /* r436: refreshConfigPreviews calls refreshCacSummaries since b887a61a8 (r376); defined outside the slice, no CAC cards in this harness */
  ${input}\n${shared}\nrenderContent();`});
  await page.locator('#draft').fill('100\t200\t300');
  await page.evaluate(()=>{const ta=document.getElementById('draft');ta.setSelectionRange(4,7);window.scrollTo(0,700);window.original=ta;});

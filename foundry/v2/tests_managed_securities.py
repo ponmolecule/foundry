@@ -170,13 +170,15 @@ def main():
     # Narrow-tile UI: one managed section only; each security owns a headed block before parameters.
     html=Path('web/console_v2.html').read_text()
     ck('managed securities renders exactly one managed section in Securities & AOCI',
-       html.count('Managed portfolios</div><div class="cmut">Target-driven books')==1)
+       # r436: r281 (49b0c2b8e) reworded the section lede; count the current header+lede, still exactly one.
+       html.count('Managed portfolios</div><div class="cmut">Set a target balance, then allocate it across securities.')==1)
     ck('Managed portfolios is wrapped as a major Securities & AOCI section',
        'sec-managed-wrap sec-major-section' in html and '<div class="sec-major-title">Managed portfolios</div>' in html)
     ck('AOCI is wrapped as a separate major Securities & AOCI section',
        "let _ao = '<div class=\"sec-major-section\"><div class=\"sec-major-title\">AOCI</div>';" in html)
     ck('Funding waterfall is wrapped as a separate major Securities & AOCI section',
-       '<div class="sec-major-section"><div class="sec-major-title">Funding waterfall &amp; other balance sheet</div>' in html
+       # r436: r281 (49b0c2b8e) retitled the section "Funding & balance-sheet settings" and added sec-funding-panel; still its own sec-major-section.
+       '<div class="sec-major-section sec-funding-panel"><div class="sec-major-title">Funding &amp; balance-sheet settings</div>' in html
        and '.sec-major-section{' in html and '.sec-major-title{' in html)
     ck('managed security name/header owns a self-contained sleeve block',
        'sec-managed-sleeve-head' in html and 'sec-managed-sleeve-name' in html and 'sec-managed-sleeve{border-top' in html)

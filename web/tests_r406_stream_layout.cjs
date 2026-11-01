@@ -7,10 +7,16 @@ try {const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.
 await page.evaluate(c=>{cfg=c;cfg.assumptions.deposit_products[0].fee_streams=[{name:'Fraud',basis:'balance',driver:{source:'own_balance',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{rate_ann:0}},cost:{kind:'none',params:{}},timing:{start_period:1}}];refresh=()=>{};renderContent=()=>{const p=cfg.assumptions.deposit_products[0];document.getElementById('content').innerHTML=_feeStreamsSectionHtml('deposit',p,'assumptions.deposit_products.0',2000)};renderContent()},c);
 for(const width of [1440,1024,768]){
  await page.setViewportSize({width,height:1100});
- const positions=await page.evaluate(()=>{const b=document.querySelector('.st-body');const a=b.querySelector('select[onchange*="feeStreamDriverSourceChange"]');const m=b.querySelector('select[onchange*=".driver.measure"]');const field=a.closest('.fld'),label=field.querySelector('label');return {a:a.getBoundingClientRect().toJSON(),m:m.getBoundingClientRect().toJSON(),label:label.getBoundingClientRect().toJSON()}});
+ const positions=await page.evaluate(()=>{const b=document.querySelector('.st-body');const a=b.querySelector('select[onchange*="feeStreamDriverSourceChange"]');const m=b.querySelector('select[onchange*=".driver.measure"]');const field=a.closest('.fld'),label=field.querySelector('label'),mlabel=m.closest('.fld').querySelector('label');return {a:a.getBoundingClientRect().toJSON(),m:m.getBoundingClientRect().toJSON(),label:label.getBoundingClientRect().toJSON(),mlabel:mlabel.getBoundingClientRect().toJSON()}});
  assert(positions.a.width>0 && positions.m.width>0,'fields should be visible');
- assert(Math.abs(positions.a.y-positions.m.y)<2,'balance/source controls aligned at '+width+': '+JSON.stringify(positions));
- assert(positions.a.y-positions.label.bottom<12,'source label sits above selector at '+width+': '+JSON.stringify(positions));
+ // r436: the side-by-side source/measure row (768ac015f) was replaced by the field system (4181c5923, r433): one field per row,
+ // labels in a 150px right-aligned column, controls in one column. (Before r433 this already failed at 1024 after a814e6d5c
+ // (r425) widened the source picker so the pair wrapped.) Assert the new alignment: controls share one left edge, labels share
+ // one right edge, each label sits left of its control on the control's row.
+ assert(Math.abs(positions.a.left-positions.m.left)<2,'balance/source controls aligned at '+width+': '+JSON.stringify(positions));
+ assert(Math.abs(positions.label.right-positions.mlabel.right)<2,'balance/source labels aligned at '+width+': '+JSON.stringify(positions));
+ for(const [l,c] of [[positions.label,positions.a],[positions.mlabel,positions.m]])
+  assert(l.right<=c.left&&l.top>=c.top-1&&l.bottom<=c.bottom+1,'label sits beside its selector at '+width+': '+JSON.stringify(positions));
 }
 let sel=page.locator('select[onchange*=".driver.measure"]');assert.strictEqual(await sel.inputValue(),'period_average');await sel.evaluate(e=>{e.value='period_end';e.dispatchEvent(new Event('change',{bubbles:true}))});
 await page.locator('select[onchange*="_feeCostFactorSetKind"]').evaluate(e=>{e.value='pct_of_balance_opex';e.dispatchEvent(new Event('change',{bubbles:true}))});await page.waitForTimeout(100);
