@@ -91,7 +91,7 @@ console.log(JSON.stringify({
  scaled:ssm.includes('Q1 10')&&ssm.includes('Q8 80')
 }));
 """
-        pr=subprocess.run(["node","-e",js2],text=True,capture_output=True)
+        pr=subprocess.run(["node", "-"], input=js2, text=True,capture_output=True)
         if pr.returncode==0 and pr.stdout.strip():
             try:
                 got=json.loads(pr.stdout.strip().splitlines()[-1]); preview_ok=all(got.values())
@@ -197,7 +197,7 @@ const structuredIsolation={
 };
 console.log(JSON.stringify({parse,firstOnly,firstTwo,invalidDisabled,clearAOnly,structuredIsolation}));
 '''
-    r = subprocess.run(["node", "-e", js], text=True, capture_output=True)
+    r = subprocess.run(["node", "-"], input=js,  text=True, capture_output=True)
     obj = {}
     if r.returncode == 0 and r.stdout.strip():
         try:

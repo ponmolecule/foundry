@@ -201,6 +201,9 @@ _COST_LABELS = {
     "pct_of_revenue": "Revenue share (% of revenue)",
     "pct_of_revenue_opex": "Operating cost (% of revenue)",
     "pct_of_throughput_opex": "Operating cost (% of throughput)",
+    # r436: labels for the two cost kinds added in r405 / r408, as the console shows them
+    "pct_of_balance_opex": "Operating cost (% of balance / year)",
+    "linked_formula_opex": "Linked formula cost",
 }
 _TRANSACTION_PRICING_LABELS = {
     "per_unit": "Per unit ($ / transaction)",

@@ -46,7 +46,7 @@ olSetMode('formula_level'); const restoredMode=_olMode(), preservedFormula=JSON.
 olRemoveComponent(0); const modeAfterDelete=_olMode();
 console.log(JSON.stringify({before,initialMode,enabled,afterAdd,afterFA,linkedSource,enteredSource,flatMode,preservedFlat,restoredMode,preservedFormula,modeAfterDelete,opts:_olDriverOptions()}));
 '''
-    r=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
+    r=subprocess.run(["node", "-"], input=prefix+js+suffix, text=True,capture_output=True)
     out={}
     if r.returncode==0 and r.stdout.strip():
         try: out=json.loads(r.stdout.strip().splitlines()[-1])

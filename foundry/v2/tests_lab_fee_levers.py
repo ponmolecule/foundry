@@ -57,7 +57,7 @@ function getPath(p){return p.split('.').reduce((o,k)=>o==null?o:o[isNaN(+k)?k:+k
 const L=labLeverCatalog();
 console.log(JSON.stringify({paths:L.map(x=>x.path), labels:L.map(x=>x.label), units:Object.fromEntries(L.map(x=>[x.path,x.unit])), money:_labStoredToDisplay(10000000,'k'), moneyBack:_labInputToStored(10000,'k'), bp:_labStoredToDisplay(.0012,'bps'), bpBack:_labInputToStored(12,'bps')}));
 """
-    r=subprocess.run(["node","-e",prefix+cat_js+fmt_js+suffix],text=True,capture_output=True)
+    r=subprocess.run(["node", "-"], input=prefix+cat_js+fmt_js+suffix, text=True,capture_output=True)
     j={}
     if r.returncode==0 and r.stdout.strip():
         try:j=json.loads(r.stdout.strip().splitlines()[-1])

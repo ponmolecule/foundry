@@ -602,7 +602,7 @@ def main():
         "\nconst p={name:'Affiliate Platform Services',_fee_product:true,managed_notional:{day1:0,trajectory:'flat'},fee_streams:[{name:'Platform services fee',basis:'transaction',driver:{source:'cost_pool',ref:'pool-platform',trajectory:'flat',params:{}},rate:{behavior:'cost_recovery',params:{recovery_pct:.9,markup:{value:.1,trajectory:'flat',period:'year',resolution:'step'}}},cost:{kind:'none',params:{}},timing:{start_period:1}}]};"
         "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({ok:out.includes('Platform Services Eligible Costs')&&out.includes('Operating Expense: Technology')&&out.includes('Workforce expense: Platform Ops')&&out.includes('Recovery (% of eligible cost pool)')&&out.includes('Markup path')&&out.includes('Entered platform base')&&out.includes('Entered cost base · non-posting')&&out.includes('cost base is non-posting here')}));"
     )
-    nr = subprocess.run(["node", "-e", node], text=True, capture_output=True)
+    nr = subprocess.run(["node", "-"], input=node,  text=True, capture_output=True)
     no = {}
     if nr.returncode == 0 and nr.stdout.strip():
         try: no = json.loads(nr.stdout.strip().splitlines()[-1])
@@ -617,7 +617,7 @@ def main():
         + hjs +
         "\nfeeCostPoolAddEntered('pool-manual'); feeCostPoolEnteredTrajectory('pool-manual',0,'explicit'); feeCostPoolEnteredPeriod('pool-manual',0,'year'); _feeSetCostPoolEnteredSchedule('pool-manual',0,'1,200\t1,500'); const c=cfg.assumptions.cost_pools[0].components[0]; console.log(JSON.stringify({kind:c.kind,alloc:c.allocation_pct,period:c.flow_spec.period,vals:c.flow_spec.values}));"
     )
-    nr2 = subprocess.run(["node", "-e", node2], text=True, capture_output=True)
+    nr2 = subprocess.run(["node", "-"], input=node2,  text=True, capture_output=True)
     no2 = {}
     if nr2.returncode == 0 and nr2.stdout.strip():
         try: no2 = json.loads(nr2.stdout.strip().splitlines()[-1])
@@ -632,7 +632,7 @@ def main():
         + hjs +
         "\nfeeCostPoolAddBalance('pool-b'); feeCostPoolBalanceMeasure('pool-b',0,'period_average'); feeCostPoolBalanceRate('pool-b',0,'1.2'); feeCostPoolBalanceRatePeriod('pool-b',0,'year'); const c=cfg.assumptions.cost_pools[0].components[0]; const preview=_feeCostPoolBalancePreviewHtml(c.source_series_id,c.measure); feeCostPoolBalanceSource('pool-b',0,'cac-count-ui'); console.log(JSON.stringify({c:c,preview:preview,status:statusMsg}));"
     )
-    nr3 = subprocess.run(["node", "-e", node3], text=True, capture_output=True)
+    nr3 = subprocess.run(["node", "-"], input=node3,  text=True, capture_output=True)
     no3 = {}
     if nr3.returncode == 0 and nr3.stdout.strip():
         try: no3 = json.loads(nr3.stdout.strip().splitlines()[-1])

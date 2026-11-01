@@ -52,7 +52,7 @@ const out={{
 }};
 console.log(JSON.stringify(out));
 """
-    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+    got = subprocess.run(["node", "-"], input=script,  cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout.strip().splitlines()[-1]
     return json.loads(got)
 
@@ -71,7 +71,7 @@ console.log(JSON.stringify({{
   event:EVENTUNIT(), scheduled:EVENTSCHEDLABEL()
 }}));
 """
-    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+    got = subprocess.run(["node", "-"], input=script,  cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout.strip().splitlines()[-1]
     return json.loads(got)
 
@@ -100,7 +100,7 @@ window.nieCatAdd();
 const afterAdd=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail.categories));
 console.log(JSON.stringify({{afterOn,afterAdd}}));
 """
-    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+    got = subprocess.run(["node", "-"], input=script,  cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout.strip().splitlines()[-1]
     return json.loads(got)
 
@@ -120,7 +120,7 @@ console.log(JSON.stringify({{
   withOpenTotal:finColspan(true,true)
 }}));
 """
-    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+    got = subprocess.run(["node", "-"], input=script,  cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout.strip().splitlines()[-1]
     return json.loads(got)
 
@@ -145,7 +145,7 @@ console.log(JSON.stringify({{
   stressTitle:'Tier 1 Leverage Ratio by '+PLAB('full').replace(/^./,c=>c.toUpperCase())
 }}));
 """
-    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+    got = subprocess.run(["node", "-"], input=script,  cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout.strip().splitlines()[-1]
     return json.loads(got)
 

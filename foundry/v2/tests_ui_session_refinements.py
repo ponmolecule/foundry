@@ -36,7 +36,7 @@ window.opexToggle(); const off=_operatingExpenseMode(cfg.assumptions);
 window.opexToggle(); const reactivated=_operatingExpenseMode(cfg.assumptions);
 console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}));
 '''
-    r=subprocess.run(["node","-e",js],text=True,capture_output=True)
+    r=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     j={}
     if r.returncode==0 and r.stdout.strip():
         try:j=json.loads(r.stdout.strip().splitlines()[-1])
@@ -122,7 +122,7 @@ const high=vals.map(fmtProductK);
 const auditSum=0.019282552032793+0.019282552032793+0.000214247150107;
 console.log(JSON.stringify({presentation,high,auditSum,auditSumShown:fmtProductK(auditSum)}));
 '''
-    rr=subprocess.run(["node","-e",fmt_js],text=True,capture_output=True)
+    rr=subprocess.run(["node", "-"], input=fmt_js, text=True,capture_output=True)
     vals={}
     if rr.returncode==0 and rr.stdout.strip():
         try: vals=json.loads(rr.stdout.strip().splitlines()[-1])
@@ -187,7 +187,7 @@ window.productDrop({preventDefault(){},currentTarget:{dataset:{dropAfter:'1'}}},
 const crossGuard={loans:cfg.assumptions.lending_products.map(x=>x.name),deposits:cfg.assumptions.deposit_products.map(x=>x.name)};
 console.log(JSON.stringify({moved,afterDown,afterKeyboard,crossGuard,canonicalized}));
 '''
-    rr2=subprocess.run(["node","-e",node_prefix+product_js+node_suffix],text=True,capture_output=True)
+    rr2=subprocess.run(["node", "-"], input=node_prefix+product_js+node_suffix, text=True,capture_output=True)
     pj={}
     if rr2.returncode==0 and rr2.stdout.strip():
         try: pj=json.loads(rr2.stdout.strip().splitlines()[-1])
