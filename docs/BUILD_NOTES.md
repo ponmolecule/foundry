@@ -2065,3 +2065,12 @@ Field system for product authoring, first applied to the fee-stream editor (buil
 - Results only in the right column at 980px+ container width (the in-form preview is hidden); below 640px the form stacks.
 - Classes use the fxs- prefix (fx-row / fx-c already exist elsewhere).
 - Tests: new tests_r433_field_system (py wrapper + node harness).
+
+## r434
+Field system, release 2: product setup steps and customer acquisition (built on r433). Presentation only.
+
+- fxsProductsAfterRender (called first in fxAfterRender; fxAfterRender now also runs in the content MutationObserver after prdGroupSetup and cacnDecorate, so the lnv steps and the acquisition workspace are covered) marks each lnv step body .fxs-pane, except loan-production panels (.loan-contract-panel / .loan-contract-grid).
+- Managed-series captions (.sec-book-label) move into a new label (.fxs-liftlab); segment conversion extends to .fxs-pane and .fxs-cac selects, path kind only.
+- Channel editor (.cacn-editor → .fxs-cac): name/method rows split from the header row, a.cx moved to .cfg-md-head as "Remove channel", driver rows regrouped into .fxs-crow (label + .fxs-c.fxs-multi); growth rate and period on a second line; long-option selects drop the fit min-width (data-nofit) and cap at the row. Feed settings (.cacn-set → .fxs-cacset) use the same column.
+- @container lnvbody (max-width:470px) stacks labels.
+- Tests: tests_r434_field_system_products (py + node).

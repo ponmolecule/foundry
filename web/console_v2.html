@@ -3885,6 +3885,87 @@ table.fcb-t{table-layout:fixed;min-width:540px}
 .fxs-sched-cad>span:first-child{white-space:nowrap}
 .lfx-st .lfx-sted .st-body:has(.count-authoring .fcb-t){max-width:none}
 .fxs-paste .explicit-preview{display:none!important}
+/* r434: field system — product setup steps and the acquisition channel editor */
+.fxs-gone{display:none!important}
+.lfx.lnv .lnv-pane .lfx-b>.lfx-rail,.lfx.lnv .lnv-pane .lfx-b>.lfx-body{justify-content:flex-start!important}
+.fxs-pane .lfx-grid{display:block!important;max-width:760px}
+.fxs-pane .deposit-pricing-method{display:block!important;border:0!important;padding:0!important;background:none!important;margin:0!important}
+.fxs-pane .lfx-grid .fld,.fxs-pane .deposit-pricing-method>.fld{display:grid!important;grid-template-columns:150px minmax(0,1fr);column-gap:20px;row-gap:6px;align-items:center;margin:0 0 12px!important;padding:0!important;min-width:0}
+.fxs-pane .lfx-grid .fld>label,.fxs-pane .deposit-pricing-method>.fld>label{grid-column:1;display:flex!important;justify-content:flex-end;align-items:center;gap:5px;text-align:right;margin:0!important;font-size:12px!important;font-weight:400!important;color:#4A4945!important;line-height:1.3!important;text-transform:none!important;letter-spacing:0!important}
+.fxs-pane .lfx-grid .fld>:not(label),.fxs-pane .deposit-pricing-method>.fld>:not(label){grid-column:2;justify-self:start;max-width:100%;min-width:0}
+.fxs-pane .lfx-grid .fld.fxs-nolab>*{grid-column:2}
+.fxs-pane .lfx-grid .fld.lfx-note-blk,.fxs-pane .lfx-grid>.fhint,.fxs-pane .lfx-grid .fhint.lfx-note-blk{display:block!important;margin:-4px 0 12px 170px!important;max-width:560px;font-size:11.5px!important;color:#76736C!important}
+.fxs-pane .lfx-grid .fld>p.memo,.fxs-pane .lfx-grid .fld>.memo{font-size:11.5px!important;color:#76736C!important;max-width:560px;margin:0!important}
+/* sizes: amounts 150 (+unit), text 320, dropdowns fitted, never the column */
+.fxs-pane .lfx-in{width:210px!important;max-width:100%;height:32px}
+.fxs-pane .lfx-in.tx{width:320px!important}
+.fxs-pane .lfx-sel{width:auto!important;min-width:240px;max-width:100%}
+.fxs-pane .lfx-sel>select{width:100%}
+.fxs-pane .lfx-grid .fld.wide>.lfx-sel{min-width:320px}
+.fxs-pane .lfx-seg{display:inline-flex!important;width:auto!important;height:32px;border:1px solid #CFCCC6!important;border-radius:3px;overflow:hidden;background:#fff}
+.fxs-pane .lfx-seg button{flex:none!important;width:auto!important;min-width:0!important;height:30px!important;padding:0 14px!important;border:0!important;border-radius:0!important;font:600 12px Inter,Arial,sans-serif!important;background:#fff!important;color:#4A4945!important;box-shadow:none!important}
+.fxs-pane .lfx-seg button+button{border-left:1px solid #CFCCC6!important}
+.fxs-pane .lfx-seg button.on{background:#2C2C2C!important;color:#fff!important}
+/* managed-series rows: caption lifted to the label column */
+.fxs-pane .fld.fxs-lifted .sec-managed-series{margin:0;padding:0;border:0;background:none}
+.fxs-pane .fld.fxs-lifted .sec-managed-series-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fxs-pane .fld.fxs-lifted .sec-managed-series-row>input{width:120px!important;height:32px!important;text-align:right}
+.fxs-pane .fld.fxs-lifted .sec-managed-series-row>select:not(.fxs-hid){width:auto!important;height:32px!important}
+.fxs-pane .fld.wide>button.pillbtn,.fxs-pane .fld.wide>button.btn-plain{width:auto!important;justify-self:start}
+/* acquisition channel editor */
+.fxs-cac .cfg-md-head{display:flex;align-items:center;gap:12px}.fxs-cac .cfg-md-head>span{margin-left:auto}
+.fxs-cac .fxs-cac-rm{order:3;font-size:11.5px;font-weight:600;color:#E8B4A8!important;cursor:pointer;text-decoration:none}.fxs-cac .fxs-cac-rm:hover{color:#fff!important}
+.fxs-cac .cac-channel-card>div{border-top:1px solid #ECEBE7!important;padding:10px 0 6px!important}
+.fxs-cac .cac-channel-card>.chint{border:0!important;margin:0 0 10px 190px!important;padding:0!important;max-width:520px;font-size:11.5px;color:#76736C}
+.fxs-cac .crow.fxs-crow{display:grid!important;grid-template-columns:170px minmax(0,1fr);column-gap:20px;align-items:center;margin:0 0 8px!important}
+.fxs-cac .cac-channel-card>.crow.fxs-crow{border:0!important;padding:0!important}
+.fxs-cac .fxs-cl{text-align:right;font-size:12px;color:#4A4945;line-height:1.3}
+.fxs-cac .fxs-c.fxs-multi{display:flex!important;align-items:center;gap:8px;flex-wrap:wrap;row-gap:6px;min-width:0}
+.fxs-cac .fxs-c>select{height:32px!important;width:auto!important}
+.fxs-cac .fxs-c>input{height:32px!important;width:110px!important;text-align:right}
+.fxs-cac .fxs-c>input:not([inputmode]):not([type=number]):first-child{width:240px!important;text-align:left}
+.fxs-cac .fxs-c>.cu{font-size:11.5px;color:#76736C;white-space:nowrap}
+.fxs-cac .fxs-c>.fxs-src{display:none}
+.fxs-cac .fxs-c>.pillbtn{margin-left:0!important}
+.fxs-pane .fxs-seg button,.fxs-cac .fxs-seg button{flex:none!important;height:30px!important;min-height:0!important;width:auto!important;border:0!important;border-radius:0!important;background:#fff!important;color:#4A4945!important;font:600 12px Inter,Arial,sans-serif!important;padding:0 12px!important;cursor:pointer;box-shadow:none!important}
+.fxs-pane .fxs-seg button+button,.fxs-cac .fxs-seg button+button{border-left:1px solid #CFCCC6!important}
+.fxs-pane .fxs-seg button.on,.fxs-cac .fxs-seg button.on{background:#2C2C2C!important;color:#fff!important}
+.fxs-pane .fxs-seg button:focus-visible,.fxs-cac .fxs-seg button:focus-visible{outline:2px solid #C9A04E;outline-offset:-2px}
+.fxs-pane select.fxs-hid,.fxs-cac select.fxs-hid{position:absolute!important;width:1px!important;height:1px!important;min-width:0!important;padding:0!important;border:0!important;margin:0!important;opacity:0!important}
+.fxs-cac .fxs-c>.fxs-br{flex-basis:100%;height:0}
+.fxs-cac .fxs-c>.fxs-gcap{min-width:0;color:#4A4945}
+.fxs-cac .fxs-cl{display:flex;justify-content:flex-end;align-items:center;gap:5px;flex-wrap:wrap}
+.fxs-cac .cfg-md-head>b{flex:1;min-width:0}.fxs-cac .cfg-md-head>span{margin-left:0}
+.fxs-cac .fxs-cac-rm{white-space:nowrap;margin-left:14px}
+.fxs-cac .cfg-md-head>a.fxs-cac-rm{position:static!important;float:none!important;width:auto!important;height:auto!important;line-height:1.2!important;font-size:11.5px!important;display:inline!important}
+.fxs-cac .fxs-cl{flex-wrap:nowrap!important}
+/* feed settings */
+.fxs-cacset .cac-feed-head{display:block!important;position:relative}
+.fxs-cacset .cac-feed-head>label.wf-field{display:grid!important;grid-template-columns:170px auto;column-gap:20px;align-items:center;margin:0 0 8px!important;width:auto!important}
+.fxs-cacset .cac-feed-head>label.wf-field>.wf-field-label{text-align:right;font-size:12px!important;font-weight:400!important;color:#4A4945!important;text-transform:none!important;letter-spacing:0!important;margin:0!important}
+.fxs-cacset .cac-feed-head>label.wf-field>input{width:150px!important;height:32px!important;text-align:right}
+.fxs-cacset .cac-feed-head>label.wf-field:first-child>input{width:320px!important;text-align:left}
+.fxs-cacset .cac-feed-head>.cx{position:absolute!important;top:0;right:0}
+.fxs-cacset details.cac-help{margin:2px 0 12px 190px!important}
+.fxs-cacset .cac-attr-box{padding:10px 0 4px!important}
+.fxs-cacset .cac-attr-box .fxs-cl{font-weight:400!important}
+.fxs-cac .fxs-c>select{max-width:100%}
+.fxs-cac .fxs-c>select.fxs-wsel{width:auto!important;min-width:240px!important;max-width:100%!important;flex:0 1 auto}
+.fxs-cacset .cac-attr-box .crow.fxs-crow{grid-template-columns:159px minmax(0,1fr)}
+.fxs-pane .lnc-rep{display:block!important;max-width:760px}
+.fxs-pane .lnc-rep>.lfx-f{display:grid!important;grid-template-columns:150px minmax(0,1fr);column-gap:20px;align-items:center;margin:0 0 8px!important}
+.fxs-pane .lnc-rep>.lfx-f>label{grid-column:1;text-align:right;margin:0!important;font-size:12px!important;font-weight:400!important;color:#4A4945!important;text-transform:none!important;letter-spacing:0!important}
+.fxs-pane .lnc-rep>.lfx-f>:not(label){grid-column:2;justify-self:start}
+.fxs-pane .lnc-rep>p.lnc-why,.fxs-pane .lnc-rep>p{margin:0 0 12px 170px!important;max-width:560px;font-size:11.5px;color:#76736C}
+.fxs-pane .lfx-grid .fld>label,.fxs-pane .lnc-rep>.lfx-f>label{white-space:normal!important;overflow:visible!important}
+.fxs-pane .fxs-liftlab>.sec-book-label{margin:0!important;min-width:0!important;font:inherit!important;color:inherit!important;text-transform:none!important;letter-spacing:0!important}
+/* a narrow step (Assumptions panel open, small screens): labels above their fields */
+@container lnvbody (max-width:470px){
+ .fxs-pane .lfx-grid .fld,.fxs-pane .deposit-pricing-method>.fld,.fxs-pane .lnc-rep>.lfx-f{grid-template-columns:minmax(0,1fr)!important}
+ .fxs-pane .lfx-grid .fld>label,.fxs-pane .deposit-pricing-method>.fld>label,.fxs-pane .lnc-rep>.lfx-f>label{justify-content:flex-start!important;text-align:left!important}
+ .fxs-pane .lfx-grid .fld>*,.fxs-pane .deposit-pricing-method>.fld>*,.fxs-pane .lnc-rep>.lfx-f>*{grid-column:1!important}
+ .fxs-pane .lfx-grid .fld.lfx-note-blk,.fxs-pane .lfx-grid>.fhint,.fxs-pane .lnc-rep>p{margin-left:0!important}
+}
 </style>
 </head>
 <body>
@@ -4443,7 +4524,7 @@ function fitInput(el){
 (function(){
   // r229: fit synchronously in the mutation callback (a microtask, before the browser paints), so a redrawn
   // control never shows its unfitted width for a frame. fitControls only changes styles, which the observer ignores.
-  const run=()=>{ if(typeof prdGroupSetup==='function') prdGroupSetup(); if(typeof cacnDecorate==='function') cacnDecorate(); if(typeof refHelpDecorate==='function') refHelpDecorate(); fitControls(); };   // r393: acquisition layout   // r233: group Setup before fitting, both before paint
+  const run=()=>{ if(typeof prdGroupSetup==='function') prdGroupSetup(); if(typeof cacnDecorate==='function') cacnDecorate(); if(typeof fxAfterRender==='function') fxAfterRender(); if(typeof refHelpDecorate==='function') refHelpDecorate(); fitControls(); };   // r434: field system after grouping   // r393: acquisition layout   // r233: group Setup before fitting, both before paint
   const start=()=>{ const c=document.getElementById('content'); if(!c) return setTimeout(start,200);
     new MutationObserver(run).observe(c,{childList:true,subtree:true}); run(); };
   start();
@@ -18920,13 +19001,15 @@ function fxAfterRender(){if(typeof document==='undefined')return;
   f.querySelectorAll(':scope>input[type=text]:not([inputmode])').forEach(i=>{if(parseFloat(i.style.minWidth)>320){i.style.removeProperty('min-width');i.setAttribute('data-nofit','');i.classList.add('fxs-long');}});
   const kids=[...f.children].filter(c=>c.tagName!=='LABEL'&&!c.classList.contains('memo')&&!c.classList.contains('fxs-sched')&&!c.classList.contains('fxs-paste')&&!c.classList.contains('fxs-c'));
   if(kids.length>=2&&kids.every(c=>/^(INPUT|SELECT|SPAN|BUTTON)$/.test(c.tagName))){const w=document.createElement('div');w.className='fxs-c fxs-multi';kids[0].before(w);kids.forEach(c=>w.appendChild(c));}});
- document.querySelectorAll('.lfx-st .lfx-sted .st-body select:not([data-fx])').forEach(s=>{
+ if(typeof fxsProductsAfterRender==='function')fxsProductsAfterRender();   // r434
+ document.querySelectorAll('.lfx-st .lfx-sted .st-body select:not([data-fx]), .fxs-pane select:not([data-fx]), .fxs-cac select:not([data-fx])').forEach(s=>{
   if(s.multiple||s.closest('.fxs-noseg'))return;
   const par=s.parentElement;if(!par||!(par.matches('.fld')||par.matches('.fxs-c')||par.matches('.sec-managed-series-row')||par.matches('.fee-change-inline')))return;   // only a field's own control, never a nested editor
   if(s.closest('.opex-cost-pool-component,.count-authoring,.wf-role-card,.cost-pool-editor'))return;
-  if(par.classList.contains('fxs-multi')&&par.querySelectorAll(':scope>select').length>1)return;   // a compact inline phrase (e.g. 2% per Year · Step at Model year) keeps its dropdowns
+  const cac=!!s.closest('.fxs-cac');if(!cac&&par.classList.contains('fxs-multi')&&par.querySelectorAll(':scope>select').length>1)return;   // a compact inline phrase (e.g. 2% per Year · Step at Model year) keeps its dropdowns
   const opts=[...s.options];if(opts.length<2||opts.length>4)return;
   const kind=_fxKind(opts.map(o=>o.value));if(!kind)return;
+  if((cac||s.closest('.fxs-pane'))&&kind!=='path')return;   // r434: products and channels: only the path becomes buttons
   const labs=opts.map(o=>{const t=(o.textContent||'').trim();return _FX_SHORT[t]||t;});if(labs.some(l=>l.length>16))return;
   s.setAttribute('data-fx',kind);s.classList.add('fxs-hid');s.setAttribute('data-nofit','');s.style.removeProperty('min-width');s.tabIndex=-1;
   const seg=document.createElement('span');seg.className='fxs-seg fxs-'+kind+(s.disabled?' dis':'');seg.setAttribute('role','radiogroup');
@@ -18976,6 +19059,41 @@ function _fxsSeriesHtml(path,spec,title,kind,removeHtml){
    h+=`<input type="text" inputmode="decimal" class="fxs-cell${has?' set':''}" aria-label="${esc(title)} ${tag}${k}" title="${tag}${k}" placeholder="·" value="${has?_fxFmt(+vals[k-1]*scale):''}" onchange="fxsSeriesSet('${path}',${k},this.value,${scale})">`;}
   h+='</div>';}
  return h+`<div class="fxs-sched-foot">Each value applies to its ${cad}; after the last entered value the last one holds.</div></div>`;}
+
+/* r434: the field system on product setup steps (lending, deposits, off-balance-sheet) and the acquisition channel editor.
+   Presentation only: every control keeps its own handler; labels are lifted into the label column, rows are regrouped. */
+function fxsProductsAfterRender(){if(typeof document==='undefined')return;
+ document.querySelectorAll('.lfx.lnv .lnv-pane .lfx-b>.lfx-body:not(.fxs-pane)').forEach(b=>{if(!b.querySelector('.loan-contract-panel,.loan-contract-grid'))b.classList.add('fxs-pane');});   // loan-production panels keep their own two-column layout (release 3)
+ // managed-series rows (Yield, Rate paid, …): the row's own caption becomes the field label
+ document.querySelectorAll('.fxs-pane .fld:not([data-fxs-lift])').forEach(f=>{f.setAttribute('data-fxs-lift','');
+  const lab=f.querySelector(':scope>label');const cap=f.querySelector(':scope>.sec-managed-series>.sec-managed-series-row:first-child>.sec-book-label');
+  if(cap&&!lab){const l=document.createElement('label');l.className='fxs-liftlab';cap.removeAttribute('style');l.appendChild(cap);f.insertBefore(l,f.firstChild);f.classList.add('fxs-lifted');}   // the caption element itself moves, so its text exists once
+  else if(!lab&&!f.classList.contains('lfx-note-blk'))f.classList.add('fxs-nolab');});
+ // acquisition channel editor: one label column; name and method as their own rows; the remove control moves to the header
+ document.querySelectorAll('.cacn-editor:not([data-fxs])').forEach(ed=>{ed.setAttribute('data-fxs','');ed.classList.add('fxs-cac');
+  const card=ed.querySelector('.cac-channel-card');if(!card)return;
+  const top=card.querySelector(':scope>.crow');
+  if(top){const kids=[...top.children],name=top.querySelector(':scope>input'),meth=top.querySelector(':scope>select'),x=top.querySelector(':scope>a.cx'),drag=top.querySelector('.cac-channel-drag-handle');
+   const capOf=el=>{const p=el&&el.previousElementSibling;return p&&p.classList.contains('cu')?p:null;};
+   const mk=(t,ctl)=>{const r=document.createElement('div');r.className='crow fxs-crow';const l=document.createElement('span');l.className='fxs-cl';l.textContent=t;const c=document.createElement('div');c.className='fxs-c fxs-multi';c.appendChild(ctl);r.append(l,c);return r;};
+   const rows=[];if(name){const c=capOf(name);rows.push(mk(c?c.textContent.trim():'Channel name',name));if(c)c.remove();}
+   if(meth){const c=capOf(meth);rows.push(mk(c?c.textContent.trim():'Method',meth));if(c)c.remove();}
+   const head=ed.querySelector('.cfg-md-head');if(x&&head){x.classList.add('fxs-cac-rm');x.textContent='Remove channel';x.setAttribute('title','Remove this acquisition channel');head.appendChild(x);}
+   if(drag)drag.classList.add('fxs-gone');rows.reverse().forEach(r=>top.after(r));top.classList.add('fxs-gone');}
+  _fxsCrows(card.querySelectorAll(':scope>div>.crow:not(.fxs-crow)'));});
+ // feed settings: name / opening fields and the attrition block on the same label column
+ document.querySelectorAll('.cacn-set:not([data-fxs])').forEach(st=>{st.setAttribute('data-fxs','');st.classList.add('fxs-cac','fxs-cacset');
+  _fxsCrows(st.querySelectorAll('.cac-attr-box>.crow:not(.fxs-crow)'));});
+}
+function _fxsCrows(rows){rows.forEach(r=>{const lab=r.firstElementChild;if(!lab||lab.tagName!=='SPAN')return;
+   r.classList.add('fxs-crow');lab.classList.add('fxs-cl');lab.removeAttribute('style');
+   const c=document.createElement('div');c.className='fxs-c fxs-multi';[...r.children].slice(1).forEach(k=>c.appendChild(k));r.appendChild(c);
+   c.querySelectorAll(':scope>span.cu').forEach(s=>{if(/^(Enter|Entered)$/.test((s.textContent||'').trim())){s.classList.add('fxs-src');s.removeAttribute('style');}});
+   // growth path: the growth rate and its period go on their own line ("Growth 5.00 % per year")
+   c.querySelectorAll(':scope>select').forEach(s=>{if([...s.options].some(o=>(o.textContent||'').length>28)){s.setAttribute('data-nofit','');s.style.removeProperty('min-width');s.classList.add('fxs-wsel');}});
+   const ins=[...c.querySelectorAll(':scope>input')];
+   if(ins.length>=2){const g=ins[1],br=document.createElement('span');br.className='fxs-br';const cap=document.createElement('span');cap.className='cu fxs-gcap';cap.textContent='Growth';g.before(br,cap);
+    const u=g.nextElementSibling;if(u&&u.classList.contains('cu')&&/growth/.test(u.textContent)){u.textContent='% per';const per=u.nextElementSibling;if(per&&per.tagName==='SELECT')[...per.options].forEach(o=>{o.textContent=o.textContent.replace(/^\//,'');});}}});}
 
 renderTabs();
 whoami().then(u=>{ paintWho(); if(u){ boot().then(()=>sessionSafety.offer()); } else { currentTab = "welcome"; renderContent(); } });
