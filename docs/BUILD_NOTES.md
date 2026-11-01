@@ -2054,3 +2054,14 @@ Weighted count breakdown redesign (built on GPT r421). Console layout plus one a
 - Share check: first period in the table (mix bar hatches any unassigned share; "Scale shares to 100%" and "Let <band> take the remainder" fix it), and every period from the run (names the first period off 100%). The resolver's error now names the first failing month and its total.
 - Results on the right: count at M12 (or Q4), the chain source × weighted count = count, each band's share of the count, and the count path. Built from a new presentation-only run field, count_breakdowns (per band share, count and contribution by period, multiplier, quantity and source), re-resolved after the run with the same resolver; the engine does not read it.
 - Tests: new tests_r422_count_breakdown (py: remainder math monthly/quarterly, flat-remainder equivalence, error messages, by-period presentation that ties to the engine quantity; node: the editor end to end). tests_r420_weighted_counts passes unchanged.
+
+## r433
+Field system for product authoring, first applied to the fee-stream editor (built on GPT r432). Presentation only; values still flow through the existing setPath and select handlers, and rendering does not change the configuration.
+
+- One label column (150px, right-aligned) across the four steps; the stream definition box is inset to keep the same edge. Fields are sized to content (names 320px, dropdowns 240px or fitted to their longest option, amounts 150px, 32px tall). Loose memo text becomes a memo row; a row with several inline controls (e.g. 2.00 % per Year · Step at Model year) shares one flex cell.
+- Path, cadence and step/smooth dropdowns with up to four choices on a field's own row become segmented buttons (fxAfterRender, hooked after rptAfterRender). The select stays in the DOM, hidden (fxs-hid, data-nofit), and the buttons set its value and dispatch change. Nested editors (shared cost pool, weighted breakdown) and multi-dropdown phrases are left alone.
+- Constant account count: path segments and the count on one row. Participation share: a modifier row under the count with Remove inline.
+- Schedules as year × period grids: period-end count (level_schedule), stock % of source (/100), flow coefficient (pct /100, amount per source unit ×1000) and participation share (dense values[], /100, with cadence, step/smooth, paste and clear). A sparse-schedule cell writes its period key and a blank removes it.
+- Results only in the right column at 980px+ container width (the in-form preview is hidden); below 640px the form stacks.
+- Classes use the fxs- prefix (fx-row / fx-c already exist elsewhere).
+- Tests: new tests_r433_field_system (py wrapper + node harness).

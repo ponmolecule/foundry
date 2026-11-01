@@ -3792,6 +3792,94 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 .fcb-ed .count-path-options{flex-wrap:wrap}
 table.fcb-t{table-layout:fixed;min-width:540px}
 .fcb-t td:first-child{overflow:hidden;text-overflow:ellipsis}
+/* r433: field system — fee-stream editor. Labels in one right-aligned column; fields sized to what they hold;
+   32px controls; path beside its value; modifiers on their own row; schedules as grids; results on the right. */
+.lfx-st .lfx-sted .lfx-b.has-ro>.lfx-rail,.lfx-st .lfx-sted .lfx-b.has-ro>.lfx-body,.lfx-st .lfx-sted .lfx-b.has-ro>.lfx-ro{justify-content:flex-start!important}
+.lfx-st .lfx-sted .lfx-rail{padding:14px 10px!important}
+.lfx-st .lfx-sted .lfx-rail .lfx-steps{position:sticky;top:96px}
+@container (min-width:980px){
+ .lfx-st .lfx-sted .lfx-b.has-ro{grid-template-columns:208px minmax(0,1fr) clamp(280px,28%,380px)!important}
+ .lfx-st .lfx-sted .lfx-b.has-ro>.lfx-ro{display:block!important;padding:18px 18px!important;border-left:1px solid #ECEBE7;background:#FAFAF8;min-width:0;align-self:stretch}
+ .lfx-st .lfx-sted .lfx-b.has-ro>.lfx-ro>*{position:relative}
+ .lfx-st .lfx-sted .lfx-b.has-ro .fee-stream-result-preview{display:none!important}
+}
+.lfx-st .lfx-sted .lfx-body{padding:22px 26px 26px!important}
+.lfx-st .lfx-sted .st-body{display:block!important;max-width:880px}
+.lfx-st .lfx-sted .st-body .st-definition{padding:14px 16px 6px;margin-bottom:22px;background:#FAFAF8;border-color:#E3E1DC}
+.lfx-st .lfx-sted .st-body .st-definition-fields{display:block}
+.lfx-st .lfx-sted .st-body .st-section-heading{display:flex!important;flex-direction:row!important;align-items:baseline;gap:10px;border-bottom:0!important;padding:0!important;margin:4px 0 14px!important}
+.lfx-st .lfx-sted .st-body .st-section-heading b{font-size:13.5px;font-weight:600;color:#1F1F1E}.lfx-st .lfx-sted .st-body .st-section-heading span{font-size:11.5px;color:#76736C}
+/* one row per field: label column + control column */
+.lfx-st .lfx-sted .st-body .fld:not(.st-section-heading):not(.count-authoring):not(.fee-stream-result-preview):not(.wf-role-card):not(.opex-cost-pool-component){display:grid!important;grid-template-columns:150px minmax(0,1fr);column-gap:20px;row-gap:6px;align-items:center;margin:0 0 12px!important;min-width:0}
+.lfx-st .lfx-sted .st-body .fld>label{grid-column:1;text-align:right;margin:0!important;font-size:12px!important;font-weight:400!important;color:#4A4945!important;line-height:1.3!important;white-space:normal}
+.lfx-st .lfx-sted .st-body .fld>label small{display:block;font-size:10.5px;color:#A3A09A}
+.lfx-st .lfx-sted .st-body .fld>:not(label){grid-column:2;justify-self:start;max-width:100%;min-width:0}
+.lfx-st .lfx-sted .st-body .fld>.memo,.lfx-st .lfx-sted .st-body .fld>span.memo{max-width:560px;margin:0!important;font-size:11.5px!important;color:#76736C!important}
+.lfx-st .lfx-sted .st-body .fee-stream-block>label{display:block!important}
+.lfx-st .lfx-sted .st-body .fld.st-memo-moved{display:none!important}
+/* field sizes: sized to content, never to the column */
+.lfx-st .lfx-sted .st-body :is(.fld,.fxs-c,.sec-managed-series-row,.fee-change-inline)>select{width:240px!important;max-width:100%;height:32px!important}
+.lfx-st .lfx-sted .st-body :is(.fld,.fxs-c,.sec-managed-series-row,.fee-change-inline)>select[data-nofit]{width:320px!important}
+.lfx-st .lfx-sted .st-body .fxs-multi>select{width:auto!important}
+.lfx-st .lfx-sted .st-body :is(.fld,.fxs-c,.sec-managed-series-row,.fee-change-inline)>input[type=number],.lfx-st .lfx-sted .st-body :is(.fld,.fxs-c,.sec-managed-series-row,.fee-change-inline)>input[inputmode=decimal]{width:150px!important;text-align:right;font-variant-numeric:tabular-nums}
+.lfx-st .lfx-sted .st-body :is(.fld,.fxs-c,.sec-managed-series-row,.fee-change-inline)>input[type=text]:not([inputmode]),.lfx-st .lfx-sted .st-body :is(.fld,.fxs-c,.sec-managed-series-row,.fee-change-inline)>input:not([type]):not([inputmode]){width:320px!important;max-width:100%}
+.lfx-st .lfx-sted .st-body textarea{width:min(600px,100%)!important}
+.lfx-st .lfx-sted .st-body .fld>input,.lfx-st .lfx-sted .st-body .fld>textarea{max-width:100%!important;min-width:0}
+.lfx-st .lfx-sted .st-body .fxs-multi{flex-wrap:wrap!important;row-gap:6px}
+.lfx-st .lfx-sted .st-body .fxs-multi>.cu,.lfx-st .lfx-sted .st-body .fxs-c>.cu{font-size:11.5px;color:#76736C;white-space:nowrap}
+.lfx-st .lfx-sted .st-body .wf-role-card .crow{flex-wrap:wrap;row-gap:6px}.lfx-st .lfx-sted .st-body .wf-role-card .crow button{white-space:nowrap;width:auto!important}
+.lfx-st .lfx-sted .st-body .fld>button.btn-plain,.lfx-st .lfx-sted .st-body .fld>.btn-plain{width:auto!important;height:auto;border:0!important;background:none!important;padding:0!important;color:#9A7330!important;font-weight:600;font-size:12px!important;cursor:pointer}
+.lfx-st .lfx-sted .st-body .fld>button.btn-plain:hover{text-decoration:underline}
+/* segmented controls replacing path / cadence / step-smooth dropdowns */
+.fxs-hid{position:absolute!important;opacity:0!important;width:1px!important;height:1px!important;min-width:0!important;pointer-events:none!important;overflow:hidden}
+.fxs-seg{display:inline-flex;border:1px solid #CFCCC6;border-radius:3px;overflow:hidden;height:32px;vertical-align:middle;background:#fff}
+.lfx-st .fxs-seg button{height:30px!important;min-height:0!important;width:auto!important;border:0!important;border-radius:0!important;background:#fff!important;color:#4A4945!important;font:600 12px Inter,Arial,sans-serif!important;padding:0 12px!important;cursor:pointer;box-shadow:none!important}
+.lfx-st .fxs-seg button+button{border-left:1px solid #CFCCC6!important}
+.lfx-st .fxs-seg button.on{background:#2C2C2C!important;color:#fff!important}
+.lfx-st .fxs-seg button:disabled{cursor:default;color:#A3A09A!important}.lfx-st .fxs-seg.dis button.on{background:#76736C!important;color:#fff!important}
+.lfx-st .fxs-seg button:focus-visible{outline:2px solid #C9A04E;outline-offset:-2px}
+/* a value row: path beside its value */
+.fxs-c{display:flex!important;align-items:center;gap:8px;flex-wrap:nowrap}
+.fxs-c .fxs-u{font-size:11.5px;color:#A3A09A}
+/* modifier rows (participation share) */
+.lfx-st .lfx-sted .st-body .fxs-mod .sec-managed-series{margin:0;padding:0;border:0;background:none}
+.lfx-st .lfx-sted .st-body .fxs-mod .sec-managed-series>.sec-managed-series-row:first-child>.sec-book-label{display:none}
+.lfx-st .lfx-sted .st-body .fxs-mod .sec-managed-series-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lfx-st .lfx-sted .st-body .fxs-mod .participation-remove{order:9;border:0!important;background:none!important;color:#9A7330!important;font-weight:600;font-size:12px!important;padding:0 0 0 4px!important;height:auto!important;width:auto!important;cursor:pointer}
+/* schedule grid */
+.fxs-sched{border:1px solid #E7D7B4;border-radius:4px;padding:12px 14px;background:#fff;width:min(600px,100%)}
+.fxs-sched-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12px;color:#4A4945;white-space:nowrap;flex-wrap:wrap}.fxs-sched-top span{color:#76736C}
+.lfx-st .fxs-link{margin-left:auto;border:0!important;background:none!important;color:#9A7330!important;font:600 12px Inter,Arial,sans-serif!important;cursor:pointer;padding:0!important;height:auto!important;width:auto!important}
+.lfx-st .fxs-link+.fxs-link{margin-left:12px}.lfx-st .fxs-link:disabled{color:#A3A09A!important;cursor:default}
+.fxs-sg{display:grid;grid-template-columns:48px repeat(var(--c),minmax(0,1fr));gap:3px;margin-bottom:3px}
+.fxs-sg>span{font-size:10.5px;color:#76736C;display:flex;align-items:center}
+.fxs-sg-h i{font-style:normal;font-size:9.5px;color:#A3A09A;text-align:right;padding:0 5px}
+.lfx-st .lfx-sted .st-body input.fxs-cell{width:100%!important;height:26px!important;min-width:0!important;padding:0 5px!important;font-size:11.5px!important;text-align:right;border:1px solid #ECEBE7!important;border-radius:2px!important;background:#fff!important;box-shadow:none!important}
+.lfx-st .lfx-sted .st-body input.fxs-cell.set{border-color:#D6CBB2!important;background:#FBF6EA!important;color:#1F1F1E}
+.lfx-st .lfx-sted .st-body input.fxs-cell:focus{border-color:#9A7330!important;background:#fff!important}
+.fxs-sched-foot{font-size:11px;color:#76736C;margin-top:8px;line-height:1.45;white-space:normal}
+.fxs-paste{margin-top:10px}
+@container (max-width:640px){.lfx-st .lfx-sted .st-body .fld:not(.st-section-heading):not(.count-authoring):not(.fee-stream-result-preview):not(.wf-role-card):not(.opex-cost-pool-component){grid-template-columns:minmax(0,1fr)}.lfx-st .lfx-sted .st-body .fld>label{text-align:left}.lfx-st .lfx-sted .st-body .fld>:not(label){grid-column:1}}
+.lfx-st .lfx-sted .st-body select.fxs-hid.fxs-hid[data-fx][data-nofit]{width:1px!important;height:1px!important;min-width:0!important;padding:0!important;border:0!important;margin:0!important}
+.lfx-st .lfx-sted .st-body .fld>.fxs-c{width:max-content;max-width:100%}
+.fxs-seg{flex:none}.lfx-st .fxs-seg button{flex:none}
+.lfx-st .lfx-sted .st-body .fxs-schedfld>.memo{display:none!important}
+.lfx-st .lfx-sted .st-body .fxs-mod>.fxs-sched{margin-top:2px}
+.lfx-st .lfx-sted .st-body .fxs-c>.participation-remove,.lfx-st .lfx-sted .st-body .fxs-mod .participation-remove{white-space:nowrap}
+.lfx-st .lfx-sted .st-body .fxs-sched-top .fxs-c{margin-left:auto}
+.lfx-st .lfx-sted .st-body .fxs-mod .sec-managed-series-row{flex-wrap:nowrap}
+.fxs-sched-top{row-gap:4px}
+.lfx-st .lfx-sted .st-body .fxs-sched-top .fxs-seg button{height:26px!important;padding:0 10px!important}.lfx-st .lfx-sted .st-body .fxs-sched-top .fxs-seg{height:28px}
+.fxs-sched-cad{display:flex;align-items:center;gap:8px;margin:-2px 0 10px;font-size:11.5px;color:#76736C}
+.lfx-st .lfx-sted .st-body .fxs-sched-cad .fxs-seg button{height:26px!important;padding:0 9px!important}.lfx-st .lfx-sted .st-body .fxs-sched-cad .fxs-seg{height:28px}
+.lfx-st .lfx-sted .st-body .fxs-c>input[type=number],.lfx-st .lfx-sted .st-body .fxs-c>input[inputmode=decimal]:not(.fxs-cell),.lfx-st .lfx-sted .st-body .fxs-mod input[type=number],.lfx-st .lfx-sted .st-body .fxs-mod .sec-managed-series-row>input{width:120px!important}
+/* the definition box is inset 17px (padding + border): shorten its label column so labels and controls line up with the steps below */
+.lfx-st .lfx-sted .st-body .st-definition .fld:not(.st-section-heading){grid-template-columns:133px minmax(0,1fr)!important}
+.lfx-st .lfx-sted .st-body .fld>input.fxs-long{width:min(560px,100%)!important}
+.lfx-st .lfx-sted .st-body .fee-change-inline{display:flex!important;align-items:center;gap:8px;flex-wrap:nowrap}.lfx-st .lfx-sted .st-body .fee-change-inline>input{width:120px!important}
+.lfx-st .lfx-sted .st-body .fld .fee-change-inline>input[type=number]{width:110px!important}.lfx-st .lfx-sted .st-body .fee-change-inline>span{white-space:nowrap}
+.fxs-sched-cad>span:first-child{white-space:nowrap}
+.fxs-paste .explicit-preview{display:none!important}
 </style>
 </head>
 <body>
@@ -8094,9 +8182,12 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         h += `<div class="fld"><label>Count measure</label><select onchange="feeCustomerCountMeasureChange(${_fi},${si},this.value)"><option value="period_end"${_ccmeasure==='period_end'?' selected':''}>End of month</option><option value="period_average"${_ccmeasure==='period_average'?' selected':''}>Average (begin + end)</option><option value="annual_count"${_ccmeasure==='annual_count'?' selected':''}>Year-end count · held through year</option></select></div>`;
         h += `<div class="fld wide"><span class="memo">Customer Acquisition owns the linked count. Changes upstream flow through automatically. Switching back to an entered count restores its saved schedule. ${_ccmeasure==='annual_count'?'Uses the year-end customer count throughout that model year.':(_ccmeasure==='period_average'?'Uses the average of beginning and ending monthly counts. Quarterly models aggregate monthly exposures.':'Uses each month’s ending customer count. Quarterly models average the three monthly observations before applying an annual account fee.')}</span></div>`;
       }
+      let _fxShareHtml='';
       if(basis==='account'){
-        if(st.driver.params.share_spec)h+=`<div class="fld wide">${_faSeriesEditor(sb+'.driver.params.share_spec',st.driver.params.share_spec,'Participation share','rate',false,`<button type="button" class="btn-plain participation-remove" title="Removes the participation multiplier and its schedule; uses the full source count" onclick="delete _stOwner(${_fi}).fee_streams[${si}].driver.params.share_spec;renderContent();refresh()">Remove participation share</button>`)}<span class="memo">Scales the count; it does not calculate subscriber openings or closures. Use Account adoption for those flows.</span></div>`;
-        else h+=`<div class="fld"><button class="btn-plain" onclick="_stOwner(${_fi}).fee_streams[${si}].driver.params.share_spec=_activityPath(1);renderContent();refresh()">+ Participation share</button></div>`;
+        const _fxsShareRm=`<button type="button" class="btn-plain participation-remove" aria-label="Remove participation share" class="btn-plain participation-remove" title="Removes the participation multiplier and its schedule; uses the full source count" onclick="delete _stOwner(${_fi}).fee_streams[${si}].driver.params.share_spec;renderContent();refresh()">Remove</button>`;
+        if(st.driver.params.share_spec)_fxShareHtml=`<div class="fld fxs-mod"><label>Participation share<small>of the count</small></label>${(st.driver.params.share_spec.trajectory==='explicit'?_fxsSeriesHtml(sb+'.driver.params.share_spec',st.driver.params.share_spec,'Participation share','rate',_fxsShareRm):`<div class="fxs-c">${_faSeriesEditor(sb+'.driver.params.share_spec',st.driver.params.share_spec,'Participation share','rate',false,_fxsShareRm)}</div>`)}<span class="memo">Scales the count; it does not calculate subscriber openings or closures. Use Account adoption for those flows.</span></div>`;
+        else _fxShareHtml=`<div class="fld"><label></label><button class="btn-plain" onclick="_stOwner(${_fi}).fee_streams[${si}].driver.params.share_spec=_activityPath(1);renderContent();refresh()">+ Participation share</button></div>`;   // r433: placed under the count it scales
+        if(src!=="constant"){h+=_fxShareHtml;_fxShareHtml='';}
       }
       if(src==="cost_pool"){
         const _pools=_feeCostPools(),_pool=_feeCostPoolByRef(st.driver.ref),_cpref=String(st.driver.ref||"");
@@ -8149,10 +8240,11 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         if(_eft==="growth")h += `<div class="fld wide"><label>Driver growth</label>${growthSpecInline(`${sb}.driver.params.flow_path.growth_spec`,_ef.growth_spec,null,false)}</div>`;
         if(_eft==="explicit_schedule"){const _efid=`feeEnteredFlowPaste_${_fi}_${si}`;h += `<div class="fld wide"><label>Monetary throughput schedule ($000s per ${_efp})</label><textarea id="${_efid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_efid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_efid}_load" class="pillbtn" disabled onclick="_feeSetEnteredFlowSchedule(${_fi},${si},document.getElementById('${_efid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearEnteredFlowSchedule(${_fi},${si})"${Object.keys(_ef.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_ef.schedule,1/1000,_efp)}</div><span class="memo" style="margin:3px 0 0">Entered monetary flows sum across months when the model cadence is quarterly. Set pricing to 0% when this stream is only a non-posting source for another stream.</span></div>`;}
       } else {
-        h += `<div class="fld"><label>${(_isAccountCount||_isCACAccountCount)?"Count path":"Trajectory (how the driver moves)"}</label><select${(_isCostPool||_isActivity||_isCACAccountCount||st.driver.quantity_transform==='positive_monthly_change')?" disabled":""} onchange="feeStreamTrajectoryChange(${_fi},${si},this.value)">${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
+        if(_isAccountCount&&traj!=="explicit_schedule"&&!_isEnteredFlow){h += `<div class="fld fxs-row"><label>${traj==="proportional"?"Starting count":"Count"}</label><div class="fxs-c"><select aria-label="Count path" onchange="feeStreamTrajectoryChange(${_fi},${si},this.value)"${st.driver.quantity_transform==='positive_monthly_change'?" disabled":""}>${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select>${numInput(sb+".driver.params.base","n")}<span class="fxs-u">count</span></div></div>`;}   // r433
+        else h += `<div class="fld"><label>${(_isAccountCount||_isCACAccountCount)?"Count path":"Trajectory (how the driver moves)"}</label><select${(_isCostPool||_isActivity||_isCACAccountCount||st.driver.quantity_transform==='positive_monthly_change')?" disabled":""} onchange="feeStreamTrajectoryChange(${_fi},${si},this.value)">${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
         if(basis==="transaction"&&src==="constant")h += `<div class="fld wide"><button class="btn-plain" onclick="_feeEnsureEnteredFlow(${_fi},${si});renderContent();refresh();return false">Use entered monetary flow path</button><span class="memo" style="margin:4px 0 0">Adds Flat / Growth / Explicit authoring in $000s per Month / Quarter / Year. Existing legacy constant quantities remain unchanged until selected.</span></div>`;
       }
-      if(src==="constant" && traj!=="explicit_schedule" && !_isEnteredFlow){
+      if(src==="constant" && traj!=="explicit_schedule" && !_isEnteredFlow && !_isAccountCount){
         const _baseLabel=_isAccountCount?(traj==="proportional"?"Starting count":"Count / mandates"):"Base value";
         h += F(_baseLabel, sb+".driver.params.base", "n");
       }
@@ -8163,8 +8255,9 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         const _ls=st.driver.params.level_schedule||{period:"year",resolution:"step",schedule:{}}, _lper=_ls.period||"year", _lres=_ls.resolution||"step", _lid=`feeAccountLevelPaste_${_fi}_${si}`;
         h += `<div class="fld"><label>Count schedule period</label><select onchange="var x=_feeEnsureAccountLevel(${_fi},${si});x.period=this.value;renderContent();refresh()"><option value="year"${_lper==="year"?" selected":""}>Year</option><option value="quarter"${_lper==="quarter"?" selected":""}>Quarter</option><option value="month"${_lper==="month"?" selected":""}>Month</option></select></div>`;
         h += `<div class="fld"><label>Resolution</label><select onchange="var x=_feeEnsureAccountLevel(${_fi},${si});x.resolution=this.value;renderContent();refresh()"><option value="step"${_lres==="step"?" selected":""}>Step</option><option value="smooth"${_lres==="smooth"?" selected":""}>Smooth</option></select></div>`;
-        h += `<div class="fld wide"><label>Period-end count schedule by ${_lper} (comma, tab, semicolon, or new line)</label><textarea id="${_lid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="e.g. 2, 4, 7, 10, 13, 15, 17" oninput="_feeExplicitPasteInput('${_lid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_lid}_load" class="pillbtn" disabled onclick="_feeSetAccountLevelSchedule(${_fi},${si},document.getElementById('${_lid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearAccountLevelSchedule(${_fi},${si})"${Object.keys(_ls.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_ls.schedule,1,_lper)}</div><span class="memo" style="margin:3px 0 0">Values are period-end count levels. Step holds the prior level until the next endpoint; Smooth linearly interpolates between endpoints. Foundry does not round interpolated counts.</span></div>`;
+        h += `<div class="fld wide fxs-schedfld"><label>Period-end count schedule by ${_lper}</label>${_fxSchedGridHtml({kind:'level',fi:_fi,si,obj:_ls,per:_lper,title:'Period-end count',unit:'count',pasteId:_lid,clear:`_feeClearAccountLevelSchedule(${_fi},${si})`,hint:'Enter the count at the end of any '+_lper+'. '+(_lres==='smooth'?'Smooth draws a straight line between entered points.':'Step holds each entered count until the next one.')+' Blank cells follow the entered points; Foundry does not round counts.'})}<div class="fxs-paste" id="${_lid}_wrap"${_fxPasteOpen[_lid]?'':' hidden'}><textarea id="${_lid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="e.g. 2, 4, 7, 10, 13, 15, 17" oninput="_feeExplicitPasteInput('${_lid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_lid}_load" class="pillbtn" disabled onclick="_feeSetAccountLevelSchedule(${_fi},${si},document.getElementById('${_lid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearAccountLevelSchedule(${_fi},${si})"${Object.keys(_ls.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_ls.schedule,1,_lper)}</div></div><span class="memo" style="margin:3px 0 0">Values are period-end count levels. Step holds the prior level until the next endpoint; Smooth linearly interpolates between endpoints. Foundry does not round interpolated counts.</span></div>`;
       }
+      if(_fxShareHtml&&src==="constant")h+=_fxShareHtml;   // r433: modifier under the count it scales
       if(traj==="derived"){
         if(basis==='account' && ['stream_ref','fee_stream_quantity'].includes(src)){
           h+=_feeCountAuthoringHtml(_fi,si,sb,st);
@@ -8180,7 +8273,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
               const _smid=`feeStockPctPaste_${_fi}_${si}`;
               h += `<div class="fld"><label>Schedule period</label><select onchange="var x=_feeEnsureStockMultiplier(${_fi},${si});x.period=this.value;renderContent();refresh()"><option value="year"${_smper==="year"?" selected":""}>Year</option><option value="quarter"${_smper==="quarter"?" selected":""}>Quarter</option><option value="month"${_smper==="month"?" selected":""}>Month</option></select></div>`;
               h += `<div class="fld"><label>Resolution</label><select onchange="var x=_feeEnsureStockMultiplier(${_fi},${si});x.resolution=this.value;renderContent();refresh()"><option value="step"${_smres==="step"?" selected":""}>Step</option><option value="smooth"${_smres==="smooth"?" selected":""}>Smooth</option></select></div>`;
-              h += `<div class="fld wide"><label>Stock % schedule by ${_smper}</label><textarea id="${_smid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="e.g. 30, 30, 30, 30" oninput="_feeExplicitPasteInput('${_smid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_smid}_load" class="pillbtn" disabled onclick="_feeSetStockMultiplierSchedule(${_fi},${si},document.getElementById('${_smid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearStockMultiplierSchedule(${_fi},${si})"${Object.keys(_sm.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_sm.schedule,100,_smper)}</div></div>`;
+              h += `<div class="fld wide fxs-schedfld"><label>Stock % schedule by ${_smper}</label>${_fxSchedGridHtml({kind:'stock',fi:_fi,si,obj:_sm,per:_smper,title:'Stock % of source',unit:'%',pasteId:_smid,clear:`_feeClearStockMultiplierSchedule(${_fi},${si})`,hint:'Enter the % of source balance from any '+_smper+'; blank cells follow the entered points.'})}<div class="fxs-paste" id="${_smid}_wrap"${_fxPasteOpen[_smid]?'':' hidden'}><textarea id="${_smid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="e.g. 30, 30, 30, 30" oninput="_feeExplicitPasteInput('${_smid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_smid}_load" class="pillbtn" disabled onclick="_feeSetStockMultiplierSchedule(${_fi},${si},document.getElementById('${_smid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearStockMultiplierSchedule(${_fi},${si})"${Object.keys(_sm.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_sm.schedule,100,_smper)}</div></div></div>`;
             }
           } else {
             h += F("Legacy multiple (raw / model period)", sb+".driver.params.multiple", "n"); h += F("Legacy % of source (raw / model period, 0-1)", sb+".driver.params.pct", "n");
@@ -8200,7 +8293,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
             const _cv=_isPct?((+_coef.value||0)*100):(_isAmount?((+_coef.value||0)/1000):(+_coef.value||0));
             if(_ctraj!=="explicit_schedule") h += `<div class="fld"><label>${_ctraj==="growth"?"Starting ":""}${_isPct?(_isShare?"Share %":"Flow %") : (_isAmount?"Amount / source unit ($000s)":"Turns / multiple")}</label><input type="number" step="any" value="${_cv}" onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.value=_pf(this.value)${_isPct?"/100":(_isAmount?"*1000":"")};refresh()"></div>`;
             if(_ctraj==="growth") h += `<div class="fld wide"><label>${_coefNoun} growth</label>${growthSpecInline(sb+".driver.params.coefficient.growth_spec",_coef.growth_spec,null,false)}</div>`;
-            if(_ctraj==="explicit_schedule"){const _cid=`feeCoeffPaste_${_fi}_${si}`;const _ph=_isAmount?"e.g. 500000, 525000, 551250":"e.g. 8, 10, 12, 10, 10, 10, 9";const _scale=_isPct?100:(_isAmount?0.001:1);h += `<div class="fld wide"><label>${_coefNoun} schedule by ${_cper==="year"?"year":(_cper==="quarter"?"quarter":"month")} (comma, tab, semicolon, or new line)${_isAmount?" · $000s per source unit":""}</label><textarea id="${_cid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="${_ph}" oninput="_feeCoeffPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCoeffSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCoeffSchedule(${_fi},${si})"${Object.keys(_coef.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_coef.schedule,_scale,_cper)}</div><span class="memo" style="margin:3px 0 0">The explicit schedule is the active ${_coefNoun.toLowerCase()} input; no separate single-value field is used. Each pasted value applies for one stated natural period; the last value carries forward.${_isAmount?" Enter monetary amounts in $000s per source unit; Foundry stores and calculates them in dollars.":""}</span></div>`;}
+            if(_ctraj==="explicit_schedule"){const _cid=`feeCoeffPaste_${_fi}_${si}`;const _ph=_isAmount?"e.g. 500000, 525000, 551250":"e.g. 8, 10, 12, 10, 10, 10, 9";const _scale=_isPct?100:(_isAmount?0.001:1);h += `<div class="fld wide"><label>${_coefNoun} schedule by ${_cper==="year"?"year":(_cper==="quarter"?"quarter":"month")} (comma, tab, semicolon, or new line)${_isAmount?" · $000s per source unit":""}</label>${_fxSchedGridHtml({kind:'coef',fi:_fi,si,obj:_coef,per:_cper,title:_coefNoun,unit:_isPct?'%':(_isAmount?'$000s per source unit':'×'),pasteId:_cid,clear:`_feeClearCoeffSchedule(${_fi},${si})`,hint:'Each entered value applies from its '+_cper+'; the last value carries forward.'})}<div class="fxs-paste" id="${_cid}_wrap"${_fxPasteOpen[_cid]?'':' hidden'}><textarea id="${_cid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="${_ph}" oninput="_feeCoeffPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCoeffSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCoeffSchedule(${_fi},${si})"${Object.keys(_coef.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_coef.schedule,_scale,_cper)}</div></div><span class="memo" style="margin:3px 0 0">The explicit schedule is the active ${_coefNoun.toLowerCase()} input; no separate single-value field is used. Each pasted value applies for one stated natural period; the last value carries forward.${_isAmount?" Enter monetary amounts in $000s per source unit; Foundry stores and calculates them in dollars.":""}</span></div>`;}
             if(_isPct) h += `<div class="fld wide"><span class="memo" style="margin:0">${_isShare?"Share of source is dimensionless: 0.5% remains 0.5% regardless of Month / Quarter / Year projection cadence. Foundry never divides the share by projection cadence. A schedule period only controls when the share assumption changes.":"Flow % of source is a natural-period flow ratio: a Year assumption is periodized across the model periods in that year. Use this for economics such as annual transaction volume as % of AUC, not for attach / migration shares."}</span></div>`;
           } else {
             h += F("Legacy multiple (raw / model period)", sb+".driver.params.multiple", "n"); h += F("Legacy % of source (raw / model period, 0-1)", sb+".driver.params.pct", "n");
@@ -13792,6 +13885,7 @@ function _renderContentInner(){
   if(typeof cfgAfterRender==='function')cfgAfterRender();
   if(typeof fitControls==='function')fitControls();
   if(typeof rptAfterRender==='function')rptAfterRender();   // r416
+  if(typeof fxAfterRender==='function')fxAfterRender();   // r433
   _restoreAuthoringState(state);
   _renderedAuthoringTab=currentTab;_renderedAuthoringCfg=cfg;
 }
@@ -18798,6 +18892,84 @@ function rptAfterRender(){if(typeof document==='undefined')return;const c=docume
 /* r417: official export stops while reporting products exist and reporting does not reconcile */
 function rptExportBlock(){const V=_rptView();if(!_rptList().length||!V||_rptPending()||V.ok)return false;
   appStatus('err','Business Plan Tables were not exported: reporting does not reconcile. Open Product Detail \u2192 By reporting entry \u2192 Reconciliation to see each problem.');return true;}
+
+/* r433: field system for product authoring (first applied to the fee-stream editor).
+   Presentation only: values still flow through the existing setPath / select onchange handlers.
+   - path, cadence and step/smooth dropdowns become segmented controls beside their value (the select stays in the
+     DOM, visually hidden, and is driven by the buttons);
+   - explicit schedules are edited in a year × period grid (paste stays available as an action). */
+var _fxPasteOpen={};
+const _FX_SHORT={'Explicit schedule':'Schedule','Explicit':'Schedule','Proportional growth':'Growth','Follows source unchanged (100%)':'Follows source','Ramp to target':'Ramp','Derived (× source)':'× Source'};
+function _fxKind(vals){const s=new Set(vals);
+ if(s.has('flat')&&(s.has('growth')||s.has('proportional'))&&(s.has('explicit')||s.has('explicit_schedule')))return 'path';
+ if(vals.length>=2&&vals.every(v=>['month','quarter','year'].includes(v)))return 'period';
+ if(vals.length===2&&s.has('step')&&s.has('smooth'))return 'res';
+ return null;}
+function fxAfterRender(){if(typeof document==='undefined')return;
+ // field rows: every row gets a label cell; loose memo text becomes a memo; several inline controls share one flex cell
+ document.querySelectorAll('.lfx-st .lfx-sted .st-body .fld:not([data-fxs]):not(.st-section-heading):not(.count-authoring):not(.fee-stream-result-preview):not(.wf-role-card):not(.opex-cost-pool-component)').forEach(f=>{
+  if(f.parentElement&&f.parentElement.closest('.fld'))return;f.setAttribute('data-fxs','');
+  [...f.childNodes].forEach(n=>{if(n.nodeType===3&&n.textContent.trim()){const m=document.createElement('span');m.className='memo';m.textContent=n.textContent.trim();f.replaceChild(m,n);}});
+  if(!f.querySelector(':scope>label'))f.insertBefore(document.createElement('label'),f.firstChild);
+  f.querySelectorAll(':scope>input[type=text]:not([inputmode])').forEach(i=>{if(parseFloat(i.style.minWidth)>320){i.style.removeProperty('min-width');i.setAttribute('data-nofit','');i.classList.add('fxs-long');}});
+  const kids=[...f.children].filter(c=>c.tagName!=='LABEL'&&!c.classList.contains('memo')&&!c.classList.contains('fxs-sched')&&!c.classList.contains('fxs-paste')&&!c.classList.contains('fxs-c'));
+  if(kids.length>=2&&kids.every(c=>/^(INPUT|SELECT|SPAN|BUTTON)$/.test(c.tagName))){const w=document.createElement('div');w.className='fxs-c fxs-multi';kids[0].before(w);kids.forEach(c=>w.appendChild(c));}});
+ document.querySelectorAll('.lfx-st .lfx-sted .st-body select:not([data-fx])').forEach(s=>{
+  if(s.multiple||s.closest('.fxs-noseg'))return;
+  const par=s.parentElement;if(!par||!(par.matches('.fld')||par.matches('.fxs-c')||par.matches('.sec-managed-series-row')||par.matches('.fee-change-inline')))return;   // only a field's own control, never a nested editor
+  if(s.closest('.opex-cost-pool-component,.count-authoring,.wf-role-card,.cost-pool-editor'))return;
+  if(par.classList.contains('fxs-multi')&&par.querySelectorAll(':scope>select').length>1)return;   // a compact inline phrase (e.g. 2% per Year · Step at Model year) keeps its dropdowns
+  const opts=[...s.options];if(opts.length<2||opts.length>4)return;
+  const kind=_fxKind(opts.map(o=>o.value));if(!kind)return;
+  const labs=opts.map(o=>{const t=(o.textContent||'').trim();return _FX_SHORT[t]||t;});if(labs.some(l=>l.length>16))return;
+  s.setAttribute('data-fx',kind);s.classList.add('fxs-hid');s.setAttribute('data-nofit','');s.style.removeProperty('min-width');s.tabIndex=-1;
+  const seg=document.createElement('span');seg.className='fxs-seg fxs-'+kind+(s.disabled?' dis':'');seg.setAttribute('role','radiogroup');
+  const lab=s.getAttribute('aria-label')||((s.closest('.fld')||{}).querySelector&&((s.closest('.fld').querySelector(':scope>label')||{}).textContent||'').trim())||'';
+  if(lab)seg.setAttribute('aria-label',lab);
+  opts.forEach((o,k)=>{const b=document.createElement('button');b.type='button';b.textContent=labs[k];b.setAttribute('role','radio');b.setAttribute('aria-checked',String(o.value===s.value));
+   if(o.value===s.value)b.className='on';b.disabled=!!(s.disabled||o.disabled);
+   b.onclick=()=>{if(s.value===o.value)return;s.value=o.value;s.dispatchEvent(new Event('change',{bubbles:true}));};seg.appendChild(b);});
+  s.insertAdjacentElement('afterend',seg);});}
+
+/* ---- schedule grid ---- */
+function _fxSchedObj(kind,fi,si){const st=_stOwner(fi).fee_streams[si];
+ if(kind==='level')return _feeEnsureAccountLevel(fi,si);if(kind==='stock')return _feeEnsureStockMultiplier(fi,si);return st.driver.params.coefficient;}
+function _fxSchedScale(kind,obj){if(kind==='stock')return 100;if(kind==='coef')return obj&&obj.kind==='pct'?100:(obj&&obj.kind==='amount_per_source_unit'?0.001:1);return 1;}
+function fxSchedSet(kind,fi,si,k,val){const obj=_fxSchedObj(kind,fi,si);if(!obj)return;obj.schedule=obj.schedule||{};const t=String(val==null?'':val).trim();
+ if(t==='')delete obj.schedule[String(k)];else{const n=_pf(t);obj.schedule[String(k)]=n/_fxSchedScale(kind,obj);}
+ refresh();setTimeout(()=>renderContent(),0);}
+function fxPasteToggle(id){_fxPasteOpen[id]=!_fxPasteOpen[id];const el=document.getElementById(id+'_wrap');if(el)el.hidden=!_fxPasteOpen[id];}
+function _fxFmt(v){const a=Math.abs(v);return v.toLocaleString('en-US',{maximumFractionDigits:a>=1000?0:a>=1?4:6});}
+function _fxSchedGridHtml(o){
+ const months=(typeof NP==='function'&&typeof PPY==='function')?Math.round(NP()*12/PPY()):36;
+ const per=o.per||'year',N=per==='month'?months:per==='quarter'?Math.ceil(months/3):Math.ceil(months/12),cols=per==='month'?12:per==='quarter'?4:Math.min(N,10);
+ const sched=(o.obj&&o.obj.schedule)||{},scale=_fxSchedScale(o.kind,o.obj),keys=Object.keys(sched).filter(k=>sched[k]!=null);
+ const tag=per==='month'?'M':per==='quarter'?'Q':'Y';
+ let h=`<div class="fxs-sched" data-fxs-sched="${o.kind}"><div class="fxs-sched-top"><b>${esc(o.title)}</b><span>${keys.length} of ${N} ${per}s entered · ${esc(o.unit)}</span><button type="button" class="fxs-link" onclick="fxPasteToggle('${o.pasteId}')">Paste values…</button><button type="button" class="fxs-link" onclick="${o.clear}"${keys.length?'':' disabled'}>Clear</button></div>`;
+ if(per!=='year')h+=`<div class="fxs-sg fxs-sg-h" style="--c:${cols}"><span></span>${Array.from({length:cols},(_,c)=>`<i>${tag}${c+1}</i>`).join('')}</div>`;
+ for(let r=0;r*cols<N;r++){h+=`<div class="fxs-sg" style="--c:${cols}"><span>${per==='year'?'':'Year '+(r+1)}</span>`;
+  for(let c=0;c<cols;c++){const k=r*cols+c+1;if(k>N){h+='<em></em>';continue;}const v=sched[String(k)],has=v!=null&&v!=='';
+   h+=`<input type="text" inputmode="decimal" class="fxs-cell${has?' set':''}" aria-label="${esc(o.title)} ${tag}${k}" title="${tag}${k}" placeholder="${per==='year'?'Y'+k:'·'}" value="${has?_fxFmt(+v*scale):''}" onchange="fxSchedSet('${o.kind}',${o.fi},${o.si},${k},this.value)">`;}
+  h+='</div>';}
+ return h+`<div class="fxs-sched-foot">${esc(o.hint)}</div></div>`;}
+/* dense Series schedules (values[] by cadence), e.g. participation share on an explicit schedule */
+function fxsSeriesSet(path,k,val,scale){const sp=getPath(path);if(!sp)return;const t=String(val==null?'':val).trim();if(t==='')return;
+ sp.values=Array.isArray(sp.values)?sp.values:[];while(sp.values.length<k-1)sp.values.push(sp.values.length?sp.values[sp.values.length-1]:0);
+ sp.values[k-1]=_pf(t)/scale;refresh();setTimeout(()=>renderContent(),0);}
+function _fxsSeriesHtml(path,spec,title,kind,removeHtml){
+ const scale=kind==='rate'?100:1,unit=kind==='rate'?'%':'',cad=spec.cadence||(typeof _nativeFlowPeriod==='function'?_nativeFlowPeriod():'month');
+ const months=(typeof NP==='function'&&typeof PPY==='function')?Math.round(NP()*12/PPY()):36;
+ const N=cad==='month'?months:cad==='quarter'?Math.ceil(months/3):Math.ceil(months/12),cols=cad==='month'?12:cad==='quarter'?4:Math.min(N,10),tag=cad==='month'?'M':cad==='quarter'?'Q':'Y';
+ const vals=Array.isArray(spec.values)?spec.values:[],pid='fxsp_'+path.replace(/[^a-zA-Z0-9]/g,'_');
+ let h=`<div class="fxs-c"><select aria-label="${esc(title)} path" onchange="faSeriesTrajectory('${path}',this.value)"><option value="flat">Flat</option><option value="growth">Growth</option><option value="explicit" selected>Explicit schedule</option></select>${removeHtml||''}</div>`;
+ h+=`<div class="fxs-sched"><div class="fxs-sched-top"><span>${vals.length} of ${N} ${cad}s entered · ${unit||'value'}</span><button type="button" class="fxs-link" onclick="fxPasteToggle('${pid}')">Paste values…</button><button type="button" class="fxs-link" onclick="faSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button></div><div class="fxs-sched-cad"><span>Entered by</span><span class="fxs-c"><select aria-label="${esc(title)} schedule cadence" onchange="faSeriesCadence('${path}',this.value)">${(typeof _seriesCadenceOptions==='function'?_seriesCadenceOptions():['month','quarter','year']).map(x=>`<option value="${x}"${x===cad?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></span>${(typeof _seriesResolutionUseful!=='function'||_seriesResolutionUseful(cad))?`<span class="fxs-c"><select aria-label="${esc(title)} resolution" onchange="faSeriesResolution('${path}',this.value)"><option value="step"${(spec.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${spec.resolution==='smooth'?' selected':''}>Smooth</option></select></span>`:''}</div>`;
+ h+=`<div class="fxs-paste" id="${pid}_wrap"${_fxPasteOpen[pid]?'':' hidden'}><textarea id="${pid}" rows="3" aria-label="Paste ${cad} values (${unit||'value'})" placeholder="Paste ${cad} values in ${unit||'value'}" oninput="_seriesExplicitPasteInput('${pid}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${pid}_load" class="pillbtn" disabled onclick="faSeriesPaste('${path}','${pid}','${kind}')">Load (replace)</button></div></div>`;
+ if(cad!=='year')h+=`<div class="fxs-sg fxs-sg-h" style="--c:${cols}"><span></span>${Array.from({length:cols},(_,c)=>`<i>${tag}${c+1}</i>`).join('')}</div>`;
+ for(let r=0;r*cols<N;r++){h+=`<div class="fxs-sg" style="--c:${cols}"><span>${cad==='year'?'':'Year '+(r+1)}</span>`;
+  for(let c=0;c<cols;c++){const k=r*cols+c+1;if(k>N){h+='<em></em>';continue;}const has=k<=vals.length&&vals[k-1]!=null;
+   h+=`<input type="text" inputmode="decimal" class="fxs-cell${has?' set':''}" aria-label="${esc(title)} ${tag}${k}" title="${tag}${k}" placeholder="·" value="${has?_fxFmt(+vals[k-1]*scale):''}" onchange="fxsSeriesSet('${path}',${k},this.value,${scale})">`;}
+  h+='</div>';}
+ return h+`<div class="fxs-sched-foot">Each value applies to its ${cad}; after the last entered value the last one holds.</div></div>`;}
 
 renderTabs();
 whoami().then(u=>{ paintWho(); if(u){ boot().then(()=>sessionSafety.offer()); } else { currentTab = "welcome"; renderContent(); } });
