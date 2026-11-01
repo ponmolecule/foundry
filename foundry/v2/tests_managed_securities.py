@@ -233,7 +233,7 @@ def main():
         "const closedAgain=_secSeriesEditor(path,spec,'Annual yield',false);",
         "console.log(JSON.stringify({closed,opened,closedAgain,renders}));",
     ])
-    nr=subprocess.run(['node','-e',node],text=True,capture_output=True)
+    nr=subprocess.run(["node", "-"], input=node, text=True,capture_output=True)
     nj={}
     if nr.returncode==0 and nr.stdout.strip():
         try: nj=json.loads(nr.stdout.strip().splitlines()[-1])

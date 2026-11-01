@@ -8,8 +8,11 @@ def main():
     html=Path('web/console_v2.html').read_text()
     start=html.index('const _depositPoolOpen = new Set();')
     end=html.index('function _loanBalanceMode(p)',start)
+    # r436: balance-method options moved into the shared index (FOUNDRY_INDEX); load those constants too
+    _ix=[l for l in html.split('\n') if l.startswith('const FOUNDRY_INDEX = ') or l.startswith('const FOUNDRY_DEPOSIT_BALANCE_OPTIONS=') or l.startswith('const FOUNDRY_LOAN_BALANCE_OPTIONS=')]
     js=r'''
 const window=globalThis;
+'''+'\n'.join(_ix)+r'''
 function catalogSources(){return null;}
 function feeConfirmDeletion(){return true;}
 let cfg={assumptions:{deposit_products:[{name:'DDA',growth_per_period:.05,runoff_per_period:.01,new_deposits_per_period:1000,overrides:{growth_per_period:{1:.1}}},{name:'Savings'}],obs_exposures:[{name:'Upstream',fee_streams:[{name:'Activity',quantity_series_id:'tpv',basis:'transaction',driver:{source:'constant',params:{flow_path:{unit_kind:'money_flow'}}}},{name:'Migration',quantity_series_id:'migration',basis:'transaction',driver:{source:'stream_ref',params:{coefficient:{kind:'pct',semantics:'share'}}}}]}],lending_products:[{name:'Facility',balance_mode:'funded_flow_level'}]}};
@@ -50,7 +53,7 @@ depositMode(0,'level');assert(cfg.assumptions.deposit_retention_pools.length===1
 depositMode(1,'rollforward');assert(!cfg.assumptions.deposit_retention_pools,'unused pool removed');
 console.log('PASS deposit UI state, shared identities, typed links, clean removal and rendering');
 '''
-    r=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    r=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     assert r.returncode==0,r.stderr
     print(r.stdout.strip())
     # Verify the existing schedule editor remains the sole paste implementation.

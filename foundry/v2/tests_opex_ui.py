@@ -92,7 +92,7 @@ nieCatFormulaGrowthField(0,0,0,'rate',0.20);
 const promoted=cfg.assumptions.nie_detail.categories[0].linked_components[0];
 console.log(JSON.stringify({original,afterView,view,promoted,stored:promoted}));
 """
-    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:
@@ -135,7 +135,7 @@ const cases=[
 ];
 console.log(JSON.stringify(cases));
 """
-    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try: ok=(json.loads(pr.stdout.strip().splitlines()[-1])==[False,True,False,False,True,True])
@@ -161,7 +161,7 @@ const card={dataset:{dropAfter:'1'}};
 nieCatDrop({preventDefault(){},currentTarget:card},2);
 console.log(JSON.stringify({order:cfg.assumptions.nie_detail.categories.map(x=>x.series_id),open:window._nieCatAdvancedOpen,rendered,refreshed}));
 """
-    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:
@@ -198,7 +198,7 @@ ct=cfg.assumptions.nie_detail.categories[0];const second=ct.linked_components[0]
 const reusable=_opexReusableCostPools(second.ref).map(p=>p.series_id);
 console.log(JSON.stringify({flow:ct.flow_spec.value,firstRef,secondRef:second.ref,removedOwned,secondEmpty:secondPool&&secondPool.components.length===0,legacyStill:_feeCostPoolByRef('pool-old')!=null,reusable,pools:_feeCostPools().map(p=>p.series_id),componentId:second.component_id}));
 """
-    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:
@@ -225,7 +225,7 @@ nieCatCostPoolComponentSelect(0,0,'pool-shared');
 const lc=cfg.assumptions.nie_detail.categories[0].linked_components[0];
 console.log(JSON.stringify({before,ref:lc.ref,privateGone:_feeCostPoolByRef(privateRef)==null,sharedStill:_feeCostPoolByRef('pool-shared')!=null,sharedValue:_feeCostPoolByRef('pool-shared').components[0].flow_spec.value}));
 """
-    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:
@@ -262,7 +262,7 @@ const closed=_opexCostPoolEditorHtml(0,ct,calc,0);
 window._opexCostPoolReuseOpen['opex-1::comp-1']=true; const open=_opexCostPoolEditorHtml(0,ct,calc,0);
 console.log(JSON.stringify({closedHasOrphan:closed.includes('OLD ORPHAN'),closedHasShared:closed.includes('Reusable fee pool'),closedHasOwn:closed.includes('Private platform pool'),openHasOrphan:open.includes('OLD ORPHAN'),openHasShared:open.includes('Reusable fee pool')}));
 """
-    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:
@@ -287,7 +287,7 @@ window._opexCostPoolReuseOpen={}; const oldKey=_opexCostPoolReuseKey(0,0); windo
 cfg.assumptions.nie_detail.categories.unshift(fresh); const newKey=_opexCostPoolReuseKey(0,0);
 console.log(JSON.stringify({oldKey,newKey,newOpen:!!window._opexCostPoolReuseOpen[newKey]}));
 """
-    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:
@@ -311,7 +311,7 @@ function _ensureNieDetail(){return cfg.assumptions.nie_detail;} function _feeCos
 """+purge_m.group(0)+"\n"+del_m.group(0)+r"""
 nieCatDelete(0); console.log(JSON.stringify({categories:cfg.assumptions.nie_detail.categories.length,pools:cfg.assumptions.cost_pools.map(p=>p.series_id)}));
 """
-    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:
@@ -340,7 +340,7 @@ function _feeCostPools(){return cfg.assumptions.cost_pools;}
     prune=re.search(r"function _pruneOrphanedOpexOwnedPools\(\)\{.*?\n\}", html, re.S)
     if prune:
         js += prune.group(0)+"\n_pruneOrphanedOpexOwnedPools();\nconsole.log(JSON.stringify(cfg.assumptions.cost_pools.map(x=>x.series_id)));\n"
-        cp=subprocess.run(['node','-e',js],capture_output=True,text=True)
+        cp=subprocess.run(["node", "-"], input=js, capture_output=True,text=True)
         if cp.returncode==0:
             try:
                 refs=json.loads(cp.stdout.strip())
@@ -366,7 +366,7 @@ const eop=_opexLinkedSourcePreview({driver:'customer_acquisition_auc',series_id:
 const avg=_opexLinkedSourcePreview({driver:'customer_acquisition_auc',series_id:'auc-1',measure:'period_average'});
 console.log(JSON.stringify({eop,avg}));
 """
-    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:
@@ -399,7 +399,7 @@ nieOccSimplifiedToggle(false);
 const disabled=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail));
 console.log(JSON.stringify({enabled,disabled}));
 """
-    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:

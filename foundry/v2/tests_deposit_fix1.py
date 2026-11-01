@@ -67,7 +67,7 @@ check(cfg.assumptions.deposit_products[3].pool_share_spec.value===1);
 check(states.length===5); // Exactly one preview per user action, no intermediate request.
 console.log(JSON.stringify(states));
 """
-    r=subprocess.run(['node','-e',js],text=True,capture_output=True);assert r.returncode==0,r.stderr
+    r=subprocess.run(["node", "-"], input=js, text=True,capture_output=True);assert r.returncode==0,r.stderr
     from fastapi.testclient import TestClient
     import app
     previous=dict(app.app.dependency_overrides)
@@ -93,7 +93,7 @@ eq(productReferenceIndex({name:'Missing',family:'deposit'},results,inputs),null)
 eq(productReferenceIndex({index:'effr'},[],{}),'effr');
 console.log('PASS index display resolves duplicate names by family order, defaults and historical snapshot metadata');
 '''
-    r=subprocess.run(['node','-e',js],text=True,capture_output=True);assert r.returncode==0,r.stderr;print(r.stdout.strip())
+    r=subprocess.run(["node", "-"], input=js, text=True,capture_output=True);assert r.returncode==0,r.stderr;print(r.stdout.strip())
 
 
 if __name__=='__main__':main()

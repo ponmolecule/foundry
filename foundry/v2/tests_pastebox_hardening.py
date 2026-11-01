@@ -294,7 +294,7 @@ _pasteSurfaceOpen('probePaste');
 const reopened=!classes.has('paste-surface-collapsed') && !note && !!ctl;
 console.log(JSON.stringify({closed,reopened,state:Object.keys(window._pasteSurfaceClosed)}));
 """
-        pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+        pr=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
         if pr.returncode==0 and pr.stdout.strip():
             try:
                 got=json.loads(pr.stdout.strip().splitlines()[-1]); ok=(got.get('closed') is True and got.get('reopened') is True and got.get('state')==['probePaste'])
