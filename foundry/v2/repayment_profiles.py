@@ -79,6 +79,10 @@ def monthly_sources(a,n,ppy,context=None):
         if not sid:continue
         r=cac_auc_rollforward(feed,n,ppy,assumptions=a,growth_context=context)
         counts[sid]={'period_end':r['customer_end_by_month'][:months],'period_average':r['customer_average_by_month'][:months],'annual_count':r['customer_annual_count_by_month'][:months]}
+        # r444: derived band and population counts are sources on the same monthly graph.
+        comp=r.get('population_composition') or {}
+        for item in list((comp.get('bands') or {}).values())+([comp['population']] if comp.get('population') else []):
+            counts[item['series_id']]={k:item[v][:months] for k,v in [('period_end','customer_end_by_month'),('period_average','customer_average_by_month'),('annual_count','customer_annual_count_by_month')]}
     return activity,counts
 
 def canonical_flow(p,a,n,ppy,context=None):
