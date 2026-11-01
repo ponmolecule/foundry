@@ -2098,3 +2098,6 @@ Test debt (built on r435): 51 of 262 failing modules to 0. See RELEASE_r436.md f
 
 ## r437
 Field system on Configuration editors (built on r436). fxsConfigAfterRender (called at the start of fxAfterRender, after fxsProductsAfterRender) regroups: workforce role cards (.wf-role-card → .fxs-cfg.fxs-wf; path selects moved from the Advanced disclosure beside Count / Compensation; "… trajectory" growth lines moved under their value), expense category cards (.opex-item-card), other income sleeves (#card-income details.sec-managed-sleeve) and capital raise / borrowing rows (#card-cap, headings + grid). Segment conversion now accepts .wf-role-card.fxs-cfg; _FX_SHORT maps "Escalation (default)" to "Escalation". Tests: tests_r437_config_fields (py + node).
+
+## r438
+Path vocabulary (built on r437): display labels "Explicit" / "Explicit schedule" → "Schedule" in the console (options, chips, summaries, hints, reference index), fee_guide trajectory label and steps, audit workbook "Scheduled new customers", data-check locations. "Explicit customers" → "Scheduled customers"; "Explicit driver path" → "Scheduled driver path". Stored values unchanged. Reference coverage re-scanned. Test: tests_r438_schedule_vocabulary.

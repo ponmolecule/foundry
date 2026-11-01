@@ -37,7 +37,7 @@ assert.strictEqual(await A.locator('.fcb-alert').count(),0);
 // 3. A tag opens the Series editor beneath the row; Growth; then band 1 takes the remainder.
 await A.locator('.fcb-tag[aria-label="Share path for band 2: FLAT"]').click();
 assert.strictEqual(await A.locator('.fcb-edr').count(),1);
-assert.deepStrictEqual(await A.locator('.fcb-ed .count-path-options button').allInnerTexts(),['Flat','Growth','Explicit schedule','Remainder']);
+assert.deepStrictEqual(await A.locator('.fcb-ed .count-path-options button').allInnerTexts(),['Flat','Growth','Schedule','Remainder']);   // r438: the path option reads Schedule
 await A.locator('.fcb-ed .count-path-options button',{hasText:'Growth'}).click();
 assert.strictEqual((await comps())[1].weight_spec.trajectory,'growth');
 assert(/GROWTH/.test(await A.locator('.fcb-t tbody tr').nth(1).innerText()));

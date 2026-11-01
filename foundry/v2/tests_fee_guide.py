@@ -237,7 +237,7 @@ def main():
     ck("trustee product maps to Account retainer + Balance reserve fee within five-stream ontology",
        len(tg["stream_guides"])==2 and tg["streams"][0]["basis"]=="account" and tg["streams"][1]["basis"]=="balance")
     ck("Guide Me maps FY-end mandates to Explicit EOP counts with Smooth resolution",
-       any("Count path to “Explicit schedule”" in x for x in t1) and any("Resolution to “Smooth”" in x for x in t1)
+       any("Count path to “Schedule”" in x for x in t1) and any("Resolution to “Smooth”" in x for x in t1)
        and any("does not round" in x for x in t1))
     ck("Guide Me maps reserves as stock % of AUC, not transaction flow",
        any("% of source balance" in x for x in t2) and any("Stock % trajectory to “Flat”" in x for x in t2)
@@ -306,7 +306,7 @@ def main():
     tdc=render_guide_plan(trustee_driver_confused)
     ck("flat retainer cannot overwrite explicit mandate-count trajectory",
        tdc["streams"][0]["driver_trajectory"]=="explicit_schedule"
-       and any("Count path to “Explicit schedule”" in x for x in tdc["stream_guides"][0]["steps"]))
+       and any("Count path to “Schedule”" in x for x in tdc["stream_guides"][0]["steps"]))
     ck("balance stock multiplier strips redundant upstream driver level metadata",
        tdc["streams"][1]["driver_period"] is None and tdc["streams"][1]["driver_resolution"] is None)
 
