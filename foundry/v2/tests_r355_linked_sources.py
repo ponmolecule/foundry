@@ -8,7 +8,7 @@ ok=fail=0
 def ck(name,cond):
     global ok,fail
     print(('  PASS  ' if cond else '  FAIL  ')+name);ok+=bool(cond);fail+=not cond
-ck('opex sub-tabs are a segmented control with a graphite active tab','.cfg-subtab.on{background:#2C2C2C;color:#FFFFFF;font-weight:600}' in H)
+ck('opex sub-tabs are a segmented control with a graphite active tab',re.search(r'\.cfg-subtab\.on\{[^}]*background:#2C2C2C;color:#FFFFFF;font-weight:600',H) is not None)   # r436: duplicate .cfg-subtab.on rules merged
 ck('capital entry box starts closed','{preopening:-1,fixedassets:-1}' in H)
 ck('picking the open row closes it',"window._capitalInputSelection[kind]=(cur===index?-1:index)" in H)
 ck('entry box has a Done button',"done.className='capital-input-done'" in H)

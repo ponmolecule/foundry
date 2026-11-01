@@ -1,5 +1,7 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert'),H=fs.readFileSync(__dirname+'/console_v2.html','utf8');
 for(const m of H.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!/\bsrc=/.test(m[1]))new vm.Script(m[2]);
+// r436: this script checks a run produced by foundry.v2.tests_r360_stream_outputs; run on its own, it delegates to that test
+if(!process.argv[2]){const r=require('child_process').spawnSync('python3',['-m','foundry.v2.tests_r360_stream_outputs'],{stdio:'inherit',cwd:__dirname+'/..'});process.exit(r.status==null?1:r.status);}
 const {cfg,res}=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
 const ctx={cfg,lastRes:res,window:{},PPY:()=>cfg.assumptions.periods_per_year,esc:s=>String(s).replaceAll('"','&quot;'),_numInput:v=>String(v),document:{querySelectorAll:()=>[]},_lfgArr:f=>cfg.assumptions[f==='obs'?'obs_exposures':f==='lending'?'lending_products':'deposit_products'],_lfgCtx:()=>({res,P:{fees:[999]},ref:1}),_lfxPer:()=> 'month',_lfxQ:n=>'M'+n,_lfxSparkSvg:arr=>'<spark>'+arr.join(',')+'</spark>',_stProv:()=>null};
 vm.createContext(ctx);vm.runInContext(H.slice(H.indexOf('// Numeric inspection stays'),H.indexOf('function _lfxRoHtml(')),ctx);vm.runInContext(H.split('\n').find(l=>l.startsWith('function _numInput(')),ctx);

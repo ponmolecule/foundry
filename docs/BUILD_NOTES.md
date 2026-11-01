@@ -2084,3 +2084,14 @@ Use of space, loan-production panels, product schedule grids, settings panel (bu
 - _faSeriesEditor wrapped: explicit Series under lending_products / deposit_products / obs_exposures render _fxsFaGrid in place of the explicit block. fxsFaSet stores with _fxsFaStore (same map as faSeriesPaste) and _resizeSeriesValues. fitInput leaves grid cells alone.
 - .lnv-drawer → .fxs-drawer: the settings grid is one label column (fields display:contents).
 - Tests: tests_r435_space (py + node); r381 and r389 expectations updated for the new layout.
+
+## r436
+Test debt (built on r435): 51 of 262 failing modules to 0. See RELEASE_r436.md for the full account.
+
+- tests_result_identity: PINNED_R300 kept; PINNED_CURRENT re-set with traced history; FINANCIAL_KEYS / PINNED_FINANCIAL / financial_fingerprint() added.
+- foundry/fixtures/parity/divergences.json + tests_parity: documented departures (r152 NIM, r284 tax ledger) are compared against pinned current values.
+- engine_q_a.run_pf_a deep-copies cac_feeds before account-activity ID derivation (read-only run).
+- callreport: msrAmort (detail), ebtda (memo). fee_guide: two cost-kind labels. validate_q: distributed_balance allowed on funded_flow_level loans.
+- Console: four paste boxes on the live-activation contract; _consumedPasteId reset via setTimeout; r435 paste drawers carry data-paste-surface; reference coverage re-scanned; duplicate top-level CSS rules merged (tests_protocol T57a now treats @container/@supports like @media).
+- Harnesses: node scripts via stdin; FOUNDRY_INDEX constants loaded where balance-method options are used; many stale UI expectations updated with `r436:` notes.
+- Universal template: coverage streams for every fee source and cost kind, plus a funded-flow lending product.
