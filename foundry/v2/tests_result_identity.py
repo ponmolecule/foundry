@@ -39,19 +39,21 @@ PINNED_R300 = {
 #         rows 14 and 17; treasury centre offsets). Statements unchanged; FTP view corrected.
 #   r418  core, universal: products carry alllOpen (engine opening allowance) for reporting reconciliation
 #   r419  core, universal: nie_detail_series full-series rows for the Numbers dialogs
+#   r436  all three: the Call Report reference table gains msrAmort (detail, netted in RI 5.f) and ebtda (memo);
+#         no reported value changes (diffed: the only differences are those two reference entries)
 PINNED_CURRENT = {
-    "foundry/fixtures/core_bank_test_base.json": "1795cbf0386b",
-    "foundry/fixtures/patrick_default_v31.json": "554ef021bbaf",
-    "foundry/fixtures/universal_template_bank.json": "383813e6febc",
+    "foundry/fixtures/core_bank_test_base.json": "670ae7ca4342",
+    "foundry/fixtures/patrick_default_v31.json": "2ead993f2caf",
+    "foundry/fixtures/universal_template_bank.json": "6426eab46ebd",
 }
 # r436: the financial fingerprint covers only financial outputs, so reporting additions no longer hide (or mimic)
 # a calculation change. It must only move in a release that intends to change financial results.
 FINANCIAL_KEYS = ("financials", "annual", "capital", "capital_shortfall", "callreport", "cblr", "cblr_grid",
                   "tax_interim", "scenarios", "concentrations", "dfast_segments")
-PINNED_FINANCIAL = {   # unchanged r300 -> r436
-    "foundry/fixtures/core_bank_test_base.json": "3b03a9c5da66",
-    "foundry/fixtures/patrick_default_v31.json": "0e2ce09e0802",
-    "foundry/fixtures/universal_template_bank.json": "ffb8ffa23503",
+PINNED_FINANCIAL = {   # statement values unchanged r300 -> r436; r436 adds two Call Report reference entries (above)
+    "foundry/fixtures/core_bank_test_base.json": "8cce7c30ccca",
+    "foundry/fixtures/patrick_default_v31.json": "c944c8edfca7",
+    "foundry/fixtures/universal_template_bank.json": "e48f94cca661",
 }
 
 

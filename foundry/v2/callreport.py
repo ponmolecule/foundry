@@ -80,6 +80,11 @@ RESULT_CODES_IS = {
     "nco":       ("RI-B", "9",   "RIAD4635", "Net charge-offs"),
     "chargeoffs":("RI-B", "9",   "RIAD4635", "Net charge-offs"),
     "nol":       ("—", "memo",   "—",        "NOL carryforward (memo)"),
+    # r436: two statement lines that are not Call Report items. MSR amortization is already netted inside
+    # net servicing fees (servNet = servicing fee - amortization, RI 5.f); bank EBITDA is a management subtotal
+    # (pretax + depreciation + MSR amortization). Both are reported as detail, never as additional income.
+    "msrAmort":  ("—", "detail", "—",        "MSR amortization (presentation detail; netted in RI 5.f net servicing fees)"),
+    "ebtda":     ("—", "memo",   "—",        "Earnings before D&A and taxes (management subtotal; not a Call Report item)"),
 }
 
 # Tax provision components and tax-year ledger stocks are modeled detail/memos,

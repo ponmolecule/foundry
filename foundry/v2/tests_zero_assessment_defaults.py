@@ -23,7 +23,7 @@ def main():
     c=json.load(open('foundry/fixtures/core_bank_test_base.json'));c['assumptions']['nie_detail']['fdic_bp_ann']=5
     # r284 intentionally adds the tax-year ledger; preserve the complete-result guard.
     # r300 adds category component reporting series (financials verified identical); pin moves 4c3613f2d783 -> 80760d2e12e0.
-    # r436: reporting-only result additions r360-r419 (see tests_result_identity) move it 80760d2e12e0 -> 7d6afed52104.
-    assert run_v2(c)['run_hash']=='7d6afed52104'
+    # r436: reporting-only result additions r360-r419 (see tests_result_identity) move it 80760d2e12e0 -> 7c01eeede6ff.
+    assert run_v2(c)['run_hash']=='7c01eeede6ff'   # r436 also: two Call Report reference entries (no values)
     print('PASS Profile A/B missing FDIC = explicit zero; explicit 5 still accrues; explicit-5 core result fingerprint pinned')
 if __name__=='__main__':main()
