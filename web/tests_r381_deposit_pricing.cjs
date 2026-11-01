@@ -9,7 +9,7 @@ const {chromium}=require('playwright'),fs=require('fs'),assert=require('assert')
 await page.evaluate(()=>{if(typeof _lnvActive!=='undefined'){_lnvActive.set(cfg.assumptions.deposit_products[0],'pricing');renderContent();}});   // r392: the rail shows one section; open Pricing
  const pricing=page.locator('[data-lfg-key="deposit:0:pricing"]');
  const labels=await pricing.locator('.lfx-f>label').allTextContents();
- assert.deepStrictEqual(labels.slice(0,7),['Rate type','Reference index','Index beta','Spread over EFFR','Rate floor','Rate cap','Interest balance measure']);
+ assert.deepStrictEqual(labels.slice(0,6),['Rate type','Reference index','Index beta','Spread over EFFR','Rate bounds','Interest balance measure']   /* r435: floor and cap share one row */);
  assert(!(await page.evaluate(()=>cfg.assumptions.deposit_products[0].minimum_interest_expense)));
  await page.getByRole('button',{name:'+ Minimum interest expense',exact:true}).click();
  const amount=page.locator('input[onchange*="minimum_interest_expense.amount_spec"]').first();await amount.fill('30');await amount.dispatchEvent('change');

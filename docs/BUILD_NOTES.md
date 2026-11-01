@@ -2074,3 +2074,13 @@ Field system, release 2: product setup steps and customer acquisition (built on 
 - Channel editor (.cacn-editor → .fxs-cac): name/method rows split from the header row, a.cx moved to .cfg-md-head as "Remove channel", driver rows regrouped into .fxs-crow (label + .fxs-c.fxs-multi); growth rate and period on a second line; long-option selects drop the fit min-width (data-nofit) and cap at the row. Feed settings (.cacn-set → .fxs-cacset) use the same column.
 - @container lnvbody (max-width:470px) stacks labels.
 - Tests: tests_r434_field_system_products (py + node).
+
+## r435
+Use of space, loan-production panels, product schedule grids, settings panel (built on r434). Presentation only.
+
+- fxsSpaceAfterRender (end of fxAfterRender): _FXS_PAIRS merges two rows into one .fxs-pair (row B hidden inline, its label removed; a "blank = x" label hint becomes the empty input's placeholder); a "… path" row with a path segment folds into the next value row (.fxs-pathval), an intervening "… is per" period row joins after the value (.fxs-pergrp). Acquisition feed head: opening customers + AUC into .fxs-pairrow.
+- Module-level r435 constants are var (the content MutationObserver can call fxAfterRender before the script finishes).
+- Loan-production panels: .loan-contract-field rows on the 150px label column; container query stacks them.
+- _faSeriesEditor wrapped: explicit Series under lending_products / deposit_products / obs_exposures render _fxsFaGrid in place of the explicit block. fxsFaSet stores with _fxsFaStore (same map as faSeriesPaste) and _resizeSeriesValues. fitInput leaves grid cells alone.
+- .lnv-drawer → .fxs-drawer: the settings grid is one label column (fields display:contents).
+- Tests: tests_r435_space (py + node); r381 and r389 expectations updated for the new layout.
