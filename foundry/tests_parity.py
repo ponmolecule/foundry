@@ -326,7 +326,9 @@ def main():
         # Tokens are drawn from the transcribed artifact, not from memory.
         need_controls = ["Products", "Balance Sheet", "Income Statement", "Ratios",
                          "Product Detail", "Stress Testing", "Assumption Book",
-                         "Pro Forma Balance Sheet", "Pro Forma Income Statement (${PPY()===12?'monthly':'quarterly'})",
+                         "Pro Forma Balance Sheet",
+                         # r436: r400 replaced the cadence caption with a period view bar (monthly / quarterly / annual)
+                         '<div class="is-viewbar"><div class="h2">Pro Forma Income Statement',
                          "Less: Allowance for Loan Losses", "TOTAL LIABILITIES & EQUITY",
                          "Total Loans & Leases (gross)", "Summary Ratios (annualized)",
                          "Efficiency Ratio", "Tier 1 Leverage Ratio", "NET INCOME (LOSS)",
@@ -336,7 +338,8 @@ def main():
                          "Net Income by ${PLAB('full').replace(/^./,c=>c.toUpperCase())}",
                          "Tier 1 Leverage Ratio by ${PLAB('full').replace(/^./,c=>c.toUpperCase())}",
                          "Reasonableness Flags", "Defaults Applied", "Methodology",
-                         "Global Assumptions", "Interest Rate Curves",
+                         # r436: the rate-curve workspace was renamed (Rates and Curves)
+                         "Global Assumptions", "Rates &amp; Curves",
                          "Stress Scenario Settings", "stress_params",
                          "+ Add Product", "Add a product", "Call Report line",
                          "Floating (index + spread)", "scenarioName", "Export ▾",
@@ -348,7 +351,8 @@ def main():
         # gated on window.V21 so the faithful surface is untouched at /v2.
         need_v21 = ["window.V21", "V21 ?", "refCell", "callreport", "SCHEDULE RC",
                     "SCHEDULE RI", "SCHEDULE RI-X", "Per-quarter overrides",
-                    "blank cells use the baseline shown as placeholder",
+                    # r436: r387 wording; per-period inputs still show the baseline as placeholder
+                    "Blank periods use that baseline; overrides do not carry forward.",
                     "CBLR Framework Eligibility", "12 CFR 3.12", "overrides"]
         miss += [x for x in need_v21 if x not in html]
         # Step 2 (fee-driven-product generalization), console_v2.html half: this only
@@ -381,7 +385,8 @@ def main():
         need_v31 = ["window.V31", '"start","Start/Reset"', '"overview","Executive Summary"', "renderStart", "openEngagement",
                     "/api/v31/engagements", "Saved engagements",
                     "Start from the example bank", "Fill a workbook, then upload",
-                    "Three ways in, one model", "loadExampleBank", "In development", "TAXONOMY_V31", "loanCRE", "addFromTaxonomy", "materializeTemplate", "syncModules", "wizStart", "renderWizard", "mtUpload", "mtRender", "mtFinalize", "Entry screen", "Defaults in effect (not from the client)", "FOMC SEP", "Retrodiction", "retroUpload", "/api/v31/retro", "CharterIQ substrate", "retroSubstrate", "Staged raises", "capital_raises", "subPlace", "Peer corridor", "METRIC_DIRECTION", "vintageBuild", "Vintage corridor", "/api/v31/substrate/vintage", "Pre-opening", "pre_opening", "Minimum Day-1 capital", "Securities books", "aoci_sensitivity_annual", "secAdd", "class=\"csub\"", "class=\"crow\"", "structuresSectionsHtml", "nie_detail", "fee_modules", "activation derived from presence", "REGULATOR_OF"]
+                    # r436: r199 removed the module panel caption; activation is still derived from presence in syncModules
+                    "Three ways in, one model", "loadExampleBank", "In development", "TAXONOMY_V31", "loanCRE", "addFromTaxonomy", "materializeTemplate", "syncModules", "wizStart", "renderWizard", "mtUpload", "mtRender", "mtFinalize", "Entry screen", "Defaults in effect (not from the client)", "FOMC SEP", "Retrodiction", "retroUpload", "/api/v31/retro", "CharterIQ substrate", "retroSubstrate", "Staged raises", "capital_raises", "subPlace", "Peer corridor", "METRIC_DIRECTION", "vintageBuild", "Vintage corridor", "/api/v31/substrate/vintage", "Pre-opening", "pre_opening", "Minimum Day-1 capital", "Securities books", "aoci_sensitivity_annual", "secAdd", "class=\"csub\"", "class=\"crow\"", "structuresSectionsHtml", "nie_detail", "fee_modules", 'mods.push("balance_driven_deposits")', "REGULATOR_OF"]
         miss += [x for x in need_v31 if x not in html]
         for tok in ['"/v3.1"', '"/api/v31/engagement/{slug}"', '"/api/v31/fieldlib"', '"/api/v31/template"', '"/api/v31/fiw"', '"/api/v31/fiw/import"', '"/api/v31/modet/recon"', '"/api/v31/modet/finalize"', '"/v3"', '"/v2.2"', 'docs_url=None', '"/api/v2/freeze"', '"/api/v2/verify/{entry_id}"']:
             if tok not in app_src2:
@@ -435,6 +440,18 @@ def main():
             for i, (e2, g2) in enumerate(zip(ev, gv)):
                 if e2 is not None and g2 is not None and abs(e2 - g2) > 0.02:
                     diffs.append(f"ratios.{rk}[{i}]: expected {e2}, got {g2}")
+        # r436/r440: documented deliberate departures from the predecessor (r152 NIM on average total assets, r284 tax
+        # ledger). Every pinned cell is checked against its current value unconditionally (so a reversion to the
+        # predecessor fails too); every other cell is still checked against the predecessor.
+        _dv = (json.load(open(os.path.join(HERE, "fixtures", "parity", "divergences.json"), encoding="utf-8"))["fixtures"]).get(k, {})
+        _kept = [d for d in diffs if d.split(":", 1)[0] not in _dv]
+        for cell, pin in _dv.items():
+            sec, rest = cell.split(".", 1); key, idx = rest.split("["); idx = int(idx.rstrip("]"))
+            cur = ((got.get(sec) or {}).get(key) or [None] * (idx + 1))[idx]
+            tol = 0.02 if sec == "ratios" else TOL
+            if cur is None or abs(cur - pin) > tol:
+                _kept.append(f"{cell}: pinned divergence {pin}, got {cur}")
+        diffs = _kept
         if diffs:
             print(f"  PARITY FAIL {k}: {len(diffs)} line-quarters out of tolerance; first: {diffs[0]}")
         else:

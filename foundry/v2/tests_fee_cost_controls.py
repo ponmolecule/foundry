@@ -14,11 +14,11 @@ function _pf(v){return Number(v)};function esc(v){return String(v)};function ren
 function _explicitSchedulePreviewHtml(){return '<preview>'};function _feeParseExplicitValues(t){return t.split(',').map(Number)};
 let st;function _stOwner(){return {fee_streams:[st]}};
 function render(kind,params={},basis='account'){
- st={cost:{kind,params}};let h='';const ck=kind,rb='flat',_fi=0,si=0,sb='test';
+ st={cost:{kind,params}};let h='';const ck=kind,rb='flat',_fi=0,si=0,sb='test',src='constant';   // r436: the renderer now reads the driver source (r405 balance-linked costs)
 ''' + render + "\nreturn h;}\n" + helpers + r'''
 let params={period:'month',cost_per_account:10},before=JSON.stringify(params);
 let out=render('per_account',params);
-assert(out.includes('Cost ($/account)'));assert(out.includes('value="10"'));assert(out.includes('Account / month'));
+assert(out.includes('Cost ($ per account)'));   // r436: r389 wordingassert(out.includes('value="10"'));assert(out.includes('Account / month'));
 assert(out.includes('+ Add multiplier'));assert(!out.includes('Cost multiplier path'));assert(!out.includes('Growth period'));assert(!out.includes('Schedule period'));
 assert.equal(JSON.stringify(params),before);
 fs.writeFileSync('/tmp/r346-cost-preview.html','<html><style>body{font:16px Arial;max-width:900px;margin:30px;color:#333}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.fld{display:flex;flex-direction:column;gap:7px}.wide{grid-column:1/-1}select,input,button{font:16px Arial;padding:10px;border:1px solid #ccc;border-radius:6px}.memo{font-size:12px}</style><h2>Charge Card Servicing · Costs</h2><div class="grid">'+out+'</div></html>');

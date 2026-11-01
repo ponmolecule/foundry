@@ -11,7 +11,8 @@ const {chromium}=require('playwright'),fs=require('fs'),assert=require('assert')
   await page.getByRole('group',{name:'Customer-count measure',exact:true}).getByRole('button',{name:'Period average',exact:true}).click();
   assert.strictEqual(await page.evaluate(()=>cfg.assumptions.deposit_products[0].balance_driver.measure),'period_average');
   const amount=page.locator('input[onchange*="balance_per_customer_spec"]').first();
-  assert.strictEqual(await amount.inputValue(),'950');await amount.fill('1250');await amount.dispatchEvent('change');
+  // r436: r389 (e3ca974) displays/accepts deposit amounts per customer in $000s via the money Series; internal value stays dollars (950 -> 0.95, typing 1.25 stores 1250)
+  assert.strictEqual(await amount.inputValue(),'0.95');await amount.fill('1.25');await amount.dispatchEvent('change');
   assert.strictEqual(await page.evaluate(()=>cfg.assumptions.deposit_products[0].balance_driver.balance_per_customer_spec.value),1250);
   for(const width of [1440,1024,768]){
    await page.setViewportSize({width,height:1000});
@@ -22,9 +23,9 @@ const {chromium}=require('playwright'),fs=require('fs'),assert=require('assert')
   await page.screenshot({path:'/tmp/r380-customer-deposit.png',fullPage:true});
   await page.evaluate(()=>{depositMode(0,'rollforward');depositMode(0,'linked_customer_level');});
   assert.strictEqual(await page.getByLabel('Deposit customer-count source').inputValue(),'accounts');
-  assert.strictEqual(await amount.inputValue(),'1250');
+  assert.strictEqual(await amount.inputValue(),'1.25');   // r436: same restored 1250 dollars, shown in $000s since r389
   await page.evaluate(()=>{cfg.assumptions.cac_feeds.Renamed=cfg.assumptions.cac_feeds.Accounts;delete cfg.assumptions.cac_feeds.Accounts;renderContent();});
   assert((await page.getByLabel('Deposit customer-count source').innerText()).includes('Renamed'));
-  assert.deepStrictEqual(errors,[]);console.log('PASS customer source/measure, raw dollars per customer, mode restoration, feed rename, 1440/1024/768 control containment, no runtime errors');
+  assert.deepStrictEqual(errors,[]);console.log('PASS customer source/measure, dollars per customer stored ($000s displayed), mode restoration, feed rename, 1440/1024/768 control containment, no runtime errors');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});

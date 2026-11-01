@@ -2054,3 +2054,56 @@ Weighted count breakdown redesign (built on GPT r421). Console layout plus one a
 - Share check: first period in the table (mix bar hatches any unassigned share; "Scale shares to 100%" and "Let <band> take the remainder" fix it), and every period from the run (names the first period off 100%). The resolver's error now names the first failing month and its total.
 - Results on the right: count at M12 (or Q4), the chain source × weighted count = count, each band's share of the count, and the count path. Built from a new presentation-only run field, count_breakdowns (per band share, count and contribution by period, multiplier, quantity and source), re-resolved after the run with the same resolver; the engine does not read it.
 - Tests: new tests_r422_count_breakdown (py: remainder math monthly/quarterly, flat-remainder equivalence, error messages, by-period presentation that ties to the engine quantity; node: the editor end to end). tests_r420_weighted_counts passes unchanged.
+
+## r433
+Field system for product authoring, first applied to the fee-stream editor (built on GPT r432). Presentation only; values still flow through the existing setPath and select handlers, and rendering does not change the configuration.
+
+- One label column (150px, right-aligned) across the four steps; the stream definition box is inset to keep the same edge. Fields are sized to content (names 320px, dropdowns 240px or fitted to their longest option, amounts 150px, 32px tall). Loose memo text becomes a memo row; a row with several inline controls (e.g. 2.00 % per Year · Step at Model year) shares one flex cell.
+- Path, cadence and step/smooth dropdowns with up to four choices on a field's own row become segmented buttons (fxAfterRender, hooked after rptAfterRender). The select stays in the DOM, hidden (fxs-hid, data-nofit), and the buttons set its value and dispatch change. Nested editors (shared cost pool, weighted breakdown) and multi-dropdown phrases are left alone.
+- Constant account count: path segments and the count on one row. Participation share: a modifier row under the count with Remove inline.
+- Schedules as year × period grids: period-end count (level_schedule), stock % of source (/100), flow coefficient (pct /100, amount per source unit ×1000) and participation share (dense values[], /100, with cadence, step/smooth, paste and clear). A sparse-schedule cell writes its period key and a blank removes it.
+- Results only in the right column at 980px+ container width (the in-form preview is hidden); below 640px the form stacks.
+- Classes use the fxs- prefix (fx-row / fx-c already exist elsewhere).
+- Tests: new tests_r433_field_system (py wrapper + node harness).
+
+## r434
+Field system, release 2: product setup steps and customer acquisition (built on r433). Presentation only.
+
+- fxsProductsAfterRender (called first in fxAfterRender; fxAfterRender now also runs in the content MutationObserver after prdGroupSetup and cacnDecorate, so the lnv steps and the acquisition workspace are covered) marks each lnv step body .fxs-pane, except loan-production panels (.loan-contract-panel / .loan-contract-grid).
+- Managed-series captions (.sec-book-label) move into a new label (.fxs-liftlab); segment conversion extends to .fxs-pane and .fxs-cac selects, path kind only.
+- Channel editor (.cacn-editor → .fxs-cac): name/method rows split from the header row, a.cx moved to .cfg-md-head as "Remove channel", driver rows regrouped into .fxs-crow (label + .fxs-c.fxs-multi); growth rate and period on a second line; long-option selects drop the fit min-width (data-nofit) and cap at the row. Feed settings (.cacn-set → .fxs-cacset) use the same column.
+- @container lnvbody (max-width:470px) stacks labels.
+- Tests: tests_r434_field_system_products (py + node).
+
+## r435
+Use of space, loan-production panels, product schedule grids, settings panel (built on r434). Presentation only.
+
+- fxsSpaceAfterRender (end of fxAfterRender): _FXS_PAIRS merges two rows into one .fxs-pair (row B hidden inline, its label removed; a "blank = x" label hint becomes the empty input's placeholder); a "… path" row with a path segment folds into the next value row (.fxs-pathval), an intervening "… is per" period row joins after the value (.fxs-pergrp). Acquisition feed head: opening customers + AUC into .fxs-pairrow.
+- Module-level r435 constants are var (the content MutationObserver can call fxAfterRender before the script finishes).
+- Loan-production panels: .loan-contract-field rows on the 150px label column; container query stacks them.
+- _faSeriesEditor wrapped: explicit Series under lending_products / deposit_products / obs_exposures render _fxsFaGrid in place of the explicit block. fxsFaSet stores with _fxsFaStore (same map as faSeriesPaste) and _resizeSeriesValues. fitInput leaves grid cells alone.
+- .lnv-drawer → .fxs-drawer: the settings grid is one label column (fields display:contents).
+- Tests: tests_r435_space (py + node); r381 and r389 expectations updated for the new layout.
+
+## r436
+Test debt (built on r435): 51 of 262 failing modules to 0. See RELEASE_r436.md for the full account.
+
+- tests_result_identity: PINNED_R300 kept; PINNED_CURRENT re-set with traced history; FINANCIAL_KEYS / PINNED_FINANCIAL / financial_fingerprint() added.
+- foundry/fixtures/parity/divergences.json + tests_parity: documented departures (r152 NIM, r284 tax ledger) are compared against pinned current values.
+- engine_q_a.run_pf_a deep-copies cac_feeds before account-activity ID derivation (read-only run).
+- callreport: msrAmort (detail), ebtda (memo). fee_guide: two cost-kind labels. validate_q: distributed_balance allowed on funded_flow_level loans.
+- Console: four paste boxes on the live-activation contract; _consumedPasteId reset via setTimeout; r435 paste drawers carry data-paste-surface; reference coverage re-scanned; duplicate top-level CSS rules merged (tests_protocol T57a now treats @container/@supports like @media).
+- Harnesses: node scripts via stdin; FOUNDRY_INDEX constants loaded where balance-method options are used; many stale UI expectations updated with `r436:` notes.
+- Universal template: coverage streams for every fee source and cost kind, plus a funded-flow lending product.
+
+## r437
+Field system on Configuration editors (built on r436). fxsConfigAfterRender (called at the start of fxAfterRender, after fxsProductsAfterRender) regroups: workforce role cards (.wf-role-card → .fxs-cfg.fxs-wf; path selects moved from the Advanced disclosure beside Count / Compensation; "… trajectory" growth lines moved under their value), expense category cards (.opex-item-card), other income sleeves (#card-income details.sec-managed-sleeve) and capital raise / borrowing rows (#card-cap, headings + grid). Segment conversion now accepts .wf-role-card.fxs-cfg; _FX_SHORT maps "Escalation (default)" to "Escalation". Tests: tests_r437_config_fields (py + node).
+
+## r438
+Path vocabulary (built on r437): display labels "Explicit" / "Explicit schedule" → "Schedule" in the console (options, chips, summaries, hints, reference index), fee_guide trajectory label and steps, audit workbook "Scheduled new customers", data-check locations. "Explicit customers" → "Scheduled customers"; "Explicit driver path" → "Scheduled driver path". Stored values unchanged. Reference coverage re-scanned. Test: tests_r438_schedule_vocabulary.
+
+## r439
+Schedule wording tidy (built on r438): three doubled phrases reworded; reference coverage re-scanned. Text only.
+
+## r440
+Review fixes (built on r439). validate_q: funded-flow distributed_balance fee needs allocation_group_id or repayment_profile (matches engine_q_a). faSeriesClear also clears fxsp_/fxsfa_ paste drafts. fxsSeriesSet / fxsFaSet refuse a blank cell (status message, re-render; stored value kept). Segmented buttons sync .on / aria-checked after dispatching change. tests_parity checks every pinned divergence cell unconditionally; divergences doc corrected to r152 average-total-assets NIM. Weighted-table last column 34px (removes 4px overflow at 1440). No engine change. Tests: tests_r440_review_fixes (py + node).

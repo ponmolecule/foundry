@@ -1,3 +1,4 @@
+import re
 """r293: a saved engagement is a bank plus a version; names stay bank-qualified so storage keys are unchanged."""
 import sys
 from pathlib import Path
@@ -16,7 +17,7 @@ def main():
     ck("old and new naming styles map to the same storage key (re-saving updates, never duplicates)",
        slugify("Bank 1 \u00b7 Aggressive") == slugify("Bank 1-Aggressive") == "bank-1-aggressive")
     ck("the header shows the version as a chip; the slash separator is retired",
-       'id="versionChip" class="ver-chip base"' in html and "#scenSep{display:none!important}" in html)
+       'id="versionChip" class="ver-chip base"' in html and re.search(r"#scenSep\{[^}]*display:none!important", html) is not None)   # r436: duplicate #scenSep rules merged into one
     ck("names are composed bank-qualified and displayed as the version (duplicate bank prefix stripped)",
        "function _engNameFor(version){ const b=_engBank(), v=_versionOf(version, b); return v ? (b ? `${b} \\u00b7 ${v}` : v) : \"\"; }" in html
        and "function _versionOf(name, bank){" in html)

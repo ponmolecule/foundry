@@ -2,6 +2,8 @@ const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');
 const html=fs.readFileSync(__dirname+'/console_v2.html','utf8');
 const ctx={cfg:{assumptions:{nie_detail:{categories:[{name:'Expense',linked_components:[{name:'Formula'}]}]},obs_exposures:[{name:'Fee',fee_streams:[{name:'Cost',cost:{kind:'per_unit'}}]}]}},window:null,renderContent(){},refresh(){},esc:x=>String(x)};ctx.window=ctx;
 vm.createContext(ctx);vm.runInContext(html.slice(html.indexOf('function _grossEligibilityRows('),html.indexOf('function _fixedAssetState(')),ctx);
+// r436: rows build component paths with _formulaComponentPath (eedce41de), defined outside the slice; load the real helper
+vm.runInContext(html.slice(html.indexOf('function _formulaComponentPath('),html.indexOf('function _formulaOwnerSeries(')),ctx);
 let rows=ctx._grossEligibilityRows();assert(!ctx.cfg.assumptions.nie_detail.gross_up_eligibility);
 let i=rows.findIndex(r=>r.label==='Expense');ctx.grossEligibilitySet(i,'exclude');assert.equal(ctx.cfg.assumptions.nie_detail.categories[0].gross_up_eligible,false);
 rows=ctx._grossEligibilityRows();assert.equal(rows.find(r=>r.label.includes('Formula')).def,false);

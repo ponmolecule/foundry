@@ -22,7 +22,7 @@ ck('r352: boxes keep natural widths; extra width becomes gutter',".lfx-grid{grid
 ck('r352: Browse / search sits at the edge of the capped selector','.lfx-f.s4:has(> .lfx-sel)>label{max-width:600px}' in H or '.lfx-f.s4:has(> .lfx-sel)>label' in H)
 ck('r352: one equation per line in the formula rail','<span class="eq">outstanding = Σ cohorts × curve</span>' in H and '<span class="eq">retained = outstanding × share</span>' in H)
 ck('r352: results chart carries a value scale','class="ro-yl"' in H and 'class="ro-k"' in H)
-ck('build stamp',(ROOT/'BUILD_STAMP').read_text().strip().startswith('foundry-r3'))
+ck('build stamp',re.match(r'foundry-r\d{3}-',(ROOT/'BUILD_STAMP').read_text().strip()))   # r436: releases passed r399; stamp is now foundry-r4xx-..., so match any release number
 r=subprocess.run(['node',str(ROOT/'web/tests_r350_flow_lending_ui.cjs')],capture_output=True,text=True)
 ck('renderer test (node)',r.returncode==0)
 if r.returncode:print(r.stdout,r.stderr)

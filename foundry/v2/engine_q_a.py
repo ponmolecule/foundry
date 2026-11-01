@@ -356,6 +356,11 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     if _comp_plan is None and not _comp_probe and enabled(cfg):
         return run_with_annual_pools(cfg, run_pf_a)
     a = {k: (list(v) if isinstance(v, list) else v) for k, v in cfg["assumptions"].items()}
+    # r436: the run is read-only. Account-activity publication IDs are derived (deterministically) on a private
+    # copy of the acquisition feeds instead of being written into the caller's configuration.
+    if isinstance(a.get("cac_feeds"), dict):
+        import copy as _copy
+        a["cac_feeds"] = _copy.deepcopy(a["cac_feeds"])
     # Authoritative projection horizon: read from config (default 12 = the historical quarterly horizon).
     # This local Q shadows the module constant so every Q-reference below honors the chosen horizon; a
     # config without n_periods reproduces the 12-period numbers byte-identically. rate_fn is already

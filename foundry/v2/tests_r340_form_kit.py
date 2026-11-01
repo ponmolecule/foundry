@@ -1,4 +1,5 @@
 """r340: Securities & AOCI component editors use the form kit; runs the browser-free renderer test."""
+import re  # r436: build-stamp format check
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +20,9 @@ def main():
     ck("styles are scoped to the Securities card", html.count("#content #card-sec .fk-panel") > 50)
     r = subprocess.run(["node", "web/tests_r340_form_kit.cjs"], capture_output=True, text=True)
     ck("renderer test (node)", r.returncode == 0, (r.stdout + r.stderr)[-400:])
-    ck("build stamp", Path("BUILD_STAMP").read_text().strip().startswith("foundry-r3"))
+    # r436: BUILD_STAMP changes every release; pin its format (foundry-r<release>-<slug>) and that the release is at/after r340, not an old literal prefix.
+    _bs = re.fullmatch(r"foundry-r(\d+)-[a-z0-9][a-z0-9-]*", Path("BUILD_STAMP").read_text().strip())  # r436: format check
+    ck("build stamp", bool(_bs) and int(_bs.group(1)) >= 340, Path("BUILD_STAMP").read_text().strip())  # r436: release >= r340
     print(f"\n{p} passed, {f} failed")
     return 0 if f == 0 else 1
 

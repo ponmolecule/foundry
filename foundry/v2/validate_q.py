@@ -690,9 +690,11 @@ def validate_config_v2(cfg):
             try:
                 from .income_modules import _validate_fee_stream_shape
                 _validate_fee_stream_shape(stream)
+                # r440: only an allocation group or a repayment profile publishes a distributed balance (engine_q_a resolves
+                # the profile when repayment_profile is set and the loan is not in an allocation group).
                 if ((stream.get("driver") or {}).get("source") == "distributed_balance"
-                        and not prod.get("allocation_group_id")):
-                    raise ValueError("distributed_balance requires an allocation group")
+                        and not prod.get("allocation_group_id") and prod.get("repayment_profile") is None):
+                    raise ValueError("distributed_balance requires an allocation group or a repayment profile")
                 if ((stream.get("driver") or {}).get("source") == "product_funded_flow"
                         and prod.get("balance_mode") != "funded_flow_level"):
                     raise ValueError("product_funded_flow requires funded_flow_level balance")

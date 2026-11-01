@@ -23,6 +23,8 @@ const ctx={cfg:{assumptions:{lending_products:[product()],loan_allocation_groups
 vm.createContext(ctx);
 for(const [x,y] of [['function _stOwner(','function _feeStreamsSectionHtml('],['function _feeStreamQuantityKind(','function _feePctSemantics('],['// r360: dependent streams display','// r358: a fee stream previews']])vm.runInContext(html.slice(html.indexOf(x),html.indexOf(y,html.indexOf(x))),ctx);
 vm.runInContext(html.split('\n').find(l=>l.startsWith('function _loanFixedYieldEditor(')),ctx);
+// r436: the r350 block reads FOUNDRY_LOAN_BALANCE_OPTIONS, now a top-level `const ...=FOUNDRY_INDEX.loan;` outside the slice; load both lines.
+for(const k of ['const FOUNDRY_INDEX = ','const FOUNDRY_LOAN_BALANCE_OPTIONS='])vm.runInContext(html.split('\n').find(l=>l.startsWith(k)),ctx);
 vm.runInContext(html.slice(a,b),ctx);
 const render=()=>ctx._lfxSetupHtml(0,ctx.cfg.assumptions.lending_products[0],'assumptions.lending_products.0');
 const check=(out,tag)=>{assert(!/undefined|NaN|\[object Object\]/.test(out),tag+' leaks undefined/NaN');

@@ -12,8 +12,8 @@ try{
 const page=await browser.newPage({viewport:{width:1600,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(15000);
 await page.route('**/*',r=>r.fulfill({status:200,json:{}}));await page.goto('http://foundry.test');await page.setContent(html);
 await page.evaluate(f=>{cfg=f.cfg;lastRes=f.result;window._runs=0;refresh=()=>{window._runs++;};scheduleAutosave=()=>{};document.body.classList.add('insp-closed');renderTabs();setTab('products');
-  window._prdSel=cfg.assumptions.obs_exposures[2];window._prdView='product';window._prdTab='streams';window._stSelObj=cfg.assumptions.obs_exposures[2].fee_streams[5];window._stTab='activity';renderContent();},fx);
-const A=page.locator('.count-authoring');const comps=()=>page.evaluate(()=>cfg.assumptions.obs_exposures[2].fee_streams[5].driver.params.count_multiplier_spec.components);
+  window._prdSel=cfg.assumptions.obs_exposures[2];window._prdView='product';window._prdTab='streams';window._stSelObj=cfg.assumptions.obs_exposures[2].fee_streams.find(s=>s.name==='Practitioner accounts');window._stTab='activity';renderContent();},fx);
+const A=page.locator('.count-authoring');const comps=()=>page.evaluate(()=>cfg.assumptions.obs_exposures[2].fee_streams.find(s=>s.name==='Practitioner accounts').driver.params.count_multiplier_spec.components);
 // 1. One row per band, flat values inline, totals and results.
 assert.strictEqual(await A.locator('.fcb-t tbody tr:not(.fcb-tot)').count(),4);
 assert.strictEqual(await A.locator('.fcb-tag',{hasText:'FLAT'}).count(),8);
@@ -37,7 +37,7 @@ assert.strictEqual(await A.locator('.fcb-alert').count(),0);
 // 3. A tag opens the Series editor beneath the row; Growth; then band 1 takes the remainder.
 await A.locator('.fcb-tag[aria-label="Share path for band 2: FLAT"]').click();
 assert.strictEqual(await A.locator('.fcb-edr').count(),1);
-assert.deepStrictEqual(await A.locator('.fcb-ed .count-path-options button').allInnerTexts(),['Flat','Growth','Explicit schedule','Remainder']);
+assert.deepStrictEqual(await A.locator('.fcb-ed .count-path-options button').allInnerTexts(),['Flat','Growth','Schedule','Remainder']);   // r438: the path option reads Schedule
 await A.locator('.fcb-ed .count-path-options button',{hasText:'Growth'}).click();
 assert.strictEqual((await comps())[1].weight_spec.trajectory,'growth');
 assert(/GROWTH/.test(await A.locator('.fcb-t tbody tr').nth(1).innerText()));
@@ -52,11 +52,11 @@ assert(await A.locator('.fcb-ed .count-path-options button',{hasText:'Remainder'
 await A.locator('.fcb-ed .fcb-close').click();
 // 4. Leaving the remainder keeps the share it had.
 await A.locator('.fcb-tag[aria-label="Share path for band 1: REMAINDER"]').click();
-const before=await page.evaluate(()=>{const c=cfg.assumptions.obs_exposures[2].fee_streams[5].driver.params.count_multiplier_spec.components;return 1-c.slice(2).reduce((a,x)=>a+x.weight_spec.value,0)-0.192687;});
+const before=await page.evaluate(()=>{const c=cfg.assumptions.obs_exposures[2].fee_streams.find(s=>s.name==='Practitioner accounts').driver.params.count_multiplier_spec.components;return 1-c.slice(2).reduce((a,x)=>a+x.weight_spec.value,0)-0.192687;});
 await A.locator('.fcb-ed .count-path-options button',{hasText:'Flat'}).click();
 const c0=(await comps())[0].weight_spec;assert.strictEqual(c0.trajectory,'flat');assert(Math.abs(c0.value-before)<1e-6,'flat value = former remainder share');
 // 5. Every-period check: a later month off 100% is named.
-await page.evaluate(()=>{const r=lastRes.count_breakdowns[0];r.total_share=r.total_share.map((v,t)=>t>=23?1.021:1);const c=cfg.assumptions.obs_exposures[2].fee_streams[5].driver.params.count_multiplier_spec.components;c.forEach((x,k)=>{x.weight_spec={source:'entered',trajectory:k===1?'growth':'flat',value:[0.735415,0.192687,0.048006,0.023892][k],base:0.192687,unit:'share',growth_spec:{rate:0.1,period:'year',method:'step',anchor:'model_year'}};});_fcbOpenKey=null;renderContent();});
+await page.evaluate(()=>{const r=lastRes.count_breakdowns[0];r.total_share=r.total_share.map((v,t)=>t>=23?1.021:1);const c=cfg.assumptions.obs_exposures[2].fee_streams.find(s=>s.name==='Practitioner accounts').driver.params.count_multiplier_spec.components;c.forEach((x,k)=>{x.weight_spec={source:'entered',trajectory:k===1?'growth':'flat',value:[0.735415,0.192687,0.048006,0.023892][k],base:0.192687,unit:'share',growth_spec:{rate:0.1,period:'year',method:'step',anchor:'model_year'}};});_fcbOpenKey=null;renderContent();});
 assert(/Shares total 102\.10% in M24/.test(await A.locator('.fcb-alert').innerText()));
 // 6. Switching method keeps both drafts.
 await A.locator('.fcb-seg button',{hasText:'Single multiplier'}).click();

@@ -62,6 +62,6 @@ assert.equal(Object.keys(fp.schedule).length,0);
 assert.equal(fp.trajectory,'explicit_schedule');
 console.log('PASS funded-flow UI paste');
 """
-result = subprocess.run(["node", "-e", js], text=True, capture_output=True)
+result = subprocess.run(["node", "-"], input=js,  text=True, capture_output=True)
 assert result.returncode == 0, result.stdout + result.stderr
 print(result.stdout.strip())

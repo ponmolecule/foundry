@@ -27,7 +27,7 @@ def main():
        and {x.get("id") for x in m.get("customer_count_measures",[])}=={"annual_count","period_end","period_average"}
        and any("Fee Product must explicitly choose" in x for x in m.get("special_rules",[])))
     ck("manifest distinguishes revenue share from revenue- and throughput-based operating costs",
-       {x["id"] for x in m.get("cost_kinds",[])}=={"none","per_unit","periodic_amount_opex","pct_of_revenue","pct_of_revenue_opex","pct_of_throughput_opex"}
+       {x["id"] for x in m.get("cost_kinds",[])}=={"none","per_unit","periodic_amount_opex","pct_of_revenue","pct_of_revenue_opex","pct_of_throughput_opex","pct_of_balance_opex","linked_formula_opex"}   # r436: + r405 / r408 kinds
        and any("contra-revenue" in x and "noninterest expense" in x for x in m.get("special_rules",[]))
        and any("transaction volume/throughput" in x for x in m.get("special_rules",[])))
     ck("manifest separates transaction pricing unit from throughput construction",
@@ -237,7 +237,7 @@ def main():
     ck("trustee product maps to Account retainer + Balance reserve fee within five-stream ontology",
        len(tg["stream_guides"])==2 and tg["streams"][0]["basis"]=="account" and tg["streams"][1]["basis"]=="balance")
     ck("Guide Me maps FY-end mandates to Explicit EOP counts with Smooth resolution",
-       any("Count path to “Explicit schedule”" in x for x in t1) and any("Resolution to “Smooth”" in x for x in t1)
+       any("Count path to “Schedule”" in x for x in t1) and any("Resolution to “Smooth”" in x for x in t1)
        and any("does not round" in x for x in t1))
     ck("Guide Me maps reserves as stock % of AUC, not transaction flow",
        any("% of source balance" in x for x in t2) and any("Stock % trajectory to “Flat”" in x for x in t2)
@@ -306,7 +306,7 @@ def main():
     tdc=render_guide_plan(trustee_driver_confused)
     ck("flat retainer cannot overwrite explicit mandate-count trajectory",
        tdc["streams"][0]["driver_trajectory"]=="explicit_schedule"
-       and any("Count path to “Explicit schedule”" in x for x in tdc["stream_guides"][0]["steps"]))
+       and any("Count path to “Schedule”" in x for x in tdc["stream_guides"][0]["steps"]))
     ck("balance stock multiplier strips redundant upstream driver level metadata",
        tdc["streams"][1]["driver_period"] is None and tdc["streams"][1]["driver_resolution"] is None)
 
@@ -397,10 +397,10 @@ And a Revenue Start Month at Month 13, reflecting a phased rollout approach for 
     html=open("web/console_v2.html",encoding="utf-8").read()
     ck("Fee Product UI exposes Guide Me beside fee streams", "openFeeGuide(${_fi})" in html and ">Guide Me</button>" in html)
     ck("Account Fee UI can consume CAC client count with an explicit downstream measure",
-       "Ending bank customers — Customer Acquisition" in html and "Ending bank customers source" in html
-       and "Customer-count measure" in html and "Year-end bank customers · held through model year" in html
-       and "Ending bank customers · monthly period end" in html and "Period-average bank customers" in html
-       and "Follows Customer Acquisition" in html)
+       # r436: r344 consolidated the source picker and compacted the measure labels (same three measures)
+       "Ending bank customers · " in html and "Customer-count measure" in html
+       and ">End of month</option>" in html and ">Average (begin + end)</option>" in html
+       and "Year-end count · held through year" in html and "Follows Customer Acquisition" in html)
     ck("Guide Me is advisory and discloses its grounding boundary", "Nothing in your model was changed" in html and "not your engagement configuration, files, web access, or external tools" in html)
     ck("Guide Me UI renders mixed partial mappings instead of parser failures", "Supported portion Foundry can map now" in html and "Unsupported mechanic" in html and "unsupported_mechanics" in html)
     ck("Guide Me clarification UI asks one constrained question at a time and carries answers forward",

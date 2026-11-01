@@ -52,7 +52,7 @@ const out={{
 }};
 console.log(JSON.stringify(out));
 """
-    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+    got = subprocess.run(["node", "-"], input=script,  cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout.strip().splitlines()[-1]
     return json.loads(got)
 
@@ -71,7 +71,7 @@ console.log(JSON.stringify({{
   event:EVENTUNIT(), scheduled:EVENTSCHEDLABEL()
 }}));
 """
-    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+    got = subprocess.run(["node", "-"], input=script,  cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout.strip().splitlines()[-1]
     return json.loads(got)
 
@@ -100,7 +100,7 @@ window.nieCatAdd();
 const afterAdd=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail.categories));
 console.log(JSON.stringify({{afterOn,afterAdd}}));
 """
-    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+    got = subprocess.run(["node", "-"], input=script,  cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout.strip().splitlines()[-1]
     return json.loads(got)
 
@@ -120,7 +120,7 @@ console.log(JSON.stringify({{
   withOpenTotal:finColspan(true,true)
 }}));
 """
-    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+    got = subprocess.run(["node", "-"], input=script,  cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout.strip().splitlines()[-1]
     return json.loads(got)
 
@@ -145,7 +145,7 @@ console.log(JSON.stringify({{
   stressTitle:'Tier 1 Leverage Ratio by '+PLAB('full').replace(/^./,c=>c.toUpperCase())
 }}));
 """
-    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+    got = subprocess.run(["node", "-"], input=script,  cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout.strip().splitlines()[-1]
     return json.loads(got)
 
@@ -433,7 +433,13 @@ def main():
     ck("J8 methodology period wording resolves from engagement cadence",
        "Loan balances roll forward each {{period}}" in html and "function methodologyHTML()" in html and "h += methodologyHTML();" in html)
     ck("J9 generic financial descriptions use cadence-aware period text",
-       "function calcText(key)" in html and "Pro Forma Income Statement (${PPY()===12?'monthly':'quarterly'})" in html)
+       "function calcText(key)" in html
+       # r436: r400 (01cdc0bd4) replaced the "(monthly|quarterly)" title suffix with a cadence-aware view toggle:
+       # r436: choices derive from native PPY(), default selection is the native cadence, and buttons label Monthly/Quarterly/Annual.
+       and "const native=PPY(),choices=[12,4,1].filter(p=>p<=native&&native%p===0);" in html  # r436
+       and "const selected=choices.includes(selection)?selection:native;" in html  # r436
+       and "const names={12:'Monthly',4:'Quarterly',1:'Annual'};" in html  # r436
+       and "Pro Forma Income Statement (${PPY()===12?'monthly':'quarterly'})" not in html)  # r436: hard-coded suffix retired
     ck("J10 raise/borrowing event selectors are cadence-aware rather than hard-coded Qtr",
        "function EVENTUNIT()" in html and "function SETEVENT(ev,v)" in html and "${EVENTSCHEDLABEL()}<select" in html)
     ck("J11 monthly event UI stores explicit period instead of overloading quarter",

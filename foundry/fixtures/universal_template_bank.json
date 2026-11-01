@@ -380,7 +380,8 @@
         "opex_pct_ann": 0.001,
         "rate_paid_ann": 0.001,
         "rate_type": "fixed",
-        "runoff_per_period": 0.0
+        "runoff_per_period": 0.0,
+        "source_catalog_id": "product-source-universal-retail-demand"
       },
       {
         "avg_maturity_m": 0,
@@ -522,6 +523,37 @@
             "timing": {
               "start_period": 1
             }
+          },
+          {
+            "name": "CRE servicing cost",
+            "quantity_series_id": "ut-cre-servicing-cost",
+            "basis": "balance",
+            "driver": {
+              "source": "own_balance",
+              "trajectory": "derived",
+              "params": {
+                "stock_multiplier": {
+                  "kind": "pct",
+                  "trajectory": "flat",
+                  "value": 1.0
+                }
+              }
+            },
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "rate": 0.0
+              }
+            },
+            "cost": {
+              "kind": "pct_of_balance_opex",
+              "params": {
+                "pct": 0.0005
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
           }
         ],
         "fee_yield_ann": 0.003,
@@ -635,6 +667,102 @@
         "reserve_rate_pct_bal": 0.011,
         "runoff_per_period": 0.01010170075087069,
         "yield_ann": null
+      },
+      {
+        "measurement": "amortized",
+        "name": "Point-of-sale finance (funded flow)",
+        "call_report_line": "loanConsumer",
+        "balance_mode": "funded_flow_level",
+        "opening_balance": 0,
+        "runoff_per_period": 0,
+        "runoff_q": 0,
+        "charge_off_ann": 0,
+        "allowance_mode": "reserve_rate",
+        "reserve_rate_pct_bal": 0.01,
+        "rate_type": "fixed",
+        "yield_ann": 0.12,
+        "opex_pct_ann": 0,
+        "funded_flow_driver": {
+          "source": "entered",
+          "input_stage": "funded_volume",
+          "start_period": 1,
+          "ramp_periods": 1,
+          "take_up_share": 1,
+          "flow_path": {
+            "unit_kind": "money_flow",
+            "trajectory": "flat",
+            "period": "month",
+            "value": 400000
+          }
+        },
+        "term_days": 60,
+        "day_count": 360,
+        "reserve_share": 0,
+        "target_retention_share": 0.75,
+        "interest_balance_measure": "period_end",
+        "repayment_profile": {
+          "cadence": "month",
+          "funding_timing": "monthly_bucket",
+          "repayment_fractions": [
+            0,
+            0,
+            1
+          ],
+          "loss_basis": "annual_balance",
+          "loss_balance_measure": "period_begin",
+          "loss_rate_spec": {
+            "source": "entered",
+            "trajectory": "flat",
+            "value": 0
+          },
+          "opening_cohorts": [],
+          "opening_distributed_cohorts": []
+        },
+        "fee_streams": [
+          {
+            "name": "Merchant discount",
+            "quantity_series_id": "ut-merchant-discount",
+            "basis": "transaction",
+            "driver": {
+              "source": "product_funded_flow",
+              "trajectory": "flat",
+              "params": {}
+            },
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "pricing_basis": "pct_of_throughput",
+                "per_unit": 0.022
+              }
+            },
+            "cost": {
+              "kind": "pct_of_throughput_opex",
+              "params": {
+                "pct": 0.0089
+              }
+            }
+          },
+          {
+            "name": "Distributed-loan servicing",
+            "quantity_series_id": "ut-distributed-servicing",
+            "basis": "balance",
+            "driver": {
+              "source": "distributed_balance",
+              "trajectory": "flat",
+              "params": {}
+            },
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "rate": 0.0025
+              }
+            },
+            "cost": {
+              "kind": "none",
+              "params": {}
+            }
+          }
+        ]
       }
     ],
     "n_periods": 36,
@@ -1406,6 +1534,59 @@
             "timing": {
               "start_period": 1
             }
+          },
+          {
+            "name": "New-customer onboarding",
+            "quantity_series_id": "ut-onboarding",
+            "basis": "transaction",
+            "driver": {
+              "source": "account_activity",
+              "ref": "cac-count-universal::new_customers",
+              "trajectory": "flat",
+              "params": {}
+            },
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "pricing_basis": "per_unit",
+                "per_unit": 25
+              }
+            },
+            "cost": {
+              "kind": "per_unit",
+              "params": {
+                "cost_per_unit": 8
+              }
+            }
+          },
+          {
+            "name": "Card program fee",
+            "quantity_series_id": "ut-card-program",
+            "basis": "account",
+            "driver": {
+              "source": "customer_acquisition_count",
+              "ref": "cac-count-universal",
+              "measure": "period_end",
+              "trajectory": "flat",
+              "params": {}
+            },
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "unit_fee": {
+                  "period": "month",
+                  "trajectory": "flat",
+                  "value": 4.0
+                }
+              }
+            },
+            "cost": {
+              "kind": "per_account",
+              "params": {
+                "cost_per_account": 1.5,
+                "period": "month"
+              }
+            }
           }
         ],
         "managed_notional_source": "Universal Customer Build",
@@ -1660,6 +1841,96 @@
             "timing": {
               "start_period": 1
             }
+          },
+          {
+            "name": "Premium-tier accounts",
+            "quantity_series_id": "ut-premium",
+            "basis": "transaction",
+            "driver": {
+              "source": "fee_stream_quantity",
+              "ref": "fee-qty-enabled-accounts-universal",
+              "trajectory": "derived",
+              "params": {
+                "coefficient": {
+                  "kind": "pct",
+                  "semantics": "share",
+                  "period": "month",
+                  "trajectory": "flat",
+                  "value": 0.15
+                }
+              }
+            },
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "pricing_basis": "per_unit",
+                "per_unit": 3
+              }
+            },
+            "cost": {
+              "kind": "none",
+              "params": {}
+            }
+          },
+          {
+            "name": "Account fraud losses",
+            "quantity_series_id": "ut-fraud-formula",
+            "basis": "flat",
+            "driver": {
+              "source": "constant",
+              "trajectory": "flat",
+              "params": {}
+            },
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "amount_per_period": 0
+              }
+            },
+            "cost": {
+              "kind": "linked_formula_opex",
+              "gross_up_eligible": true,
+              "params": {
+                "formula": {
+                  "driver": "formula_driver",
+                  "component_id": "ut-account-fraud",
+                  "name": "Account fraud losses",
+                  "base_terms": [
+                    {
+                      "sign": 1,
+                      "name": "Retail Demand",
+                      "factors": [
+                        {
+                          "kind": "linked",
+                          "name": "catalog_quantity",
+                          "source": "catalog_quantity",
+                          "series_id": "deposit.product-source-universal-retail-demand.balance",
+                          "measure": "period_end"
+                        }
+                      ]
+                    }
+                  ],
+                  "factors": [
+                    {
+                      "kind": "entered",
+                      "op": "multiply",
+                      "name": "Loss rate",
+                      "periodized": false,
+                      "display": "percent",
+                      "spec": {
+                        "source": "entered",
+                        "trajectory": "flat",
+                        "value": 0.0004
+                      },
+                      "rate_period": "year"
+                    }
+                  ]
+                }
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
           }
         ],
         "managed_notional_source": "Universal Customer Build",
@@ -1840,6 +2111,32 @@
               "behavior": "flat",
               "params": {
                 "amount": 75000.0
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          },
+          {
+            "name": "Hosted support retainer",
+            "quantity_series_id": "ut-support",
+            "basis": "flat",
+            "driver": {
+              "source": "constant",
+              "trajectory": "flat",
+              "params": {}
+            },
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "amount_per_period": 0
+              }
+            },
+            "cost": {
+              "kind": "periodic_amount_opex",
+              "params": {
+                "amount": 36000,
+                "period": "year"
               }
             },
             "timing": {

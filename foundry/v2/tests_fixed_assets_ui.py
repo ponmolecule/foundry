@@ -43,7 +43,7 @@ cfg.assumptions.periods_per_year=4; cfg.assumptions.n_periods=12;
 const flowEditor=_faFlowSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.amount_spec',{source:'entered',trajectory:'explicit',cadence:'month',values:Array(36).fill(1000),extend:'hold',resolution:'step',period:'month'},'Depreciation amount','money',true);
 console.log(JSON.stringify({rows,mode:cfg.assumptions.fixed_assets.mode,n:cfg.assumptions.fixed_assets.assets.length,msgs,fl,linked,flowEditor}));
 '''
-    r=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
+    r=subprocess.run(["node", "-"], input=prefix+js+suffix, text=True,capture_output=True)
     out={}
     if r.returncode==0 and r.stdout.strip():
         try: out=json.loads(r.stdout.strip().splitlines()[-1])

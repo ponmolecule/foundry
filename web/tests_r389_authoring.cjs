@@ -13,9 +13,10 @@ assert.strictEqual(await page.evaluate(()=>cfg.assumptions.deposit_products[0].r
 await method.locator('select[onchange*="faSeriesTrajectory"]').selectOption('explicit');
 assert.strictEqual(await page.evaluate(()=>cfg.assumptions.deposit_products[0].rate_paid_ann_spec.values[0]),.0125);
 await method.locator('select[onchange*="faSeriesCadence"]').selectOption('year');
+await method.getByRole('button',{name:'Paste values…',exact:true}).click();   // r435: the schedule is a grid; paste is an action on it
 await method.locator('textarea').fill('1.25\t0.95\t0.65\t0.65\t0.65');await method.getByRole('button',{name:'Load (replace)',exact:true}).click();
 assert((await page.evaluate(()=>cfg.assumptions.deposit_products[0].rate_paid_ann_spec.values)).every((v,i)=>Math.abs(v-[.0125,.0095,.0065,.0065,.0065][i])<1e-12));
-assert.strictEqual(await method.locator('textarea').count(),0);assert(await method.getByRole('button',{name:'View / edit schedule',exact:true}).isVisible());await method.getByRole('button',{name:'View / edit schedule',exact:true}).click();assert.strictEqual(await method.locator('textarea').count(),1);await method.getByRole('button',{name:'Close',exact:true}).click();
+assert.strictEqual(await method.locator('textarea:visible').count(),0);assert.deepStrictEqual(await method.locator('.fxs-fagrid input.fxs-cell').evaluateAll(es=>es.map(e=>e.value)),['1.25','0.95','0.65','0.65','0.65']);await method.getByRole('button',{name:'Paste values…',exact:true}).click();assert.strictEqual(await method.locator('textarea:visible').count(),1);await method.getByRole('button',{name:'Paste values…',exact:true}).click();   // r435: loaded values show in the grid; paste reopens on demand
 // Switching pricing preserves the inactive schedule.
 await page.getByRole('group',{name:'Rate type',exact:true}).getByRole('button',{name:'Floating',exact:true}).click();assert.strictEqual(await method.locator('.deposit-fixed-rate').count(),0);await page.getByRole('group',{name:'Rate type',exact:true}).getByRole('button',{name:'Fixed',exact:true}).click();assert.strictEqual(await method.locator('.deposit-fixed-rate').count(),1);
 await page.getByRole('button',{name:/Per-month overrides/}).click();

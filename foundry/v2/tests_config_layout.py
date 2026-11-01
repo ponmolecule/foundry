@@ -14,6 +14,9 @@ def main():
             f+=1; print("  FAIL ", name + (f" — {detail}" if detail else ""))
 
     html=Path("web/console_v2.html").read_text(encoding="utf-8")
+    # r436: r393 (3dcf10a73) and r434 inserted more pre-paint decorators into the observer's run(); the contract
+    # r436: (group Setup first, fit last, synchronously from the MutationObserver callback) is checked structurally.
+    _sync_fit = re.search(r"const run=\(\)=>\{ if\(typeof prdGroupSetup==='function'\) prdGroupSetup\(\);[^\n]*? fitControls\(\); \};[^\n]*\n\s*const start=\(\)=>\{[^\n]*\n\s*new MutationObserver\(run\)\.observe\(c,", html) is not None  # r436
     m=re.search(r"\.cfggrid\{[^}]*grid-template-columns:([0-9.]+)fr\s+([0-9.]+)fr\s+([0-9.]+)fr", html)
     vals=tuple(map(float,m.groups())) if m else ()
     # r199: the three-column grid is superseded. One module is staged at a time beside a module
@@ -99,7 +102,8 @@ def main():
     ck("Stream workspace: product-level chain, grid beside editor, role and engine quantity",
        "'<div class=\"fld wide st-md\">'+chainH" in html and 'outside this chain' in html
        and '.prd-stage .st-md{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)' in html
-       and 'fee_stream_quantities' in html and "role:(()=>{" in html)
+       # r436: r360 (57e24018d) hoisted the inline role IIFE into the named _feeStreamRole(st) helper; same per-stream role.
+       and 'fee_stream_quantities' in html and "role:_feeStreamRole(st)" in html and "function _feeStreamRole(st){" in html)
     ck("Editor restyle: sentence-case labels, one-line growth rows, memos folded into a note",
        '.prd-card .fld label{text-transform:none!important' in html and '.prd-card .fld:has(> .cu){flex-direction:row' in html
        and 'window.prdAfterRender=function' in html and "d.className='st-about'" in html)
@@ -167,7 +171,11 @@ def main():
     # r219: fee-stream driver figures in the editor's units, with their working shown in grid and editor.
     ck("Fee-stream driver column shows the final-period figure in the editor's units with a working line",
        'function _stProv(metas,i,fi)' in html and 'function _stKinds(metas)' in html and "'money_flow'" in html
-       and '<th class="num">Driver \\u00b7 \'+_stProvP(_stMeta)+\'</th>' in html
+       # r436: r360 (57e24018d) deliberately renamed the column "Result" (resolved stream output, not raw driver); it still shows the
+       # r436: final-period value in the output's own unit with the inspectable working (ip-i card built from _stProv).
+       and '<th class="num">Result \\u00b7 \'+_stProvP(_stMeta)+\'</th>' in html  # r436
+       and "const out=_feeStreamResolvedOutput(fi,si),v=out.values&&out.values[out.values.length-1];" in html  # r436: final period
+       and "'</span><span class=\"st-u\">'+esc(out.unit)+'</span>'+(pv?'<span class=\"ip-i\" data-ip=\"'+key+'\"" in html  # r436: unit + working
        and 'event.stopPropagation();stSelect(' in html and 'Quantity, last period' not in html)
     ck("One 'About these settings' box per stream tab",
        "const tabs=['activity','pricing','timing','costs'], last={};" in html)
@@ -206,7 +214,7 @@ def main():
        and '${_stCellHtml(_stMeta,k,_fi)}' in html and '.st-list .st-v[data-ip]' not in html and "data-ip=\"src:'+fi+':auc\" tabindex" not in html)
     # r229: controls are fitted before paint (no shrink-then-grow flicker on redraw).
     ck("Control fitting runs synchronously on redraw, not on a timer",
-       "const run=()=>{ if(typeof prdGroupSetup==='function') prdGroupSetup(); fitControls(); };" in html and "t=setTimeout(()=>fitControls(),40)" not in html)
+       _sync_fit and "t=setTimeout(()=>fitControls(),40)" not in html)  # r436: structural check, see _sync_fit
     # r230: workforce role card sized to content; fitting has priority and also runs on module select / section open.
     ck("Workforce role card: compensation amount 140px with fitted dropdowns; columns capped and left-aligned",
        '.wf-role-card .wf-comp-value{grid-template-columns:140px max-content max-content!important;justify-content:start}' in html
@@ -222,8 +230,8 @@ def main():
        "if(fee||x.fam==='lending'||x.fam==='deposit') tabs.push(['streams','Fee streams',ns]); if(V21) tabs.push(['overrides','Per-month overrides',null]);" in html)
     # r233: loan and deposit Setup grouped by concern, classified by configuration path, before paint.
     ck("Loan and deposit Setup are grouped into Balance / Pricing / Timing / Credit / Costs by configuration path",
-       'function prdGroupSetup()' in html and 'const _PRD_GRP_RULES={' in html and "if(fam==='lending'&&typeof _loanBalanceMode==='function'&&_loanBalanceMode(p)==='funded_flow_level') return;" in html
-       and "w.style.display=(g===cur)?'contents':'none'" in html and "const run=()=>{ if(typeof prdGroupSetup==='function') prdGroupSetup(); fitControls(); };" in html
+       'function prdGroupSetup()' in html and 'const _PRD_GRP_RULES={' in html and "if(fam==='lending'&&typeof _loanBalanceMode==='function'&&_loanBalanceMode(p)==='funded_flow_level') { if(typeof lnvDecorate==='function') lnvDecorate(card); return; }" in html  # r436: r392 (6a2f4f240) decorates funded-flow lending with its rail instead of grouping
+       and "w.style.display=(g===cur)?'contents':'none'" in html and _sync_fit  # r436: grouping still runs before fitting, see _sync_fit
        and 'data-fam="${x.fam}" data-i="${x.i}"' in html and 'function prdRefreshSetupSummaries()' in html)
     ck("Setup fields that cannot be classified stay visible below the tabs (never hidden)",
        "if(other.length){ const w=document.createElement('div'); w.className='prd-grp-other'; w.style.display='contents';" in html)
@@ -275,7 +283,7 @@ def main():
        'function _vinSync()' in html and 'if(typeof _vinSync==="function") _vinSync();' in html and '{asset_band:_mode}' in html
        and 'function _vinPanelHtml(V)' in html and 'function _vinChartSvg(S,hq)' in html and 'window.vinHover=function(i)' in html)   # r250: tabs + one chart
     ck("Peer corridor is bounded in width and its percentiles are delineated",
-       '.pc-cards,.pc-panel,.pc-note{max-width:calc((100% + 1076px) / 2)}' in html and '.pc-st{padding:0 9px;border-left:1px solid #ECECE8}' in html)
+       '.pc-cards,.pc-panel,.pc-note{max-width:calc((100% + 1076px) / 2)}' in html and re.search(r"\.pc-st\{[^}]*padding:0 9px;border-left:1px solid #ECECE8[^}]*\}", html) is not None)  # r436: .pc-st rules merged into one; look for the declarations inside it
     # r242: vintage follows cohort switches without races; label fixed; plot sized to its table and framed.
     ck("Vintage builds are bound to their cohort (late results discarded) and any switch rebuilds; label renders",
        'const _reqKey = _vinKey(); window._vinAttemptKey=_reqKey; window._vinWanted = true; window._vinStale = false;' in html

@@ -215,13 +215,13 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        '["pct_of_revenue","Revenue share (% of revenue)"]' in html
        and '["pct_of_revenue_opex","Operating cost (% of revenue)"]' in html
        and '["pct_of_throughput_opex","Operating cost (% of throughput)"]' in html
-       and 'Operating cost rate path' in html and 'Cost rate (% of ${_costPctBase})' in html
+       and 'const _cpathLabel="Cost path";' in html and 'Cost rate (% of ${_costPctBase})' in html  # r436: r346 (8c47b4ba3) unified 'Operating cost rate path' etc. into one 'Cost path' label
        and 'transaction throughput' in html and 'gross fee revenue' in html
        and 'Cost rate schedule (% of ${_costPctBase})' in html
-       and 'Cost multiplier path' in html and 'Multiplier period' in html and 'Multiplier resolution' in html
+       and 'Cost multiplier path' in html and '"Multiplier growth period":"Multiplier schedule period"' in html and 'Multiplier resolution' in html  # r436: r346 (8c47b4ba3) made the multiplier period label trajectory-specific (hidden when Flat)
        and '_feeCostFactorValue' in html and '_feeSetCostFactorSchedule' in html
        and '_feeCostMultiplierValue' in html and '_feeSetCostMultiplierSchedule' in html
-       and 'Direct cost path × Cost multiplier path = effective fee-product cost factor.' in html
+       and 'Direct cost path × Cost multiplier path = effective cost factor.' in html  # r436: r389 (e3ca9749b) dropped 'fee-product' (memo now shared by loan/deposit streams)
        and 'Noninterest Expense: Fee Product Costs' in html)
     ck("transaction pricing UI exposes explicit per-unit vs throughput basis plus Flat/Growth/Explicit paths",
        'Fee / spread path' in html and 'Pricing basis' in html and 'Pricing path' in html
@@ -241,7 +241,22 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     # Execute the actual fee-product field renderer. A prior regression kept valid
     # JavaScript syntax but threw at render time because SEL was used before initialization.
     fa=html.index("function fieldsFor("); fb=html.index("function lineOptionsFor",fa)
-    fjs=html[fa:fb]
+    # r436: the fee renderer slices now reach helpers defined elsewhere in the console: window.* handlers
+    # (assignments need a window object), the r200 master-detail picker (_mdPick), r219/r228 stream
+    # provenance/figure cells (_stSrcChip, _stCellHtml), the r433-r435 field system (_fxSchedGridHtml, ...)
+    # and the source catalog (catalogSources). Extract the real code; only absent shell/runtime hooks get
+    # no-op fallbacks, and only when the harness does not define its own (a local declaration wins).
+    _JS_GLOBALS=("globalThis.window=globalThis; for(const [k,v] of Object.entries({renderContent(){},refresh(){},_ensureLinkableSeriesIds(){},"  # r436
+                 "fmtComma(x){return String(x);},_seriesId:(()=>{let n=0;return p=>p+'-'+(++n);})()})) if(!(k in globalThis)) globalThis[k]=v;\n"  # r436
+                 +html[html.index("function _stOwner("):html.index("function _productFormulaActionsHtml(")])  # r436: r232 stream handlers resolve owners via _stOwner (in the fieldsFor slice)
+    def _sl(a,b): i=html.index(a); return html[i:html.index(b,i)]  # r436
+    _FEE_ENV=(_sl("let sourceCatalogRows=","\n")+"\n"+_sl("function catalogSources(","\n")+"\n"  # r436: r2xx source catalog
+              +_sl("function _prdLab(","const LINE_LABELS =")  # r436: r200 master-detail (_mdPick)
+              +_sl("// r219: driver provenance.","// r221: customer-acquisition intra-period path")  # r436: _stSrcChip etc.
+              +_sl("// r228: one renderer for a stream","// r233: Setup for loans and deposits")  # r436: _stCellHtml etc.
+              +_sl("/* r433: field system for product authoring","\nrenderTabs();")+"\n"  # r436: r433-r435 field system
+              +_sl("function _numInput(","\n")+"\n"+_sl("function _resultNumbersLink(","\n")+"\n")  # r436: r358 stream result preview formatters
+    fjs=_JS_GLOBALS+_FEE_ENV+html[fa:fb]  # r436: was html[fa:fb]
     fp=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
         "function esc(x){return String(x==null?'':x);}\n"
         "function PLAB(){return 'Mth';}\n"
@@ -254,7 +269,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "\ncfg.assumptions.obs_exposures=[p];"
         "\nconst out=fieldsFor('obs',p,'assumptions.obs_exposures.0');"
         "\nconsole.log(JSON.stringify({ok:out.includes('AUC trajectory') && out.includes('Ramp to target')}));")
-    fr=subprocess.run(["node","-e",fp],text=True,capture_output=True)
+    fr=subprocess.run(["node", "-"], input=fp, text=True,capture_output=True)
     fj={}
     if fr.returncode==0 and fr.stdout.strip():
         try: fj=json.loads(fr.stdout.strip().splitlines()[-1])
@@ -263,7 +278,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        fr.returncode==0 and fj.get("ok") is True, fr.stderr.strip())
     # Natural-period Fee Product authoring: render the actual transaction/account/flat paths.
     ha=html.index("function _feeCoeffScheduleText("); hb=html.index("function fieldsFor(",ha)
-    hjs=html[ha:hb]
+    hjs=_JS_GLOBALS+html[ha:hb]  # r436: was html[ha:hb]; slice contains window.* handler assignments
     fp2=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
          "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
          "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0;}\n"
@@ -272,8 +287,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
          "{name:'Settlement',basis:'transaction',driver:{source:'managed_notional',trajectory:'derived',params:{coefficient:{kind:'multiple',value:4,period:'year',trajectory:'explicit_schedule',schedule:{'1':1.5,'2':2.4}}}},rate:{behavior:'flat',params:{per_unit:.0005}},cost:{kind:'none',params:{}}},"
          "{name:'Retainer',basis:'account',driver:{source:'constant',trajectory:'flat',params:{base:10}},rate:{behavior:'flat',params:{unit_fee:{value:12000,period:'year'}}},cost:{kind:'none',params:{}}},"
          "{name:'Escrow',basis:'flat',driver:{source:'constant',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{flat_amount:{value:120000,period:'year'}}},cost:{kind:'none',params:{}}}]};"
-         "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({ok:out.includes('Flow coefficient')&&out.includes('Fee (% of throughput)')&&out.includes('Fee ($000s/account)')&&out.includes('Amount ($000s)')&&out.includes('Turns schedule by year')}));")
-    fr2=subprocess.run(["node","-e",fp2],text=True,capture_output=True)
+         "\ncfg.assumptions.obs_exposures=[p]; const out=p.fee_streams.map(st=>{window._stSelObj=st;return fieldsFor('obs',p,'assumptions.obs_exposures.0');}).join('');"  # r436: r200 master-detail renders only the selected stream's editor; render each stream in turn
+         " console.log(JSON.stringify({ok:out.includes('Flow coefficient')&&out.includes('Fee (% of throughput)')&&out.includes('Fee ($000s/account)')&&out.includes('Amount ($000s)')&&out.includes('Turns schedule by year')}));")
+    fr2=subprocess.run(["node", "-"], input=fp2, text=True,capture_output=True)
     fj2={}
     if fr2.returncode==0 and fr2.stdout.strip():
         try: fj2=json.loads(fr2.stdout.strip().splitlines()[-1])
@@ -289,7 +305,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "\nconst flat=renderFor('flat'), growth=renderFor('growth'), explicit=renderFor('explicit_schedule');"
         " const ord=(out,a,b)=>out.indexOf(a)>=0&&out.indexOf(b)>=0&&out.indexOf(a)<out.indexOf(b);"
         " console.log(JSON.stringify({flat:ord(flat,'Turns trajectory','Turns / multiple'),growth:ord(growth,'Turns trajectory','Starting Turns / multiple')&&ord(growth,'Starting Turns / multiple','Turns growth'),explicit:ord(explicit,'Turns trajectory','Turns schedule by year')&&!explicit.includes('<label>Turns / multiple</label>'),periodBeforeValue:ord(flat,'<label>Per</label>','Turns / multiple')}));")
-    cor=subprocess.run(["node","-e",coeff_order_js],text=True,capture_output=True); coj={}
+    cor=subprocess.run(["node", "-"], input=coeff_order_js, text=True,capture_output=True); coj={}
     if cor.returncode==0 and cor.stdout.strip():
         try: coj=json.loads(cor.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -301,9 +317,10 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         + hjs + fjs +
         "\nconst st={name:'API',basis:'transaction',driver:{source:'stream_ref',ref:'Enabled Partners',trajectory:'derived',params:{coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'explicit_schedule',schedule:{'1':500000000,'2':525000000,'3':551250000}}}},rate:{behavior:'flat',params:{per_unit:.002}},cost:{kind:'none',params:{}}};"
         " const p={name:'API Product',_fee_product:true,fee_streams:[{name:'Enabled Partners',basis:'transaction',driver:{source:'constant',trajectory:'flat',params:{base:4}},rate:{behavior:'flat',params:{per_unit:0}},cost:{kind:'none',params:{}}},st]}; cfg.assumptions.obs_exposures=[p];"
+        " window._stSelObj=st;"  # r436: r200 master-detail renders only the selected stream's editor; select the stream under test
         " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); const before=JSON.stringify(st.driver.params.coefficient); _feeSetCoeffSchedule(0,1,'500000,525000,551250'); const after=st.driver.params.coefficient;"
         " console.log(JSON.stringify({option:out.includes('Amount per source unit'),label:out.includes('$000s per source unit'),preview:out.includes('500000')&&out.includes('551250'),stored:after.schedule['1']===500000000&&after.schedule['2']===525000000&&after.schedule['3']===551250000}));")
-    acr=subprocess.run(["node","-e",amount_coeff_js],text=True,capture_output=True); acj={}
+    acr=subprocess.run(["node", "-"], input=amount_coeff_js, text=True,capture_output=True); acj={}
     if acr.returncode==0 and acr.stdout.strip():
         try: acj=json.loads(acr.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -316,8 +333,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "\nconst st={name:'API',basis:'transaction',driver:{source:'stream_ref',ref:'Enabled Partners',trajectory:'derived',params:{coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{per_unit:.002,rate_path:{value:.002,trajectory:'explicit_schedule',period:'month',resolution:'step',schedule:{'1':.002,'2':.0018}}}},cost:{kind:'pct_of_revenue_opex',params:{pct:.00025,factor_path:{value:.00025,trajectory:'explicit_schedule',period:'month',resolution:'step',schedule:{'1':.00025,'2':.0002}},multiplier_path:{value:1.0,trajectory:'flat',period:'year',resolution:'step'}}}};"
         " const p={name:'API Product',_fee_product:true,fee_streams:[st]}; cfg.assumptions.obs_exposures=[p];"
         " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeSetTransactionRateSchedule(0,0,'0.20%, 0.18, 0.17'); _feeSetCostFactorSchedule(0,0,'0.025%, 0.020, 0.015');"
-        " console.log(JSON.stringify({rateUI:out.includes('Pricing basis')&&out.includes('Pricing path')&&out.includes('Fee rate schedule (%) by month'),costUI:out.includes('Operating cost rate path')&&out.includes('Cost rate schedule (% of gross fee revenue) by month'),multUI:out.includes('Cost multiplier path'),rate:st.rate.params.rate_path.schedule,cost:st.cost.params.factor_path.schedule}));")
-    ppr=subprocess.run(["node","-e",pricing_path_js],text=True,capture_output=True); ppj={}
+        # r436: r346 (8c47b4ba3) renamed the cost trajectory label 'Operating cost rate path' -> 'Cost path'
+        " console.log(JSON.stringify({rateUI:out.includes('Pricing basis')&&out.includes('Pricing path')&&out.includes('Fee rate schedule (%) by month'),costUI:out.includes('<label>Cost path</label>')&&out.includes('Cost rate schedule (% of gross fee revenue) by month'),multUI:out.includes('Cost multiplier path'),rate:st.rate.params.rate_path.schedule,cost:st.cost.params.factor_path.schedule}));")
+    ppr=subprocess.run(["node", "-"], input=pricing_path_js, text=True,capture_output=True); ppj={}
     if ppr.returncode==0 and ppr.stdout.strip():
         try: ppj=json.loads(ppr.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -334,7 +352,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         " _feeCostFactorSetKind(0,0,'periodic_amount_opex'); const oneSelect=st.cost.kind==='periodic_amount_opex'; const cfp=_feeEnsureCostFactor(0,0);cfp.value=10000;cfp.period='month'; _feeFlatAmountTrajectory(0,0,'explicit_schedule'); _feeCostFactorTrajectory(0,0,'explicit_schedule'); const seeded=st.rate.params.flat_amount.schedule['1']===100000&&st.cost.params.factor_path.schedule['1']===10000;"
         " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeSetCostFactorSchedule(0,0,'12.5, 14'); const stored=JSON.parse(JSON.stringify(st.cost.params.factor_path.schedule)); _feeClearFlatAmountSchedule(0,0); _feeClearCostFactorSchedule(0,0);"
         " console.log(JSON.stringify({periodic:out.includes('Product cost — periodic amount'),noTx:!out.includes('Cost per unit (tx)')&&!out.includes('Operating cost (% of throughput)'),label:out.includes('Product cost schedule ($000s) by month'),noMultiplier:!out.includes('Cost multiplier path'),oneSelect,seeded,cleared:st.rate.params.flat_amount.trajectory==='flat'&&st.cost.params.factor_path.trajectory==='flat',stored}));")
-    fcr=subprocess.run(["node","-e",flat_cost_js],text=True,capture_output=True); fcj={}
+    fcr=subprocess.run(["node", "-"], input=flat_cost_js, text=True,capture_output=True); fcj={}
     if fcr.returncode==0 and fcr.stdout.strip():
         try: fcj=json.loads(fcr.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -350,7 +368,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         " const p={name:'FedWire',_fee_product:true,fee_streams:[{name:'Active Users',basis:'transaction',driver:{source:'constant',trajectory:'flat',params:{base:111}},rate:{behavior:'flat',params:{per_unit:0}},cost:{kind:'none',params:{}}},st]}; cfg.assumptions.obs_exposures=[p];"
         " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeTransactionRateValue(0,1,'5'); const saved=st.rate.params.rate_path.value; _feeSetTransactionRateSchedule(0,1,'5,5.25'); const sched=st.rate.params.rate_path.schedule;"
         " console.log(JSON.stringify({basis:out.includes('Pricing basis')&&out.includes('Per unit ($ / transaction)'),field:out.includes('Fee ($ / transaction)'),saved,sched}));")
-    pur=subprocess.run(["node","-e",per_unit_pricing_js],text=True,capture_output=True); puj={}
+    pur=subprocess.run(["node", "-"], input=per_unit_pricing_js, text=True,capture_output=True); puj={}
     if pur.returncode==0 and pur.stdout.strip():
         try: puj=json.loads(pur.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -360,7 +378,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        str(puj)+" "+pur.stderr.strip())
 
     # r92: basis-typed cleanup must repair already-saved r91 configs and future basis changes.
-    na=html.index("function normalizeCfg(c){"); nb=html.index("function freezeOriginal",na); normjs=html[na:nb]
+    na=html.index("function _surplusAllocationPolicy(c){"); nb=html.index("function freezeOriginal",na); normjs=html[na:nb]  # r436: normalizeCfg now freezes surplus_allocation_policy via _surplusAllocationPolicy (defined just above it)
     stale_cleanup_js=("const window=globalThis; function renderContent(){} function refresh(){};\n"
         + normjs + hjs +
         "\nlet cfg={assumptions:{obs_exposures:[{fee_streams:[{name:'Business MAB',basis:'account',driver:{source:'constant',trajectory:'explicit_schedule',params:{level_schedule:{period:'month',resolution:'step',schedule:{'1':1234}},coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{rate_path:{value:.002,trajectory:'flat',period:'year'}}},cost:{kind:'none',params:{}}},{name:'Average Transaction Size',basis:'transaction',driver:{source:'constant',trajectory:'flat',params:{base:5000000,coefficient:{kind:'multiple',value:.13,period:'month',trajectory:'flat'}}},rate:{behavior:'flat',params:{pricing_basis:'per_unit',per_unit:0}},cost:{kind:'none',params:{}}}]}]}};"
@@ -369,7 +387,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         " feeStreamBasisChange(0,0,'account'); const cs=cfg.assumptions.obs_exposures[0].fee_streams[0]; const changeClean=!('coefficient' in cs.driver.params)&&!('rate_path' in cs.rate.params);"
         " cfg.assumptions.obs_exposures[0].fee_streams[1]={name:'Total Transactions',basis:'transaction',driver:{source:'stream_ref',ref:'Active Users',trajectory:'derived',params:{coefficient:{kind:'multiple',value:.13,period:'month',trajectory:'flat'}}},rate:{behavior:'flat',params:{pricing_basis:'per_unit',per_unit:5}},cost:{kind:'none',params:{}}}; feeStreamTrajectoryChange(0,1,'flat'); const live=cfg.assumptions.obs_exposures[0].fee_streams[1]; const trajChangeClean=!('coefficient' in live.driver.params)&&live.driver.trajectory==='flat';"
         " console.log(JSON.stringify({loadClean,trajLoadClean,changeClean,trajChangeClean,basis:cfg.assumptions.obs_exposures[0].fee_streams[0].basis}));")
-    scr=subprocess.run(["node","-e",stale_cleanup_js],text=True,capture_output=True); scj={}
+    scr=subprocess.run(["node", "-"], input=stale_cleanup_js, text=True,capture_output=True); scj={}
     if scr.returncode==0 and scr.stdout.strip():
         try: scj=json.loads(scr.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -387,8 +405,11 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         + hjs + fjs +
         "\nconst st={name:'Annual maintenance',basis:'account',driver:{source:'constant',trajectory:'explicit_schedule',params:{level_schedule:{period:'month',resolution:'step',schedule:{'1':100,'2':110,'3':125}}}},rate:{behavior:'flat',params:{unit_fee:{value:1200,period:'year',trajectory:'flat'}}},cost:{kind:'none',params:{}}};"
         " const prod={name:'Bank customers',_fee_product:true,managed_notional:{day1:0,trajectory:'flat'},fee_streams:[st]}; cfg.assumptions.obs_exposures=[prod];"
-        " const before=JSON.stringify(st.driver.params.level_schedule); feeStreamDriverSourceChange(0,0,'cac_count:cac-count-growth'); const linked={source:st.driver.source,ref:st.driver.ref,measure:st.driver.measure,trajectory:st.driver.trajectory,saved:st.driver._saved_constant_trajectory,schedule:JSON.stringify(st.driver.params.level_schedule)}; const out=fieldsFor('obs',prod,'assumptions.obs_exposures.0'); feeStreamDriverSourceChange(0,0,'constant'); const restored={source:st.driver.source,trajectory:st.driver.trajectory,schedule:JSON.stringify(st.driver.params.level_schedule)}; console.log(JSON.stringify({before,linked,restored,ui:out.includes('Customer acquisition › Growth › Customers')&&!out.includes('Ending bank customers source')&&out.includes('Count measure')&&out.includes('cac_count:cac-count-growth')&&out.includes('M1 100 · M2 110 · M3 125')}));")
-    ccr=subprocess.run(["node","-e",customer_count_link_js],text=True,capture_output=True); ccj={}
+        " const before=JSON.stringify(st.driver.params.level_schedule); feeStreamDriverSourceChange(0,0,'cac_count:cac-count-growth'); const linked={source:st.driver.source,ref:st.driver.ref,measure:st.driver.measure,trajectory:st.driver.trajectory,saved:st.driver._saved_constant_trajectory,schedule:JSON.stringify(st.driver.params.level_schedule)}; const out=fieldsFor('obs',prod,'assumptions.obs_exposures.0'); feeStreamDriverSourceChange(0,0,'constant'); const restored={source:st.driver.source,trajectory:st.driver.trajectory,schedule:JSON.stringify(st.driver.params.level_schedule)}; console.log(JSON.stringify({before,linked,restored,ui:out.includes('<option value=\"cac_count:cac-count-growth\" selected>Ending bank customers · Growth</option>')&&!out.includes('Ending bank customers source')&&out.includes('Count measure')&&out.includes('fee-stream-result-preview')&&!out.includes('M1 100 · M2 110 · M3 125')}));")
+    # r436: 85b5d643c labels the linked option with the source's own label ('Ending bank customers · Growth'; was
+    # 'Customer acquisition › Growth › Customers'); r358 (27f948da4) deliberately removed the duplicate upstream
+    # 'M1 100 · M2 110 · M3 125' source preview from the stream editor in favour of the stream's own result preview.
+    ccr=subprocess.run(["node", "-"], input=customer_count_link_js, text=True,capture_output=True); ccj={}
     if ccr.returncode==0 and ccr.stdout.strip():
         try: ccj=json.loads(ccr.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -407,7 +428,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "let lastRes={customer_acquisition:{Growth:{customerEndByMonth:Array.from({length:36},(_,i)=>100+i),customerAverageByMonth:Array.from({length:36},(_,i)=>99.5+i),customerAnnualCountByMonth:Array.from({length:36},(_,i)=>111+12*Math.floor(i/12)),yearEndCustomers:[111,123,135]}}};\n"
         + hjs + fjs +
         "\nconst vals=Array.from({length:36},(_,i)=>100+i); const direct=_explicitPreviewHtml(vals,v=>fmtComma(v),'month'); const out=_feeCustomerCountPreviewHtml('cac-count-growth','period_end'); console.log(JSON.stringify({details:out.includes('<details class=\"explicit-preview\">'),count:out.includes('36 loaded'),viewAll:out.includes('View all'),compact:out.includes('M1 100 · M2 101 · M3 102 · … · M34 133 · M35 134 · M36 135'),samePreview:out.includes(direct),actions:out.includes('<div class=\"nie-actions\"'),spill:out.includes('cac-link-readonly'),card:out.includes('cac-link-preview'),selectedCard:out.includes('Selected Customer Acquisition Series'),readOnlyCard:out.includes('read-only here')}));")
-    lcr=subprocess.run(["node","-e",linked_count_compact_js],text=True,capture_output=True); lcj={}
+    lcr=subprocess.run(["node", "-"], input=linked_count_compact_js, text=True,capture_output=True); lcj={}
     if lcr.returncode==0 and lcr.stdout.strip():
         try: lcj=json.loads(lcr.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -421,15 +442,19 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     customer_measure_cycle_js=("const window=globalThis; let cfg={assumptions:{cac_feeds:{Growth:{customer_count_series_id:'cac-count-growth'},Alt:{customer_count_series_id:'cac-count-alt'}},obs_exposures:[]}};\n"
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;} function _seriesId(p){return p+'-id';} function _ensureLinkableSeriesIds(){} let renders=0,refreshes=0; function renderContent(){renders++;} function refresh(){refreshes++;} function fmtComma(x){return String(x);} function _pf(x){return +(String(x).replace(/,/g,''))||0;} function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _feeBasisTileHtml(){return '<tile>'; }\n"
         + hjs + fjs +
-        "\nconst st={name:'Customers',basis:'account',driver:{source:'customer_acquisition_count',ref:'cac-count-growth',measure:'period_end',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{unit_fee:{value:1,period:'year'}}},cost:{kind:'none',params:{}}}; const prod={name:'Platform',_fee_product:true,fee_streams:[st]}; cfg.assumptions.obs_exposures=[prod];"
+        "\nconst st={name:'Customers',quantity_series_id:'fee-qty-cust',basis:'account',driver:{source:'customer_acquisition_count',ref:'cac-count-growth',measure:'period_end',trajectory:'flat',params:{}},"  # r436: stable quantity id for the r358 result preview
+        "rate:{behavior:'flat',params:{unit_fee:{value:1,period:'year'}}},cost:{kind:'none',params:{}}}; const prod={name:'Platform',_fee_product:true,fee_streams:[st]}; cfg.assumptions.obs_exposures=[prod];"
         " let lastRes={customer_acquisition:{Growth:{customerEndByMonth:[10,20,30],customerAverageByMonth:[5,15,25],customerAnnualCountByMonth:[30,30,30]},Alt:{customerEndByMonth:[100,200,300],customerAverageByMonth:[50,150,250],customerAnnualCountByMonth:[300,300,300]}}};"
         " const seen=[]; for(const m of ['annual_count','period_average','period_end','annual_count','period_end']){feeCustomerCountMeasureChange(0,0,m); const out=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure); seen.push([st.driver.measure,out]);}"
         " feeCustomerCountSourceChange(0,0,'cac-count-alt'); const alt=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure); feeCustomerCountSourceChange(0,0,'cac-count-growth'); const backSource=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure);"
         " feeCustomerCountSourceChange(0,0,'cac-count-alt'); feeCustomerCountMeasureChange(0,0,'annual_count'); feeStreamDriverSourceChange(0,0,'constant'); feeStreamDriverSourceChange(0,0,'customer_acquisition_count'); const backDriver=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure);"
         " const emptyBefore=(()=>{const save=lastRes;lastRes=null;const x=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure);lastRes=save;return x;})();"
-        " let V31=true,currentTab='products'; const el={attrs:{'data-product-index':'0','data-stream-index':'0'},html:'',getAttribute(k){return this.attrs[k]},set innerHTML(v){this.html=v},get innerHTML(){return this.html}}; const document={querySelectorAll(){return [el]}}; refreshFeeCustomerCountPreviews(); const repopulated=el.html;"
+        # r436: r358 (27f948da4) replaced the in-editor linked-source preview with the stream's own resolved-result
+        # preview ([data-fee-result-preview]); refreshFeeCustomerCountPreviews() now repopulates that after a run.
+        " let V31=true,currentTab='products'; const el={attrs:{'data-fee-result-preview':'fee-qty-cust'},html:'',getAttribute(k){return this.attrs[k]},querySelector(){return null},set innerHTML(v){this.html=v},get innerHTML(){return this.html}}; const document={querySelectorAll(){return [el]}};"
+        " lastRes.fee_stream_economics={series:{'fee-qty-cust':{reported_fee_income:[300000,300000,300000]}}}; refreshFeeCustomerCountPreviews(); const repopulated=el.html;"
         " console.log(JSON.stringify({seen:seen.map(x=>[x[0],x[1].includes('M1 30'),x[1].includes('M1 5'),x[1].includes('M1 10')]),alt:alt.includes('M1 100'),backSource:backSource.includes('M1 10'),backDriver:st.driver.ref==='cac-count-alt'&&st.driver.measure==='annual_count'&&backDriver.includes('M1 300'),empty:emptyBefore.includes('Run the model to preview'),repopulated:repopulated.includes('M1 300'),renders,refreshes}));")
-    cmr=subprocess.run(["node","-e",customer_measure_cycle_js],text=True,capture_output=True); cmj={}
+    cmr=subprocess.run(["node", "-"], input=customer_measure_cycle_js, text=True,capture_output=True); cmj={}
     if cmr.returncode==0 and cmr.stdout.strip():
         try: cmj=json.loads(cmr.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -454,10 +479,11 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "\nconst p={name:'BaaS APIs',_fee_product:true,managed_notional:{day1:1,trajectory:'flat'},fee_streams:["
         "{name:'Enabled Partners',basis:'transaction',driver:{source:'constant',trajectory:'flat',params:{base:1}},rate:{behavior:'flat',params:{per_unit:0}},cost:{kind:'none',params:{}}},"
         "{name:'Per-transaction API Revenue',basis:'transaction',driver:{source:'stream_ref',trajectory:'derived',params:{coefficient:{kind:'multiple',value:500000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{per_unit:.002}},cost:{kind:'none',params:{}}}]};"
-        " cfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0');"
+        " cfg.assumptions.obs_exposures=[p]; window._stSelObj=p.fee_streams[1];"  # r436: r200 master-detail renders only the selected stream's editor; select the stream_ref stream
+        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0');"
         " const a=out.indexOf('<label>Reference stream</label>'), b=out.indexOf('</select>',a), ref=out.slice(a,b);"
         " console.log(JSON.stringify({placeholder:ref.includes('<option value=\"\" selected>Select a reference stream…</option>'),upstream:ref.includes('<option value=\"Enabled Partners\">Enabled Partners</option>'),falseSelected:ref.includes('<option value=\"Enabled Partners\" selected>'),selfOption:ref.includes('value=\"Per-transaction API Revenue\"')}));")
-    srr=subprocess.run(["node","-e",stream_ref_js],text=True,capture_output=True); srj={}
+    srr=subprocess.run(["node", "-"], input=stream_ref_js, text=True,capture_output=True); srj={}
     if srr.returncode==0 and srr.stdout.strip():
         try: srj=json.loads(srr.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -475,8 +501,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
           "\nconst p={name:'Trustee',_fee_product:true,managed_notional_source:'Growth',managed_notional_source_id:'cac:Growth:customers',managed_notional:{day1:0,trajectory:'flat'},fee_streams:["
           "{name:'Retainer',basis:'account',driver:{source:'constant',trajectory:'explicit_schedule',params:{level_schedule:{period:'year',resolution:'smooth',schedule:{'1':2,'2':4}}}},rate:{behavior:'flat',params:{unit_fee:{value:200000,period:'year',trajectory:'flat'}}},cost:{kind:'none',params:{}},timing:{start_period:13}},"
           "{name:'Reserve trustee',basis:'balance',driver:{source:'managed_notional',trajectory:'derived',params:{stock_multiplier:{kind:'pct',value:.30,trajectory:'flat'}}},rate:{behavior:'flat',params:{rate_path:{value:.0012,trajectory:'flat'}}},cost:{kind:'none',params:{}},timing:{start_period:13}}]};"
-          "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({ok:out.includes('Count path')&&out.includes('Period-end count schedule by year')&&out.includes('Smooth')&&out.includes('Stock % of source')&&out.includes('Stock % trajectory')&&out.includes('Rate path')&&out.includes('Rate (bp/yr on balance)')}));")
-    fr2b=subprocess.run(["node","-e",fp2b],text=True,capture_output=True); fj2b={}
+          "\ncfg.assumptions.obs_exposures=[p]; const out=p.fee_streams.map(st=>{window._stSelObj=st;return fieldsFor('obs',p,'assumptions.obs_exposures.0');}).join('');"  # r436: r200 master-detail; render each stream in turn
+          " console.log(JSON.stringify({ok:out.includes('Count path')&&out.includes('Period-end count schedule by year')&&out.includes('Smooth')&&out.includes('Stock % of source')&&out.includes('Stock % trajectory')&&out.includes('Rate path')&&out.includes('Rate (bp/yr on balance)')}));")
+    fr2b=subprocess.run(["node", "-"], input=fp2b, text=True,capture_output=True); fj2b={}
     if fr2b.returncode==0 and fr2b.stdout.strip():
         try: fj2b=json.loads(fr2b.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -490,7 +517,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
          "\nconst p={name:'Conversion',_fee_product:true,managed_notional:{day1:1,trajectory:'flat'},fee_streams:["
          "{name:'Conversion fee',basis:'transaction',driver:{source:'managed_notional',trajectory:'derived',params:{coefficient:{kind:'pct',value:.12,period:'year',trajectory:'explicit_schedule',schedule:{'1':.12,'2':.10}}}},rate:{behavior:'flat',params:{per_unit:.0008}},cost:{kind:'none',params:{}}}]};"
          "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({pctTraj:out.includes('Flow % trajectory'),pctSchedule:out.includes('Flow % schedule by year'),singleHidden:!out.includes('<label>Flow %</label>')}));")
-    fr3=subprocess.run(["node","-e",fp3],text=True,capture_output=True); fj3={}
+    fr3=subprocess.run(["node", "-"], input=fp3, text=True,capture_output=True); fj3={}
     if fr3.returncode==0 and fr3.stdout.strip():
         try: fj3=json.loads(fr3.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -518,7 +545,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "const tile={parentElement:host,querySelector(){return p1;}}; const btn={parentElement:tile,setAttribute(k,v){this[k]=v;}};\n"
         "_feeBasisInfoToggle('balance',btn); const markup=_feeBasisTileHtml('transaction',3);\n"
         "console.log(JSON.stringify({opened:p1.classList.open,closedSibling:!p2.classList.open,expanded:btn['aria-expanded']==='true',markup:markup.includes('Transaction stream')&&markup.includes('settlement turns')}));")
-    ir=subprocess.run(["node","-e",info_js],text=True,capture_output=True); ij={}
+    ir=subprocess.run(["node", "-"], input=info_js, text=True,capture_output=True); ij={}
     if ir.returncode==0 and ir.stdout.strip():
         try: ij=json.loads(ir.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -540,7 +567,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "\nconst c=cfg.assumptions.obs_exposures[0].fee_streams[1].driver.params.coefficient; const inferred=_feePctSemantics(0,1,c);"
         " _feeCoeffSetKind(0,1,'pct_flow'); const flow=c.semantics; _feeCoeffSetKind(0,1,'pct_share'); const share=c.semantics;"
         " console.log(JSON.stringify({inferred,flow,share,rr}));")
-    psr=subprocess.run(["node","-e",pct_sem_js],text=True,capture_output=True); psj={}
+    psr=subprocess.run(["node", "-"], input=pct_sem_js, text=True,capture_output=True); psj={}
     if psr.returncode==0 and psr.stdout.strip():
         try: psj=json.loads(psr.stdout.strip().splitlines()[-1])
         except Exception: pass
@@ -566,7 +593,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     paste_js=(
         "const cfg={assumptions:{obs_exposures:[{fee_streams:[{driver:{params:{coefficient:{kind:'multiple',schedule:{}}}}}]}]}};\n"
         "let rendered=0,refreshed=0; function renderContent(){rendered++;} function refresh(){refreshed++;}\n"
-        "const ta={value:'',classList:{toggle(){}}}, btn={disabled:true,classList:{toggle(k,v){this.ready=v;}}};\n"
+        "const ta={value:'',classList:{toggle(){}},dispatchEvent(e){this.events=(this.events||[]).concat(e.type);}}, btn={disabled:true,classList:{toggle(k,v){this.ready=v;}}};\n"  # r436: 97d100ee9 Clear now also empties the paste draft and dispatches 'input'
         "const document={getElementById:(id)=>id.endsWith('_load')?btn:ta};\n"
         + hjs +
         "\nta.value='8,10,12,10,10,10,9'; _feeCoeffPasteInput('feeCoeffPaste_0_0'); const enabled=!btn.disabled && btn.classList.ready===true;"
@@ -574,7 +601,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         " const loaded=Object.values(c.schedule); _feeClearCoeffSchedule(0,0);"
         " console.log(JSON.stringify({enabled,loaded,rendered,refreshed,cleared:Object.keys(c.schedule).length===0,invalid:_feeParseExplicitValues('8,banana,12').length===0}));"
     )
-    pr=subprocess.run(["node","-e",paste_js],text=True,capture_output=True)
+    pr=subprocess.run(["node", "-"], input=paste_js, text=True,capture_output=True)
     pj={}
     if pr.returncode==0 and pr.stdout.strip():
         try: pj=json.loads(pr.stdout.strip().splitlines()[-1])
@@ -600,7 +627,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         " const turns=Object.values(cfg.assumptions.obs_exposures[0].fee_streams[0].driver.params.coefficient.schedule); const amounts=Object.values(cfg.assumptions.obs_exposures[0].fee_streams[1].rate.params.flat_amount.schedule);"
         " console.log(JSON.stringify({settleEnabled,escrowEnabled,turns,amounts,rendered,refreshed,independent:settleBtn!==escrowBtn}));"
     )
-    dpr=subprocess.run(["node","-e",dual_paste_js],text=True,capture_output=True)
+    dpr=subprocess.run(["node", "-"], input=dual_paste_js, text=True,capture_output=True)
     dpj={}
     if dpr.returncode==0 and dpr.stdout.strip():
         try: dpj=json.loads(dpr.stdout.strip().splitlines()[-1])
@@ -655,7 +682,10 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'Count schedule' in html and 'One row = one economically homogeneous population' in html
        and "Each value: $000s ${_cpb==='total'?'total':'per FTE'} / ${_cpp}" in html and 'nieWorkforceCompValue' in html
        and 'Compensation trajectory' in html and 'Schedule cadence' in html
-       and 'Basis controls whether Count scales compensation, and Amount per (${_cpp}) controls the time unit of every pasted value.' in html)
+       # r436: 074e0e976 replaced the generic 'Basis controls whether Count scales compensation, and Amount per (...)
+       # controls the time unit of every pasted value.' hint with explicit period- and basis-specific guidance:
+       and "Every pasted value replaces compensation for its scheduled interval; the top base amount is not added. ${_cpp==='year'?'Values are annual rates, divided across model periods.'" in html
+       and "$000s per model period ${_cpb==='total'?'in total':'per FTE'}" in html)
     # Regression: adding another role must not reopen Advanced trajectories that a user closed.
     wa=html.index("window._nieWorkforceAdvancedOpen=window._nieWorkforceAdvancedOpen||{};")
     wb=html.index("window.nieWorkforceCountMode=",wa)
@@ -671,7 +701,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "nieWorkforceAdvancedSet('wf-existing',true); const reopened=_nieWorkforceAdvancedIsOpen(wf.roles[0],0,true); "
         "console.log(JSON.stringify({before,after,added,reopened,n:wf.roles.length,rendered,refreshed}));"
     )
-    wr=subprocess.run(["node","-e",wstate_js],text=True,capture_output=True)
+    wr=subprocess.run(["node", "-"], input=wstate_js, text=True,capture_output=True)
     wj={}
     if wr.returncode==0 and wr.stdout.strip():
         try: wj=json.loads(wr.stdout.strip().splitlines()[-1])
@@ -720,7 +750,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "function getPath(p){return p.split('.').reduce((o,k)=>o==null?o:o[k],cfg);}"
         "function setPath(p,v){let ks=p.split('.'),o=cfg;for(let i=0;i<ks.length-1;i++){if(o[ks[i]]==null)o[ks[i]]={};o=o[ks[i]];}o[ks[ks.length-1]]=v;}\n"
         + gjs + "\nsetGrowthField('assumptions.x','period','year',0.03); console.log(JSON.stringify(cfg.assumptions.x));")
-    gr=subprocess.run(["node","-e",gp],text=True,capture_output=True)
+    gr=subprocess.run(["node", "-"], input=gp, text=True,capture_output=True)
     gj=json.loads(gr.stdout.strip()) if gr.returncode==0 and gr.stdout.strip() else {}
     ck("legacy first-edit preserves the visible rate while materializing new growth semantics",
        abs(gj.get("rate",0)-.03)<1e-12 and gj.get("period")=="year"

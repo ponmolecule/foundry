@@ -156,7 +156,7 @@ taxPolicySet('fiscal_year_end_month',6);cfg.charter_profile.target_opening='2028
 if(!renderTax().includes('Tax year 2029 supported annual income'))throw Error('fiscal calendar mismatch');
 console.log('PASS tax authoring, unit conversion, blank clear, fiscal dates and unchanged recognition toggle');
 """
-        result=subprocess.run(["node","-e",js],text=True,capture_output=True)
+        result=subprocess.run(["node", "-"], input=js, text=True,capture_output=True)
         self.assertEqual(result.returncode,0,result.stderr)
 
 

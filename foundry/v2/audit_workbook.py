@@ -2067,7 +2067,7 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         subtitle="Primary causal CAC audit. Every source cadence resolves monthly before Pool × Conversion, Spend ÷ CAC × effectiveness multiplier (full spend retained), FTE × Productivity × dimensionless multiplier, or Explicit Customers is evaluated.",
         headers=["Feed", "Feed Series ID", "Canonical month", "Model year", "Month in year", "Channel", "Method",
                  "Pool flow (customers)", "Conversion rate", "Spend input ($)", "CAC input ($/customer)", "FTEs",
-                 "Productivity flow (customers/FTE)", "Explicit new customers", "Average AUC/new customer ($)",
+                 "Productivity flow (customers/FTE)", "Scheduled new customers", "Average AUC/new customer ($)",
                  "New customers", "New AUC ($)", "Acquisition spend ($)", "Implied CAC ($/customer)", "Effectiveness multiplier", "Productivity multiplier"],
         rows=_cac_monthly_acquisition_rows(cfg, n, ppy),
         widths=[24, 30, 16, 12, 14, 28, 22, 22, 18, 20, 22, 14, 30, 22, 28, 20, 24, 22, 24,24,24],

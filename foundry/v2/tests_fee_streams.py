@@ -12,7 +12,14 @@ sys.path.insert(0, ".")
 from foundry.v2 import run_q
 from foundry.v2.income_modules import fee_stream_q, product_fee_streams_q
 
-BASELINE = "6f446fe0b4197f28"
+# r436: this economic baseline moved with four deliberate financial corrections, traced commit by commit:
+#   6f446fe0b4197f28 -> b3c4a51fe7f5cc98  r138 zero hidden funding defaults and add bank EBITDA
+#   -> 46cca4db9ae3efe2  r152 correct NIM sign and total-assets basis
+#   -> 9c3cd717efc52f5c  r279 zero passive defaults and align securities risk-weight summary
+#   -> 098337790c118b96  r284 correct tax-year NOL and ASC 740-270 interim provisions
+# It has not moved since r284. None of the four involved fee streams; the gate's purpose (empty fee_streams lists
+# leave the economics unchanged) is unaffected.
+BASELINE = "098337790c118b96"
 
 
 def _hash(cfg):
