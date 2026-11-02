@@ -1,3 +1,7 @@
+# r451 — Workforce growth inheritance
+
+See RELEASE_r451.md. Three compensation paths; explicit default/override source within Growth. No engine change.
+
 # r448 — Resizable product sidebar
 
 See RELEASE_r448.md. Local browser width preference; financial calculations and engagement data unchanged.
