@@ -1,3 +1,7 @@
+# r457 — Cumulative gross acquisition counts
+
+See RELEASE_r457.md. A live Account count source before attrition, with monthly-first costs and no automatic opt-in.
+
 # r456 — Unused commitment reserve and calculation status
 
 See RELEASE_r456.md. Optional liability/provision ledger; current-run badge and stale Numbers snapshot protection. No automatic opt-in.
