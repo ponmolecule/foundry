@@ -334,6 +334,7 @@ def _apply_overlays(lend, dep, a, ov, ppy=4):
         else:
             p["charge_off_ann"] = (p.get("charge_off_ann") or 0.0) * co_m
             if p.get("repayment_profile") is not None: p["_profile_loss_mult"] = co_m
+        if p.get('unused_commitment_reserve') is not None: p['_unused_reserve_mult'] = res_m
         if p.get("reserve_rate_pct_bal") is not None:
             p["reserve_rate_pct_bal"] *= res_m
         p["originations_q"] = (p.get("originations_q") or 0.0) * (1 - (ov.get("origination_volume_haircut", 0) or 0))
@@ -1097,6 +1098,14 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     # ---- aggregation ----
     def z():
         return [0.0] * (Q + 1)
+    from .unused_commitments import resolve as resolve_unused_commitments
+    _unused_ledgers = [resolve_unused_commitments(p, Q, ppy, _growth_ctx) for p in lend]
+    _unused_enabled = any(x is not None for x in _unused_ledgers)
+    _unused_reserve = [sum(x['unusedCommitmentReserve'][q] for x in _unused_ledgers if x) for q in range(Q+1)]
+    _unused_provision = [sum(x['unusedCommitmentProvision'][q] for x in _unused_ledgers if x) for q in range(Q)]
+    for p, ledger in zip(lend, _unused_ledgers):
+        if ledger is not None: p['_unused_commitments'] = ledger
+    _other_liab_open += _unused_reserve[0]
     gross, alll_t, hfs, msr_t, deps_c, deps_b, obs_n = z(), z(), z(), z(), z(), z(), z()
     for q in range(0, Q + 1):
         for p in lend:
@@ -1644,6 +1653,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
         _accrued_opex_q = ((_opex_static_acc[q - 1] if q - 1 < len(_opex_static_acc) else 0.0)
                            + max(0.0, -_occ_signed_balance)
                            + sum(max(0.0, -x) for x in _linked_timing_balances))
+        _other_liab_q += _unused_reserve[q]
         nco_ac = sum(p["_co"][q] for p in lend if not p["_is_fv"])
         prov = (alll_t[q] - alll_t[q - 1]) + nco_ac
         if _cr:
@@ -1652,7 +1662,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                          for p in lend if not p["_is_fv"])
             is_["provDayOne"][q] = _day1
             is_["provNCO"][q] = nco_ac
-            is_["provBuild"][q] = prov - _day1 - nco_ac
+            is_["provBuild"][q] = prov - _day1 - nco_ac + _unused_provision[q-1]
+        prov += _unused_provision[q-1]
         net_loans_end = gross[q] - alll_t[q]
         _simple_sec_books_end = sum(p["_bal"][q] for p in afs_p + htm_p)
         _simple_afs_end = sum(p["_bal"][q] for p in afs_p)
@@ -1920,6 +1931,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
             # This is the same identity used by the statement provision; contract outputs above
             # retain their authored target and release policy. No financial calculation changes.
             if fam == 'lending':
+                if p.get('_unused_commitments') is not None:
+                    _pr.update(copy.deepcopy(p['_unused_commitments']))
                 if 'provision' not in _pr:
                     _pr['provision'] = [0.0 if p.get('_is_fv') else
                         p['_alll'][q] - p['_alll'][q-1] + p['_co'][q]
@@ -2012,6 +2025,10 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                    "borrowSched": sched_t,
                    "dta": bs["dta"]},
             "is": {k: v[1:] for k, v in is_.items()}}
+    if _unused_enabled:
+        _out['bs']['unusedCommitmentReserve'] = _unused_reserve
+        _out['bs']['otherLiab'] = list(bs['otherLiab'])
+        _out['is']['unusedCommitmentProvision'] = _unused_provision
     if _other_income_rows:
         _out["is"]["otherIncome"] = list(_other_income_total)
         _out["other_income_detail"] = {"lines": _other_income_rows, "total": list(_other_income_total)}
@@ -2033,7 +2050,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     if _ol_prepared is not None:
         _out["bs"]["otherLiab"] = list(bs["otherLiab"])
         _out["other_liabilities_detail"] = other_liability_audit_payload(
-            _ol_prepared, ([v-bs["taxPayable"][i]-bs["taxDeferredLiability"][i] for i,v in enumerate(bs["otherLiab"])] if _external_tax else list(bs.get("otherLiab") or [])), _ol_period_rows)
+            _ol_prepared, [v-_unused_reserve[i]-(bs['taxPayable'][i]+bs['taxDeferredLiability'][i] if _external_tax else 0) for i,v in enumerate(bs['otherLiab'])], _ol_period_rows)
     if _fa_mode in {"schedule", "formula_level"}:
         _out["fixed_assets"] = {
             "mode": _fa_mode,

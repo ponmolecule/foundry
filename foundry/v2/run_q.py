@@ -568,6 +568,7 @@ def run_v2(cfg):
         "principalBalance", "principalPayments", "prepayments", "grossInterest", "deferredBeginning", "deferredCosts",
         "deferredFees", "deferredAmortization", "deferredPrepaymentCatchup", "deferredNetBalance",
         "loanCarryingAmount", "allowanceTarget", "provision",
+        "totalCommitment", "unusedCommitment", "unusedCommitmentReserve", "unusedCommitmentProvision",
         "interestBasis", "linkedBalanceTarget", "repayments", "principalTransfersOut", "interest", "avg",
         "interestBeforeMinimum", "minimumInterestExpense", "minimumInterestTopUp",
     )
@@ -583,6 +584,8 @@ def run_v2(cfg):
             _pub["lendingAssumptionDetail"] = copy.deepcopy(_raw["lendingAssumptionDetail"])
         if 'depositCustomerCalculation' in _raw:
             _pub['depositCustomerCalculation'] = copy.deepcopy(_raw['depositCustomerCalculation'])
+        for _key in ('totalCommitment','unusedCommitment','unusedCommitmentReserve','unusedCommitmentProvision'):
+            if _key in _raw: _pub[_key] = [float(v)/1000. for v in _raw[_key]]
         _d = {}
         for _key in _detail_money_keys:
             _arr = _raw.get(_key)
