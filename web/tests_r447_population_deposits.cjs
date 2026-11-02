@@ -24,7 +24,7 @@ await page.locator('.lnv-ri').first().click();
 const weights=page.getByLabel('Deposit weight source',{exact:true});
 assert.strictEqual(await weights.inputValue(),'entered');
 const before=await page.evaluate(()=>JSON.parse(JSON.stringify(cfg.assumptions.deposit_products[0].balance_driver.balance_per_customer_spec)));
-await weights.selectOption('active_population');
+await page.getByRole('group',{name:'Weight source',exact:true}).getByRole('button',{name:'Acquisition population',exact:true}).click();   // r449: segmented field
 assert.strictEqual(await page.locator('select[aria-label^="Acquisition band "]').count(),4);
 let live=await page.evaluate(()=>JSON.parse(JSON.stringify(cfg.assumptions.deposit_products[0].balance_driver.balance_per_customer_spec)));
 assert.deepStrictEqual(live.components.map(c=>c.population_band_id),['b0','b1','b2','b3']);
@@ -32,12 +32,12 @@ assert.deepStrictEqual(live.components.map(c=>c.amount_spec),before.components.m
 assert.strictEqual(await page.getByLabel('Population weight',{exact:true}).count(),0,'no editable inactive weights');
 await page.evaluate(()=>{cfg=JSON.parse(JSON.stringify(cfg));window._prdSel=cfg.assumptions.deposit_products[0];renderContent();prdGroupSetup();});
 assert.strictEqual(await page.getByLabel('Deposit weight source',{exact:true}).inputValue(),'active_population','save/reload preserves choice');
-await page.getByLabel('Deposit weight source',{exact:true}).selectOption('entered');
+await page.getByRole('group',{name:'Weight source',exact:true}).getByRole('button',{name:'Entered shares',exact:true}).click();
 const restored=await page.evaluate(()=>cfg.assumptions.deposit_products[0].balance_driver.balance_per_customer_spec.components.map(c=>c.weight_spec));
 assert.deepStrictEqual(restored,before.components.map(c=>c.weight_spec),'entered shares retained');
-await page.getByLabel('Deposit weight source',{exact:true}).selectOption('active_population');
+await page.getByRole('group',{name:'Weight source',exact:true}).getByRole('button',{name:'Acquisition population',exact:true}).click();
 assert(await page.locator('.deposit-local-amount').evaluate(e=>e.scrollWidth<=e.clientWidth+2),'breakdown fits available width');
-await page.screenshot({path:'/workspace/scratch/370303911165/r447-population-deposit.png',fullPage:true});
+
 assert.deepStrictEqual(errors,[]);console.log('PASS r447 live population weights: select, map, preserve amounts, reload and restore entered shares');
 }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

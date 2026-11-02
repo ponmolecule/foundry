@@ -612,7 +612,7 @@ def main():
     helpers = "let sourceCatalogRows=[];\n" + _js_fn("_mdPick") + _js_fn("catalogSources")
     # r436: fieldsFor renders the stream cards through _feeStreamsSectionHtml (stream rail and source chips; Products workspace since 35e28362f r204
     # workspace); load its out-of-slice helpers too.
-    helpers += _js_line("const _PRD_CK=") + "".join(_js_fn(n) for n in ("_stSrcChip", "_stProvP", "_stSrcRows", "_stSrc", "_stSetupFeeRow", "_stCellHtml"))
+    helpers += _js_line("const _PRD_CK=") + "".join(_js_fn(n) for n in ("_stSrcChip", "_stProvP", "_stSrcRows", "_stSrc", "_stSetupFeeRow", "_stCellHtml", "_stTypeHtml"))
     node = (
         "const window=globalThis; const cfg={assumptions:{cac_feeds:{},nie_detail:{categories:[{series_id:'opex-tech',name:'Technology'}],workforce:{roles:[{series_id:'wf-count',compensation_series_id:'wf-comp',expense_series_id:'wf-exp',role:'Platform Ops',hire_period:1}]}},cost_pools:[{series_id:'pool-platform',owner_module:'cost_pool',name:'Platform Services Eligible Costs',components:[{kind:'operating_expense_category',series_id:'opex-tech',allocation_pct:.8},{kind:'workforce_role_expense',series_id:'wf-exp',allocation_pct:.4},{kind:'assumption_cost_base',series_id:'cost-base-entered',name:'Entered platform base',allocation_pct:1,flow_spec:{trajectory:'flat',value:1200000,period:'year'}}]}],obs_exposures:[]}};\n"
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"

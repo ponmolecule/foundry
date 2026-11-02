@@ -2139,3 +2139,6 @@ Cost path now precedes its amount or rate. Growth cadence and growth rate follow
 The change applies to the shared fee-stream cost editor, including percentage, per-unit, per-account and periodic-amount costs. Existing field handlers, stored values, units and calculations are unchanged.
 
 Validation: browser coverage of five cost types across Flat, Growth and Schedule; existing fee-field, cost-control and result-identity checks.
+
+## r449
+Balance per customer on the field system (built on r448). depositLocalAmountHtml returns field rows: method and weight source selects (segmented by _lfgField; disabled options now give disabled buttons), Balance share field, and .dep-apc (Amount per customer, fcb table) which lfgDecorate moves into .lfx-b to span the section. Live shares and the Explain chain read depositCustomerCalculation at _lfgCtx ref. Fee-stream table gains a Type column (_stTypeHtml, basis icon). No engine change. Test: tests_r449_deposit_amount_ui.
