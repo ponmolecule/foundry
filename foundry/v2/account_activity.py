@@ -60,6 +60,24 @@ def ensure_flow_ids(a):
                 ids.setdefault(field, str(derived['new_customers']) + '::' + field)
 
 
+def cumulative_gross_id(feed):
+    """Stable candidate ID; discovery never adds a saved count book."""
+    seed=feed.get('customer_count_series_id') or feed.get('series_id')
+    return str(seed)+'::cumulative_gross_acquisitions' if seed else None
+
+
+def _referenced_ids(value):
+    if isinstance(value,dict):
+        refs={v for k,v in value.items() if k in ('ref','series_id') and isinstance(v,str)}
+        for v in value.values():refs.update(_referenced_ids(v))
+        return refs
+    if isinstance(value,list):
+        refs=set()
+        for v in value:refs.update(_referenced_ids(v))
+        return refs
+    return set()
+
+
 def catalog(a):
     ensure_flow_ids(a)
     out = []
@@ -70,6 +88,8 @@ def catalog(a):
         for field in FLOW_FIELDS:
             if ids.get(field):
                 out.append(dict(series_id=ids[field], label=f'Customer acquisition › {name} › '+field.replace('_',' ').title(), temporal='flow', feed=name, field=field))
+        sid=cumulative_gross_id(feed)
+        if sid:out.append(dict(series_id=sid,label=f'Customer acquisition › {name} › Cumulative gross acquisitions',temporal='level',feed=name,field='cumulative_gross_acquisitions'))
         for ci,ch in enumerate(feed.get('channels') or []):
             for field in FLOW_FIELDS:
                 sid=(ch.get('activity_series_ids') or {}).get(field)
@@ -95,6 +115,7 @@ def resolve(a, n, ppy, growth_context=None):
     ensure_flow_ids(a)
     if ppy not in (4,12):raise ValueError('Account activity supports monthly and quarterly models')
     months=n*(12//ppy); result={};feeds={};audits={}
+    requested=_referenced_ids(a)
     def publish(sid, vals, temporal, opening=0):
         if not sid:return
         width=12//ppy
@@ -112,6 +133,13 @@ def resolve(a, n, ppy, growth_context=None):
         r=cac_auc_rollforward(f,n,ppy,assumptions=a,growth_context=growth_context); rows=r['monthly'][:months];feeds[f.get('customer_count_series_id')]=(f,rows)
         ids=f.get('activity_series_ids') or {}
         for field,key in [('new_customers','new_cust'),('lost_customers','cust_lost')]:publish(ids.get(field),[float(x[key]) for x in rows],'flow')
+        cumulative_id=cumulative_gross_id(f)
+        if cumulative_id in requested:
+            total=0.;values=[]
+            for row in rows:
+                total+=float(row['new_cust']);values.append(total)
+            publish(cumulative_id,values,'level',opening=0)
+
         chs=f.get('channels') or [];stocks=[_number(c.get('opening_customers',0),'Channel opening customers') for c in chs]
         if sum(stocks)>float(f.get('beginning_customers') or 0)+1e-8:raise ValueError('Channel opening customers exceed feed opening customers')
         losses=[[] for c in chs]
