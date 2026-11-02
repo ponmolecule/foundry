@@ -7695,9 +7695,12 @@ function _depRun(i){const C=typeof _lfgCtx==='function'?_lfgCtx('deposit',i):nul
  const amt=at(out.monthlyDollarsPerCustomer||out.periodDollarsPerCustomer,ix),cnt=at(out.monthlyCount||out.periodCount,ix),sh=out.monthlyBalanceShare||out.periodBalanceShare?at(out.monthlyBalanceShare||out.periodBalanceShare,ix):1;
  const rows={};(out.breakdown||[]).forEach(b=>{if(b.component_id)rows[b.component_id]={w:at(b.weight,mi),a:at(b.amount,mi),x:at(b.weighted_amount,mi)};});
  return {lab:monthly&&ppy!==12?'Month '+(mi+1):(typeof PERLAB==='function'?PERLAB(ref):'P'+ref),cnt,amt,sh,rows};}
+// r449: the cell shows a short value; focus shows the stored value in full, and an unchanged number is never written back.
+function _depSame(el){const t=String(el.value).replace(/,/g,'').trim();return t!==''&&Number(t)===Number(el.dataset.full);}
 function _depCell(i,sp,v,kind,label,k,run){const tr=(v&&v.trajectory)||'flat',rate=kind==='rate',unit=rate?'%':'$000s';
  const tag=`<button type="button" class="fcb-tag" aria-label="Edit ${label} path ${k}" title="Edit ${label.toLowerCase()} path" onclick="depositPathEdit('${sp}')">${_depTrLab(v)} ▾</button>`;
- if(tr==='flat')return `<span class="fcb-cell"><input type="text" inputmode="decimal" data-nofit aria-label="${label}" value="${rate?_numInput((+v.value||0)*100,4):_depF2((+v.value||0)/1000).replace(/,/g,'')}" onchange="faSeriesValue('${sp}','value',this.value,'${kind}');depositBreakdownSummary(${i});setTimeout(()=>renderContent(),0)"><u class="${rate?'':'c'}">${unit}</u>${tag}</span>`;
+ if(tr==='flat'){const full=_numInput((+v.value||0)*(rate?100:0.001),15),show=rate?_numInput((+v.value||0)*100,4):_depF2((+v.value||0)/1000).replace(/,/g,'');
+  return `<span class="fcb-cell"><input type="text" inputmode="decimal" data-nofit aria-label="${label}" value="${show}" data-full="${full}" data-show="${show}" onfocus="this.value=this.dataset.full;this.select()" onblur="if(_depSame(this))this.value=this.dataset.show" onchange="if(_depSame(this))return;faSeriesValue('${sp}','value',this.value,'${kind}');depositBreakdownSummary(${i});setTimeout(()=>renderContent(),0)"><u class="${rate?'':'c'}">${unit}</u>${tag}</span>`;}
  return `<span class="fcb-cell g"><b>${run==null?'varies':_depF2(run)}</b><u class="${rate?'':'c'}">${unit}</u>${tag}</span>`;}
 function depositLocalAmountHtml(i,path,s){
  const mode=s.source||'entered',d=cfg.assumptions.deposit_products[i].balance_driver,sharePath=path.replace(/balance_per_customer_spec$/,'balance_share_spec');

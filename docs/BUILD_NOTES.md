@@ -2142,3 +2142,6 @@ Validation: browser coverage of five cost types across Flat, Growth and Schedule
 
 ## r449
 Balance per customer on the field system (built on r448). depositLocalAmountHtml returns field rows: method and weight source selects (segmented by _lfgField; disabled options now give disabled buttons), Balance share field, and .dep-apc (Amount per customer, fcb table) which lfgDecorate moves into .lfx-b to span the section. Live shares and the Explain chain read depositCustomerCalculation at _lfgCtx ref. Fee-stream table gains a Type column (_stTypeHtml, basis icon). No engine change. Test: tests_r449_deposit_amount_ui.
+
+## r450
+Precision fix for r449 cells (built on r449). _depCell inputs carry data-full (15 significant digits) and data-show; focus shows and selects the full value; _depSame skips onchange when the number is unchanged and restores the short display on blur. Tests: tests_r449_deposit_amount_ui (repro), tests_r389_authoring (strict).

@@ -43,8 +43,18 @@ assert.strictEqual(await page.getByLabel('Population weight',{exact:true}).count
 await page.getByRole('button',{name:'Edit Amount ($000s per customer) path 2',exact:true}).click();
 assert.strictEqual(await page.locator('.dep-apc .deposit-path-panel').count(),1);await page.locator('.dep-apc .fcb-close').click();
 assert.strictEqual(await page.locator('.dep-apc .deposit-path-panel').count(),0);
+// 3b. Precision: focus shows the full stored value; an unchanged edit (a stray space) never writes back a rounded value.
+await page.evaluate(()=>{const c=cfg.assumptions.deposit_products[0].balance_driver;c.balance_per_customer_spec.components[0].amount_spec.value=404711.92264;c.balance_per_customer_spec.components[0].weight_spec.value=.735414627;c.balance_share_spec.value=.7123456789;renderContent();});
+const before3=await spec();
+for(const lab of ['Amount ($000s per customer)','Population weight','Share of calculated balance (%)']){const el=page.getByLabel(lab,{exact:true}).first();
+ const shown=await el.inputValue();await el.focus();const full=await el.inputValue();assert(full.length>shown.length,lab+' focus shows full precision: '+shown+' → '+full);
+ await el.press('End');await el.press(' ');await el.press('Tab');await page.waitForTimeout(30);
+ assert.deepStrictEqual(await spec(),before3,lab+': unchanged value is not rounded on save');}
+assert.strictEqual((await spec()).balance_per_customer_spec.components[0].amount_spec.value,404711.92264);
+const amt=page.getByLabel('Amount ($000s per customer)',{exact:true}).first();await amt.fill('404.71192265');await amt.press('Tab');await page.waitForTimeout(30);
+assert(Math.abs((await spec()).balance_per_customer_spec.components[0].amount_spec.value-404711.92265)<1e-6,'a real edit still saves');
 // 4. Balance share is a field; Use full balance and + Apply a balance share round-trip.
-const share=page.getByLabel('Share of calculated balance (%)',{exact:true});assert.strictEqual(await share.inputValue(),'70');
+const share=page.getByLabel('Share of calculated balance (%)',{exact:true});assert.strictEqual(await share.inputValue(),'71.23');
 await page.getByRole('button',{name:'Use full balance',exact:true}).click();assert.strictEqual((await spec()).balance_share_spec,undefined);
 await page.getByRole('button',{name:'+ Apply a balance share',exact:true}).click();assert.strictEqual((await spec()).balance_share_spec.value,1);
 // 5. No band composition: Acquisition population is offered but disabled.
