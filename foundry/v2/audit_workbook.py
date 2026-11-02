@@ -2156,6 +2156,16 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         for row in _ws.iter_rows(min_row=2):
             for cell in row[3:]:cell.number_format=_RATE_FMT if cell.column==9 else _COUNT_FMT
 
+    _unused_rows=[]
+    for _product in exact.get('products') or []:
+        for _key in ('totalCommitment','unusedCommitment','unusedCommitmentReserve','unusedCommitmentProvision'):
+            _values=_product.get(_key)
+            if isinstance(_values,list):
+                if _key=='unusedCommitmentReserve':_values=_values[1:]
+                _unused_rows.append(('Unused commitments',_product.get('name'),_key,'$000s',[v/1000 for v in _values],_RAW_MONEY_FMT))
+    if _unused_rows:
+        _write_wide_rows(wb.create_sheet('Unused Commitments'),cfg,_unused_rows,title='Unused commitments and reserve liability',subtitle='Total commitment = funded ending balance / utilization. Unused = total less funded. Lifetime reserve is an Other liabilities balance; change in reserve posts to credit provision. No charge-offs on unused commitments.',n=n,ppy=ppy)
+
     _loan_rows=[]
     for _product in exact.get('products') or []:
         if _product.get('loanRollforwardMethod'):

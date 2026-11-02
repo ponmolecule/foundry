@@ -51,6 +51,8 @@ CLASSES = {
     # Memo classes: reported and reconciled, never part of direct contribution (which deducts charge-offs).
     "provision": {"label": "Provision for credit losses", "kind": "flow", "section": "memo",
                   "default": "Provision for credit losses"},
+    "unused_reserve": {"label": "Unused commitment reserve liability", "kind": "stock", "section": "memo",
+                       "default": "Unused commitment reserve · ending balance"},
     "allowance": {"label": "Allowance for credit losses", "kind": "stock", "section": "memo",
                   "default": "Allowance · ending balance"},
 }
@@ -66,6 +68,7 @@ CLASS_LINES = {
     "credit_losses": ["Net charge-offs"],
     "provision": ["Provision for credit losses"],
     "allowance": ["Allowance · ending balance"],
+    "unused_reserve": ["Unused commitment reserve · ending balance"],
 }
 RESERVED_LINES = {"earnings on deposits", "direct contribution"}
 
@@ -81,7 +84,9 @@ _MEASURES = {
                 ("passCost", "noninterest_expense", "Attributable costs", "Fee-stream direct costs"),
                 ("co", "credit_losses", "Net charge-offs", "Net charge-offs"),
                 ("provision", "provision", "Provision for credit losses", "Provision for credit losses"),
-                ("alll", "allowance", "Allowance · ending balance", "Allowance · ending balance")],
+                ("alll", "allowance", "Allowance · ending balance", "Allowance · ending balance"),
+                ("unusedCommitmentProvision", "provision", "Provision for credit losses", "Unused commitment provision"),
+                ("unusedCommitmentReserve", "unused_reserve", "Unused commitment reserve · ending balance", "Unused commitment reserve liability")],
     "deposit": [("bal", "deposits", "Deposits · ending balance", "Ending balance"),
                 ("intExp", "interest_expense", "Cost of funds", "Interest expense"),
                 ("fees", "noninterest_income", "Fee income", "Fee income"),
@@ -204,6 +209,8 @@ def _results_for(fam, cfg_p, prod, econ, n, pkey):
     out = []
     allowance, provision = _credit_series(prod, cfg_p, n) if fam == "lending" else (None, None)
     for measure, cls, line, label in _MEASURES[fam]:
+        if measure in ('unusedCommitmentProvision', 'unusedCommitmentReserve') and measure not in prod:
+            continue
         if measure in ("provision", "alll"):
             ser = provision if measure == "provision" else allowance
             if ser is not None and any(abs(v) > _EPS for v in ser):
@@ -480,13 +487,15 @@ _RECON = [
     ("credit_losses", "Net charge-offs", "flow"),
     ("allowance", "Allowance for credit losses · ending balance", "stock"),
     ("provision", "Provision for credit losses", "flow"),
+    ("unused_reserve", "Unused commitment reserve liability", "stock"),
 ]
 _PRODUCT_FIELDS = {
     "loans": ("lending", ["bal", "whCarry"]), "deposits": ("deposit", ["bal"]),
     "interest_income": (None, ["intInc"]), "interest_expense": (None, ["intExp"]),
     "noninterest_income": (None, ["fees", "gos", "servNet"]), "noninterest_expense": (None, ["opex", "passCost"]),
     "credit_losses": (None, ["co"]),
-    "allowance": ("lending", ["@allowance"]), "provision": ("lending", ["@provision"]),
+    "allowance": ("lending", ["@allowance"]), "provision": ("lending", ["@provision", "unusedCommitmentProvision"]),
+    "unused_reserve": ("lending", ["unusedCommitmentReserve"]),
 }
 
 
@@ -510,6 +519,8 @@ def reconcile(view, res, problems=None, cfg=None):
     out = []
     ok = True
     for cls, label, kind in _RECON:
+        if cls=='unused_reserve' and not any('unusedCommitmentReserve' in p for p in prods):
+            continue
         stock = kind == "stock"
         fam, fields = _PRODUCT_FIELDS[cls]
         # reported: every result counted once per destination (an overlap shows as a difference)
@@ -570,6 +581,9 @@ def reconcile(view, res, problems=None, cfg=None):
         elif cls == "allowance":
             if BS.get("alll") is not None:
                 bank, bank_label = _arr(BS.get("alll"), n, True), "Balance sheet · allowance for loan losses"
+        elif cls == "unused_reserve":
+            if BS.get('unusedCommitmentReserve') is not None:
+                bank, bank_label = _arr(BS['unusedCommitmentReserve'], n, True), 'Balance sheet · unused commitment reserve liability'
         elif cls == "provision":
             if IS.get("prov") is not None:
                 bank, bank_label = _arr(IS.get("prov"), n, False), "Income statement · provision for loan losses"

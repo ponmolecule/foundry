@@ -1,3 +1,7 @@
+# r456 — Unused commitment reserve and calculation status
+
+See RELEASE_r456.md. Optional liability/provision ledger; current-run badge and stale Numbers snapshot protection. No automatic opt-in.
+
 # r455 — Direct shared assumption deletion
 
 See RELEASE_r455.md. Plain labels and visible delete/empty-cleanup controls beside the selector.

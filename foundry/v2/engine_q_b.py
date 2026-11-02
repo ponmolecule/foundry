@@ -32,6 +32,9 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
     afs_p = copy.deepcopy(a.get("securities_afs") or [])
     htm_p = copy.deepcopy(a.get("securities_htm") or [])
 
+    if any(p.get('unused_commitment_reserve') is not None for p in lend):
+        raise ValueError('Unused commitment reserves require Profile A')
+
     if any(p.get('loan_rollforward') is not None for p in lend):
         raise ValueError('Loan production and deferred fees/costs require Profile A; select Profile A before running')
 

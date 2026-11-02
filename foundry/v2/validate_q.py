@@ -833,6 +833,11 @@ def validate_config_v2(cfg):
         try:
             from .loan_balance import normalize_linked_loan_balance
             _normalized_loan = normalize_linked_loan_balance(p, a)
+            if p.get('unused_commitment_reserve') is not None:
+                if cfg.get('parity_profile') != 'pf_a':
+                    raise ValueError('Unused commitment reserves require Profile A')
+                from .unused_commitments import prepare as prepare_unused_commitments
+                prepare_unused_commitments(p, int(a.get('n_periods') or 12), _ppy, _growth_ctx)
             if p.get('repayment_profile') is not None:
                 if cfg.get('parity_profile') != 'pf_a':raise ValueError('Repayment profiles require the fee-stream engine (pf_a)')
                 from .repayment_profiles import resolve as resolve_profile
