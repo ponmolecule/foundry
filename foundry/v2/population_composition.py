@@ -42,10 +42,12 @@ def allocate(feed,channel_monthly):
     if c is None:return
     for ch,rows in zip(feed.get('channels') or [],channel_monthly):
         shares=c['channel_shares'][ch['derived_series_ids']['new_customers']]
+        # Validation accepts decimal-entry precision; allocate that accepted mix exactly.
+        total_share=sum(float(shares[b['id']]) for b in c['bands'])
         for r in rows:
             raw=number(r['new_customers'],'Acquisition equation output');allocated={}
             for b in c['bands']:
-                value=raw*float(shares[b['id']])
+                value=raw*(float(shares[b['id']])/total_share)
                 if c.get('rounding')=='up' and value>0:
                     nearest=round(value)
                     value=float(nearest if abs(value-nearest)<=2*math.ulp(value) else math.ceil(value))

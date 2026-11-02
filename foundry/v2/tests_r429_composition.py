@@ -45,6 +45,19 @@ class Tests(unittest.TestCase):
   self.assertEqual(m['population_composition']['bands']['b0']['monthly'],q['population_composition']['bands']['b0']['monthly'])
   self.assertAlmostEqual(m['population_composition']['bands']['b0']['monthly'][0]['lost'],10*.1/12)
   maps=cac_customer_count_measure_series_map(a,20,4);self.assertEqual(maps['people']['period_end'],q['population_composition']['population']['customer_level_by_period'])
+ def test_decimal_precision_preserves_feed_and_saved_inputs(self):
+  a=setup();f=a['cac_feeds']['Practices'];c=f['population_composition']
+  c['channel_shares']['referrals']=dict(zip(['b0','b1','b2','b3'],[.73541463,.19268675,.04800626,.02389237]))
+  before=copy.deepcopy(a);plain=copy.deepcopy(f);plain.pop('population_composition')
+  expected=cac_auc_rollforward(plain,60,12,assumptions=a)
+  r=cac_auc_rollforward(f,60,12,assumptions=a)
+  self.assertEqual(a,before)
+  self.assertEqual(r['customer_end_by_month'],expected['customer_end_by_month'])
+  for i,end in enumerate(r['customer_end_by_month']):
+   self.assertAlmostEqual(sum(b['customer_end_by_month'][i] for b in r['population_composition']['bands'].values()),end,places=7)
+  restored=json.loads(json.dumps(a))
+  self.assertEqual(restored,a)
+  self.assertEqual(cac_auc_rollforward(restored['cac_feeds']['Practices'],60,12,assumptions=restored)['customer_end_by_month'],r['customer_end_by_month'])
  def test_public_catalog_and_product_cost(self):
   from .source_catalog import catalog
   a=setup();c=json.loads(Path('foundry/fixtures/core_bank_test_base.json').read_text());c['assumptions'].update(a)

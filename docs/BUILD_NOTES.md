@@ -1,3 +1,7 @@
+# r452 — Composition Apply and result refresh
+
+See RELEASE_r452.md. Single-click draft actions, decimal-share reconciliation and visible calculation failures. No saved input migration.
+
 # r451 — Workforce growth inheritance
 
 See RELEASE_r451.md. Three compensation paths; explicit default/override source within Growth. No engine change.
