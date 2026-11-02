@@ -1,3 +1,7 @@
+# r454 — Shared assumption controls and cleanup
+
+See RELEASE_r454.md. Named drafts, factor retention, explicit safe cleanup and duplicate-name disambiguation; no migration or engine change.
+
 # r453 — Live population weights for lending
 
 See RELEASE_r453.md. Opt-in consumer weighting with shared amounts and preserved factors; no saved input migration.
