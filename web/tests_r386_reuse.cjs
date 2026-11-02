@@ -10,7 +10,7 @@ assert.strictEqual(await page.getByLabel('Breakdown label',{exact:true}).count()
 assert.strictEqual(await page.getByRole('button',{name:/Create weighted assumption/}).count(),0);
 await page.getByLabel('Breakdown label',{exact:true}).first().fill('Small customers');await page.getByLabel('Breakdown label',{exact:true}).first().press('Tab');
 assert.strictEqual(await page.evaluate(()=>cfg.assumptions.deposit_products[0].balance_driver.balance_per_customer_spec.components[0].name),'Small customers');
-await page.getByRole('button',{name:'+ Add row',exact:true}).click();assert.strictEqual(await page.getByLabel('Breakdown label',{exact:true}).count(),5);
+await page.getByRole('button',{name:'+ Add band',exact:true}).click();assert.strictEqual(await page.getByLabel('Breakdown label',{exact:true}).count(),5);
 await page.evaluate(()=>depositAmountComponent(0,4));
 await page.evaluate(()=>{window.testIndex=1;renderContent();});
 assert.strictEqual(await page.getByLabel('Linked deposit amount source',{exact:true}).inputValue(),'0');

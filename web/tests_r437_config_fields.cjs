@@ -32,7 +32,7 @@ await cRow.locator('.fxs-seg button',{hasText:'Growth'}).click();await settle();
 assert.strictEqual((await role()).count_spec.trajectory,'growth','count path written');
 assert.strictEqual(await vis('.cfg-md-detail .fxs-wf .fxs-cfgrow .fxs-cl').filter({hasText:'Count growth'}).count(),1,'growth line under the count');
 const pRow=vis('.cfg-md-detail .fxs-wf .fxs-cfgrow').filter({has:page.locator('.fxs-cl',{hasText:/^Compensation$/})});
-assert.deepStrictEqual(await pRow.locator('.fxs-seg button').allInnerTexts(),['Escalation','Flat','Growth','Schedule']);
+assert.deepStrictEqual(await pRow.locator('.fxs-seg button').allInnerTexts(),['Flat','Growth','Schedule']);
 const name=vis('.cfg-md-detail .fxs-wf input.wf-role-name');await name.fill('Operations team');await name.press('Tab');await settle();
 assert.strictEqual((await role()).role,'Operations team','name still edits the role');
 // 3. Expense category: Category, Amount (path, value, period) and Growth rows.
