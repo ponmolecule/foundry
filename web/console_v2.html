@@ -4281,7 +4281,7 @@ window.feeStreamDrop=function(ev,fi,target){
 window.feeStreamDragEnd=function(ev){ev.stopPropagation();document.querySelectorAll('.fee-stream-row.dragging').forEach(el=>el.classList.remove('dragging'));_feeStreamClearDropMarkers();window._feeStreamDrag=null;};
 // End r271 stream reorder.
 window.stSelect=function(fi,si){const s=(_stOwner(fi)||{}).fee_streams;if(s&&s[si]){window._stSelObj=s[si];renderContent();}};
-window.stTabSet=function(k){window._stTab=k;const b=document.querySelector('.st-body');if(b)b.setAttribute('data-st-tab',k);document.querySelectorAll('.st-tab').forEach(x=>x.classList.toggle('on',x.getAttribute('data-tab')===k));};
+window.stTabSet=function(k){window._stTab=k;const b=document.querySelector('.st-body');if(b)b.setAttribute('data-st-tab',k);document.querySelectorAll('.st-tab').forEach(x=>x.classList.toggle('on',x.getAttribute('data-tab')===k));refreshLfxLive();};
 document.addEventListener('input',function(e){ // r204: mirror a stream rename into its header and grid row as you type
   const t=e.target; if(!t||!t.closest||!t.closest('.st-body .fee-stream-block')) return;
   const hd=document.querySelector('.st-head b'), cell=document.querySelector('.st-list tr.sel td.name'), v=t.value||'';
@@ -7410,11 +7410,12 @@ function _feeStreamRole(st){
  const revenue=(st.rate||{}).behavior==='cost_recovery'||nonzero((st.rate||{}).params)||st.revenue_presentation==='contra_revenue',cost=(st.cost||{}).kind&&st.cost.kind!=='none'&&st.cost.kind!=='pct_of_revenue';
  return revenue?(cost?'Revenue + Cost':st.revenue_presentation==='contra_revenue'?'Contra-revenue':'Revenue'):cost?'Cost':'Driver';
 }
-function _feeStreamResolvedOutput(i,si,res){
+function _feeStreamResolvedOutput(i,si,res,view){
  const st=((_stOwner(i)||{}).fee_streams||[])[si]||{},sid=String(st.quantity_series_id||''),r=res===undefined?((typeof lastRes!=='undefined'&&lastRes)||{}):(res||{}),role=_feeStreamRole(st),display=_feeStreamDisplay(i,si);
  const raw=((r.fee_stream_quantities||{}).series||{})[sid],rec=((r.fee_stream_economics||{}).series||{})[sid],income=rec&&rec.reported_fee_income,cost=rec&&rec.fee_product_cost;
- let values=null,label,unit,financial=role!=='Driver';
+ let values=null,label,unit,financial=view==='activity'?false:view==='costs'?true:role!=='Driver';
  if(!financial){values=Array.isArray(raw)?raw.map(display.scale):null;label=display.kind==='count'?'Resolved count':display.kind==='money'?(st.basis==='balance'?'Resolved balance':'Resolved volume'):'Resolved quantity';unit=display.unit;}
+ else if(view==='costs'){unit='$000s';label='Stream cost';values=Array.isArray(cost)?cost.map(v=>v==null?null:+v/1000):null;}
  else{unit='$000s';label=role==='Revenue + Cost'?'Net stream income':role==='Contra-revenue'?'Contra-revenue':role==='Cost'?'Stream cost':'Stream revenue';
    if(role==='Cost'&&Array.isArray(cost))values=cost.map(v=>v==null?null:+v/1000);
    else if(Array.isArray(income)&&role!=='Cost')values=income.map((v,j)=>v==null||(role==='Revenue + Cost'&&(!Array.isArray(cost)||cost[j]==null))?null:(+v-(role==='Revenue + Cost'?+cost[j]:0))/1000);
@@ -8801,7 +8802,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       const m=_stMeta[_stSel]||_stMeta[0];
       const chain=[_stSel]; { let cur=m,guard=0; while(cur&&cur.src==='stream_ref'&&cur.ref&&guard++<12){ const j=_stMeta.findIndex(z=>z.name===cur.ref); if(j<0||chain.includes(j)) break; chain.unshift(j); cur=_stMeta[j]; } }
       const down=_stMeta.map((z,j)=>j).filter(j=>_stMeta[j].src==='stream_ref'&&_stMeta[j].ref===m.name&&!chain.includes(j));
-      let tab=window._stTab; if(!['activity','pricing','timing','costs'].includes(tab)) tab='activity';if(m.ck==='linked_formula_opex')tab='costs';
+      let tab=window._stTab; if(!['activity','pricing','timing','costs'].includes(tab)) tab='activity';if(m.ck==='linked_formula_opex')tab='costs';window._stTab=tab;
       const tsum=`Start ${m.start||1} \u00b7 ${m.end?'end '+m.end:'no end'} \u00b7 ${m.ramp?'ramp '+m.ramp:'step'}`;
       let chainH='';
       const _srcChip=_stSrcChip(_stMeta,_fi,chain[0]);
@@ -9007,14 +9008,14 @@ function _lfxLiveHtml(kind,i,j){let p,C;
   else{p=(cfg.assumptions.lending_products||[])[i];if(!p)return '';C=_lfxCtx(p);}
   const P=C.P,ref=C.ref,t=ref-1,per=_lfxPer(),A=(k,x)=>`<${x||'span'} data-lfx-live="${k}" data-i="${i}"${j!=null?` data-j="${j}"`:''}`;
   if(kind==='sro'){
-    const out=_feeStreamResolvedOutput(+i,+j,C.res),q=out.values,n=q?q.length:0,Q=_lfxQ,fmt=out.format;
+    const view=window._stTab||'activity',out=_feeStreamResolvedOutput(+i,+j,C.res,view),q=out.values,n=q?q.length:0,Q=_lfxQ,fmt=out.format;
     let b=`<div class="ro-h"><span>${esc(out.label)}</span><b>${esc(out.unit)}</b></div>`;
     if(!q||!q.length)b+='<div class="ro-empty">Appears after a successful run with per-stream results.</div>';
     else{const stats=_feeStreamSummaryStats(out,((_stOwner(+i)||{}).fee_streams||[])[+j]||{},ref,Q);
       b+=_lfxSparkSvg(q,ref,fmt)+`<div class="ro-ax"><span>${Q(1)}</span><span>${Q(n)}</span></div><div class="ro-k" style="grid-template-columns:repeat(${stats.length},minmax(0,1fr))">${stats.map(([k,v])=>`<div><span>${k}</span><b>${fmt(v)}</b></div>`).join('')}</div>`;
-      if(out.role==='Revenue + Cost')b+=`<table class="ro-t ro-sep"><tr><td>Stream income · ${Q(ref)}</td><td>${fmt(out.income&&out.income[ref-1])}</td></tr><tr><td>Stream cost · ${Q(ref)}</td><td>${fmt(out.cost&&out.cost[ref-1])}</td></tr></table>`;
+      if(out.financial&&view!=='costs'&&out.role==='Revenue + Cost')b+=`<table class="ro-t ro-sep"><tr><td>Stream income · ${Q(ref)}</td><td>${fmt(out.income&&out.income[ref-1])}</td></tr><tr><td>Stream cost · ${Q(ref)}</td><td>${fmt(out.cost&&out.cost[ref-1])}</td></tr></table>`;
     }
-    if(out.values&&out.values.length)b+=_resultNumbersLink([{name:out.label,unit:out.unit,values:out.values},...(out.role==='Revenue + Cost'?[{name:'Stream income',unit:'$000s',values:out.income||[]},{name:'Stream cost',unit:'$000s',values:out.cost||[]}]:[])],C.stale);
+    if(out.values&&out.values.length)b+=_resultNumbersLink([{name:out.label,unit:out.unit,values:out.values},...(out.financial&&view!=='costs'&&out.role==='Revenue + Cost'?[{name:'Stream income',unit:'$000s',values:out.income||[]},{name:'Stream cost',unit:'$000s',values:out.cost||[]}]:[])],C.stale);
     return `${A('sro','aside')} class="lfx-ro${C.stale?' stale':''}" aria-label="Resolved stream output">${b}</aside>`;
   }
   if(kind.slice(0,3)==='ro-')return `${A(kind,'aside')} class="lfx-ro${C.stale?' stale':''}" aria-label="Engine results">${_lfxRoHtml(kind.slice(3),p,C)}</aside>`;
