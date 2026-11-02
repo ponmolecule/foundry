@@ -1,3 +1,7 @@
+# r455 — Direct shared assumption deletion
+
+See RELEASE_r455.md. Plain labels and visible delete/empty-cleanup controls beside the selector.
+
 # r454 — Shared assumption controls and cleanup
 
 See RELEASE_r454.md. Named drafts, factor retention, explicit safe cleanup and duplicate-name disambiguation; no migration or engine change.

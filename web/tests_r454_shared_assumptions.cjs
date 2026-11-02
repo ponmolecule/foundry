@@ -53,9 +53,8 @@ await page.evaluate(()=>{
  cfg.assumptions.lending_products[1].test_reference={source:'input_ref',input_id:'protected'};
  cfg.assumptions.lending_products[0].balance_driver.average_balance_per_customer_spec.input_id='empty-1';renderContent();
 });
-assert.equal(await page.getByLabel('Shared amount',{exact:true}).locator('option').filter({hasText:'Weighted amount per customer ·'}).count(),3,'duplicate names disambiguated');
-await page.getByText('Manage shared assumptions',{exact:true}).click();
-await page.getByRole('button',{name:'Remove unused empty entries',exact:true}).click();
+assert.equal(await page.getByLabel('Shared amount',{exact:true}).locator('option').filter({hasText:'Weighted amount per customer'}).count(),3,'legacy names remain readable');
+await page.getByRole('button',{name:'Clear empty entries',exact:true}).click();
 assert.deepEqual(await page.evaluate(()=>_sharedInputs().map(x=>x.id).filter(x=>x.startsWith('empty'))),[]);
 assert(await page.evaluate(()=>_sharedInputs().some(x=>x.id==='protected')),'referenced placeholder protected');
 assert.equal(await page.getByLabel('Shared amount',{exact:true}).inputValue(),'');
