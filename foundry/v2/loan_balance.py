@@ -138,7 +138,15 @@ def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping 
     if measure == "annual_count":
         raise ValueError("linked loan balance requires period_end or period_average customer count")
     raw_multiplier = raw.get("average_balance_per_customer_spec") or {"source":"entered","trajectory":"flat","value":0.0}
-    if raw_multiplier.get("source") == "input_ref":
+    if raw_multiplier.get('weight_source', 'entered') not in {'entered','active_population'}:
+        raise ValueError('Unsupported lending weight source')
+    if raw_multiplier.get('weight_source') == 'active_population':
+        if raw_multiplier.get('source') != 'input_ref':
+            raise ValueError('Live lending weights require a shared weighted assumption')
+        from .population_amount import population_amount
+        population_amount(raw, _loan_population_spec(raw_multiplier, assumptions or {}), assumptions or {}, 1)
+        multiplier = dict(raw_multiplier)
+    elif raw_multiplier.get("source") == "input_ref":
         from .shared_assumptions import SharedAssumptions
         # Validate references, dimensions and cycles without posting balance components.
         SharedAssumptions(assumptions or {}, 1, 12).resolve(raw_multiplier, "money_per_unit")
@@ -160,6 +168,28 @@ def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping 
         "measure": measure,
         "average_balance_per_customer_spec": multiplier,
     }
+
+
+def _loan_population_spec(raw, assumptions):
+    """Override weights at the consumer; never edit a shared assumption."""
+    from copy import deepcopy
+    from .shared_assumptions import SharedAssumptions
+    shared = SharedAssumptions(assumptions, 1, 12)
+    row = shared.inputs.get(raw.get('input_id'))
+    if not row or row.get('unit') != 'money_per_unit':
+        raise ValueError('Live lending weights require a shared money-per-customer assumption')
+    if row.get('amount_time_basis', 'none') not in {'none','month','quarter','year'}:
+        raise ValueError('Unsupported shared amount time basis')
+    spec = deepcopy(row.get('spec') or {})
+    if spec.get('source') != 'weighted_sum':
+        raise ValueError('Live lending weights require a shared weighted breakdown')
+    mapping = raw.get('population_band_map') or {}
+    if set(mapping) != {r.get('id') for r in spec.get('components') or []}:
+        raise ValueError('Map every shared component to an acquisition band')
+    for r in spec.get('components') or []:
+        r['population_band_id'] = mapping[r['id']]
+    spec['factors'] = list(spec.get('factors') or []) + deepcopy(raw.get('factors') or [])
+    return spec
 
 
 def resolve_linked_loan_balance(product: Mapping, assumptions: Mapping,
@@ -222,6 +252,22 @@ def resolve_linked_loan_balance(product: Mapping, assumptions: Mapping,
     if len(counts) != int(n_periods):
         raise ValueError(f"linked loan customer-count Series {sid!r} has an incomplete horizon")
     detail = None
+    spec = cfg['average_balance_per_customer_spec']
+    if spec.get('weight_source') == 'active_population':
+        from .population_amount import population_amount
+        from .cac_feeder import cac_customer_count_measure_series_map
+        width = 12 // ppy
+        months = n_periods * width
+        amounts, detail = population_amount(cfg, _loan_population_spec(spec, assumptions), assumptions, months, growth_context)
+        for row in detail:
+            row['cadence'] = 'month'
+        monthly_counts = cac_customer_count_measure_series_map(assumptions, months, 12, growth_context=growth_context)[sid][measure]
+        monthly_balances = [c * v for c, v in zip(monthly_counts, amounts)]
+        balances = (monthly_balances[width-1::width] if measure == 'period_end' else
+                    [sum(monthly_balances[i:i+width])/width for i in range(0, months, width)])
+        multipliers = [b/c if c else 0. for b,c in zip(balances, counts)]
+        return {**cfg, 'customer_count':counts, 'average_balance_per_customer':multipliers,
+                'assumption_detail':detail, 'ending_balance':balances}
     if cfg["average_balance_per_customer_spec"].get("source")=="input_ref":
         from .shared_assumptions import SharedAssumptions
         multipliers, detail = SharedAssumptions(assumptions, n_periods, ppy, growth_context).resolve(

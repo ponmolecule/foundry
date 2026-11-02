@@ -1,3 +1,7 @@
+# r453 — Live population weights for lending
+
+See RELEASE_r453.md. Opt-in consumer weighting with shared amounts and preserved factors; no saved input migration.
+
 # r452 — Composition Apply and result refresh
 
 See RELEASE_r452.md. Single-click draft actions, decimal-share reconciliation and visible calculation failures. No saved input migration.
