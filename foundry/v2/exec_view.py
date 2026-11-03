@@ -321,4 +321,10 @@ def build_exec_view_html(cfg, res, template_path):
     marker = "/*__FOUNDRY_DATA_INJECTION__*/"
     if marker not in tmpl:
         raise ValueError("injection marker missing from template")
-    return tmpl.replace(marker, block, 1)
+    html = tmpl.replace(marker, block, 1)
+    if res.get('component_inclusion'):
+        import html as escape_html
+        names=' · '.join(escape_html.escape(r['name']) for r in res['component_inclusion']['excluded'])
+        import re
+        html=re.sub(r'(<body\b[^>]*>)', lambda m: m.group(1)+'<section style="padding:16px"><h2>Excluded components</h2><p>'+names+'</p></section>',html,count=1,flags=re.I)
+    return html

@@ -154,7 +154,7 @@ def per_customer_amount(product, a, months, growth_context=None, seen=()):
     if source=='deposit_customer_amount':
         sid=str(raw.get('series_id') or '')
         if not sid or sid in seen:raise ValueError('Circular or missing deposit amount link')
-        hits=[p for p in a.get('deposit_products',[]) if p.get('source_catalog_id')==sid]
+        hits=[p for p in a.get('_saved_deposit_assumptions',a.get('deposit_products',[])) if p.get('source_catalog_id')==sid]
         if len(hits)!=1 or hits[0].get('balance_mode')!='linked_customer_level':raise ValueError('Linked deposit per-customer amount is unavailable')
         return per_customer_amount(hits[0],a,months,growth_context,seen+(sid,))
     if source=='weighted_sum' and raw.get('weight_source', 'entered') not in {'entered', 'active_population'}:
@@ -312,7 +312,7 @@ def prepare(a, n, ppy, quantities=None, growth_context=None, customer_details=No
             budget = {key: r(policy.get(key, {'value': default}), key == 'target_leverage_spec') for key, default in [('target_leverage_spec', 0), ('capital_deduction_spec', 0), ('liquidity_buffer_spec', 0), ('operating_float_months_spec', 0), ('other_committed_assets_spec', 0)]}
             if any(v <= 0 for v in budget['target_leverage_spec']):
                 raise ValueError('Equity-budget target leverage must be above zero')
-        prepared.append(dict(config=pool, members=members, weights=weights, source=available, adjustments=net, share=shares, fee_rate=fee, capacity=capacity, budget=budget, fee_measure=fee_measure, opening_swept=opening_swept,
+        prepared.append(dict(config=pool, members=members, inactive={i for i in members if products[i].get('_scenario_off')}, weights=weights, source=available, adjustments=net, share=shares, fee_rate=fee, capacity=capacity, budget=budget, fee_measure=fee_measure, opening_swept=opening_swept,
                              audit={key: [] for key in ('sourceBalance', 'balanceAdjustments', 'availableBalance', 'shareLimit', 'capacity', 'retainedBalance', 'sweptBalance', 'sweepFee', 'beginningSweptBalance', 'sweepFeeBasis', 'beginningCapital', 'committedAssets', 'bindingLimit')}))
     return direct, prepared
 
@@ -340,4 +340,4 @@ def allocate_period(pool, q, ppy, beginning_equity=0, beginning_credit=0, prior_
     vals = (pool['source'][k], pool['adjustments'][k], available, limit, cap, retained, swept, fee, prior, basis, capital, committed, binding)
     for key, val in zip(pool['audit'], vals):
         pool['audit'][key].append(val)
-    return {i: (retained * pool['weights'][i][k], swept * pool['weights'][i][k], fee * pool['weights'][i][k]) for i in pool['members']}
+    return {i: ((0.,0.,0.) if i in pool.get('inactive',set()) else (retained * pool['weights'][i][k], swept * pool['weights'][i][k], fee * pool['weights'][i][k])) for i in pool['members']}

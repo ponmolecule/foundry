@@ -75,6 +75,11 @@ def validate_errors_v2(cfg):
 
 
 def validate_config_v2(cfg):
+    from .component_switches import prepare as prepare_component_switches
+    try:
+        cfg = prepare_component_switches(cfg)
+    except ValueError as e:
+        raise ConfigErrorV2(str(e)) from e
     errs = []
     from .timebase import quarterly_value_to_period
     from .growth import validate_growth_spec_for_cadence, growth_context_from_cfg
@@ -644,7 +649,7 @@ def validate_config_v2(cfg):
                 if ((st.get("driver") or {}).get("source") == "cost_pool"):
                     from .cost_pools import resolve_cost_pool_ref
                     _linked_pool = resolve_cost_pool_ref((st.get("driver") or {}).get("ref"), a)
-                    if not ((_linked_pool or {}).get("components") or []):
+                    if not ((_linked_pool or {}).get("components") or []) and not (_linked_pool or {}).get("_scenario_off"):
                         raise ValueError("referenced cost_pool requires at least one eligible expense component")
                 if ((st.get('driver') or {}).get('source') == 'account_activity'):
                     from .account_activity import catalog as activity_catalog

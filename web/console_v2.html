@@ -4082,7 +4082,7 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 .st-list td.st-ty{white-space:nowrap}.st-ty-c{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:#2A2A2A;font-size:12.5px}.st-ty-c i{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:#F6EFE1;border:1px solid #E6D8B8;color:#7D6A43;flex:none}.st-ty-c svg{width:14px;height:14px}
 .st-list tbody td:not(.st-q):not(.st-order):not(.st-ty){white-space:normal}.st-list td.name{min-width:150px}
 </style>
-</head>
+<style>.sw-panel{border:1px solid #ddd;padding:14px;margin:12px 0;background:#fff}.sw-panel table{width:100%;border-collapse:collapse}.sw-panel td,.sw-panel th{text-align:left;border-bottom:1px solid #eee;padding:7px}.sw-panel small,.sw-control small{display:block;color:#666}.sw-panel details label{display:block;padding:4px}.sw-control{display:inline-block;margin-right:12px}.sw-control button[aria-checked="false"]{background:#eee;color:#555}.sw-control button{border:1px solid #ad864b;border-radius:12px;padding:3px 12px;background:#f9f1df;color:#574321}.sw-panel select{max-width:260px}</style></head>
 <body>
 <div id="appbar">
   <div class="ab-row ab-id">
@@ -8449,10 +8449,11 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       const rb = st.rate.behavior || "flat";
       const ck = st.cost.kind || "none";let _rbOpts=[];
       if(ck==='linked_formula_opex'){
-        h+=`<section class="st-definition"><div class="st-definition-head"><b>Product expense</b><span>Linked formula · posts once to this product</span></div><div class="fld"><label>Stream name</label><input value="${esc(st.name||'Product expense')}" onchange="setPath('${sb}.name',this.value);refresh()"></div></section>`;
+        h+=`<section class="st-definition"><div class="st-definition-head"><b>Product expense</b>${swControl(st)}<span>Linked formula · posts once to this product</span></div><div class="fld"><label>Stream name</label><input value="${esc(st.name||'Product expense')}" onchange="setPath('${sb}.name',this.value);refresh()"></div></section>`;
         h+=`<div class="st-sec" data-st="costs"><div class="st-section-heading fld wide"><b>Cost formula</b><span>Reuse modeled balances, rates and activity. Source quantities do not post again.</span></div><div class="fld wide product-formula-editor">${_opexFormulaDriverEditorHtml(-(+_fi+1),si,st.cost.params.formula)}</div><div class="fld wide"><label>Gross-up eligibility</label><select aria-label="Product formula gross-up" onchange="if(this.value==='inherit')delete _stOwner(${_fi}).fee_streams[${si}].cost.gross_up_eligible;else _stOwner(${_fi}).fee_streams[${si}].cost.gross_up_eligible=this.value==='yes';refresh()">${[['inherit','Use stream-cost group setting'],['yes','Include in gross-up'],['no','Exclude from gross-up']].map(([v,l])=>`<option value="${v}"${(st.cost.gross_up_eligible==null?'inherit':st.cost.gross_up_eligible?'yes':'no')===v?' selected':''}>${l}</option>`).join('')}</select></div></div>`;
       }else{
       h += '<section class="st-definition" aria-label="Shared stream definition"><div class="st-definition-head"><b>Stream definition</b><span>Shared across Activity, Pricing, Timing and Costs</span></div><div class="st-definition-fields">';
+      h += swControl(st);
       // Stream header (name + remove) then the full six-axis editor, always shown, stacked.
       h += `<div class="fld wide fee-stream-block"><label>Stream name</label>`;
       h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
@@ -14364,6 +14365,7 @@ function _renderContentBody(){
     });
     h+='</div>';
     h+=`<div class="prd-nav-foot">${_stale?'Muted figures are from the last complete run, $000s.':'Figures from the latest engine run, $000s.'}</div></nav><div class="prd-resizer" role="separator" aria-label="Product sidebar width" aria-orientation="vertical" tabindex="0" title="Drag to resize product list; double-click to reset" onpointerdown="prdResizeStart(event)" onkeydown="prdResizeKey(event)" ondblclick="prdSidebarWidth(300)"></div><div class="prd-stage">`;
+    h+=swPanelHtml();
     h+='<div id="productValidation" aria-live="polite">'+productValidationHtml(_stale)+'</div>';
 
     if(view==='product'){
@@ -14373,7 +14375,7 @@ function _renderContentBody(){
       const tabs=[['setup','Setup',null]]; if(fee||x.fam==='lending'||x.fam==='deposit') tabs.push(['streams','Fee streams',ns]); if(V21) tabs.push(['overrides','Per-month overrides',null]);   // r232: Fee streams for loans and deposits too
       let tab=window._prdTab; if(!tabs.some(t=>t[0]===tab)) tab='setup';
       h+=`<div class="prd-crumb"><a href="#" onclick="prdView('portfolio');return false">Products</a><span>/</span>${_famLab(x.fam)}<span>/</span><b>${esc(p.name||'Unnamed product')}</b></div>`;
-      h+=`<div class="prd-band"><div class="prd-band-id"><div class="prd-band-t"><b>${esc(p.name||'Unnamed product')}</b><span class="prd-tag">${_famLab(x.fam)}</span></div><div class="prd-band-s">${x.fam==='lending'&&!fee&&typeof lncTypeLine==='function'?esc(lncTypeLine(p)):kind+(line?' \u00B7 '+esc(line):'')}${fee&&p.managed_notional_source?' \u00B7 AUC from feed '+esc(p.managed_notional_source):''}</div></div>${lastRes?pstat(p.name):(()=>{const r=_row(p.name);if(!r)return '<div class="pstat"><span><label>'+BQ+'</label><b>\u2014</b></span><span><label>'+RQ+'</label><b>'+(_needs(p.name)?'Needs inputs':'\u2014')+'</b></span></div>';const cc=_contrib(r);return '<div class="pstat prd-pstat-stale" title="From the last complete run"><span><label>'+BQ+'</label><b>'+fmt0(r.q12_balance)+'</b></span><span><label>'+RQ+'</label><b>'+fmt0(r.revenue)+'</b></span><span><label>'+CQ+'</label><b>'+fmt0(cc)+'</b></span></div>';})()}<div class="prd-band-act"><button type="button" onclick="delProduct('${x.fam}',${x.i})">Delete</button></div></div>`;
+      h+=`<div class="prd-band"><div class="prd-band-id"><div class="prd-band-t"><b>${esc(p.name||'Unnamed product')}</b><span class="prd-tag">${_famLab(x.fam)}</span></div><div class="prd-band-s">${x.fam==='lending'&&!fee&&typeof lncTypeLine==='function'?esc(lncTypeLine(p)):kind+(line?' \u00B7 '+esc(line):'')}${fee&&p.managed_notional_source?' \u00B7 AUC from feed '+esc(p.managed_notional_source):''}</div></div>${lastRes?pstat(p.name):(()=>{const r=_row(p.name);if(!r)return '<div class="pstat"><span><label>'+BQ+'</label><b>\u2014</b></span><span><label>'+RQ+'</label><b>'+(_needs(p.name)?'Needs inputs':'\u2014')+'</b></span></div>';const cc=_contrib(r);return '<div class="pstat prd-pstat-stale" title="From the last complete run"><span><label>'+BQ+'</label><b>'+fmt0(r.q12_balance)+'</b></span><span><label>'+RQ+'</label><b>'+fmt0(r.revenue)+'</b></span><span><label>'+CQ+'</label><b>'+fmt0(cc)+'</b></span></div>';})()}<div class="prd-band-act">${swControl(p)}<button type="button" onclick="delProduct('${x.fam}',${x.i})">Delete</button></div></div>`;
       if(tabs.length>1) h+='<div class="prd-tabs" role="tablist">'+tabs.map(t=>`<button type="button" class="prd-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="prdTabSet('${t[0]}')">${t[1]}${t[2]!=null?`<small>${t[2]}</small>`:''}</button>`).join('')+'</div>';
       h+=`<div class="prd-card" data-pp-tab="${tab}" data-fam="${x.fam}" data-i="${x.i}">${prodCardHtml(x.fam,x.i)}</div>`;
     } else if(view==='compare'){
@@ -19521,6 +19523,56 @@ function fxsConfigAfterRender(){if(typeof document==='undefined')return;
 
 renderTabs();
 whoami().then(u=>{ paintWho(); if(u){ boot().then(()=>sessionSafety.offer()); } else { currentTab = "welcome"; renderContent(); } });
+/* Whole-forecast component inclusion. Saved assumptions are retained. */
+function swInventory(){
+ const a=cfg.assumptions||{},out=[];
+ const add=(node,kind,path,parent=null)=>{const id=node.inclusion_id||node.product_id||node.quantity_series_id||node.series_id||path;out.push({node,kind,path,parent,id,name:node.name||node.role||path});return id;};
+ ['lending_products','deposit_products','obs_exposures'].forEach(k=>(a[k]||[]).forEach((p,i)=>{const id=add(p,k,k+'.'+i);(p.fee_streams||[]).forEach((s,j)=>add(s,'stream',k+'.'+i+'.fee_streams.'+j,id));}));
+ Object.entries(a.cac_feeds||{}).forEach(([k,f])=>{const id=add(f,'feed','cac_feeds.'+k);(f.channels||[]).forEach((c,j)=>add(c,'channel','cac_feeds.'+k+'.channels.'+j,id));});
+ [['role','nie_detail.workforce.roles',a.nie_detail?.workforce?.roles||[]],['cost_pool','cost_pools',a.cost_pools||[]],['expense','nie_detail.categories',a.nie_detail?.categories||[]]].forEach(([kind,path,items])=>items.forEach((n,i)=>add(n,kind,path+'.'+i)));
+ return out;
+}
+function swEnsureIds(){
+ const rows=swInventory(),map={};rows.forEach(r=>{if(!r.node.inclusion_id)r.node.inclusion_id=_seriesId('component');map[r.id]=r.node.inclusion_id;});
+ rows.forEach(r=>{if(map[r.node.owner_component_id])r.node.owner_component_id=map[r.node.owner_component_id];});
+ (cfg.assumptions.component_groups||[]).forEach(g=>g.members=(g.members||[]).map(x=>map[x]||x));return swInventory();
+}
+function swStates(){
+ const rows=swInventory(),groups=cfg.assumptions.component_groups||[],m=new Map(rows.map(r=>[r.id,r]));
+ groups.forEach(g=>m.set(g.id,{id:g.id,name:g.name,node:g,kind:'group'}));
+ const seen=new Set(),done=new Map();
+ function state(id){if(done.has(id))return done.get(id);if(seen.has(id))return {on:false,reason:'Ownership or group cycle'};seen.add(id);const r=m.get(id);if(!r)return {on:false,reason:'Missing owner'};
+ const deps=[r.parent,r.node.owner_component_id,...groups.filter(g=>(g.members||[]).includes(id)).map(g=>g.id)].filter(Boolean),blocked=deps.find(d=>!state(d).on);
+ const value={on:r.node.scenario_enabled!==false&&!blocked,reason:r.node.scenario_enabled===false?'Excluded by its own switch':blocked?'Excluded because '+(m.get(blocked)?.name||blocked)+' is Off':''};seen.delete(id);done.set(id,value);return value;}
+ rows.forEach(r=>Object.assign(r,state(r.id)));groups.forEach(g=>state(g.id));return {rows,groups,m,state};
+}
+function swToggle(node){
+ const rows=swEnsureIds(),r=rows.find(r=>r.node===node),turnOff=node.scenario_enabled!==false;
+ if(turnOff&&r){const sources=rows.filter(x=>x===r||x.parent===r.id),keys=new Set(sources.flatMap(x=>[x.id,x.node.quantity_series_id,x.node.customer_count_series_id,x.node.series_id,x.node.source_catalog_id,...Object.values(x.node.derived_series_ids||{}),...Object.values(x.node.activity_series_ids||{})]).filter(Boolean));
+ const dependents=[];function refs(x){if(!x||typeof x!=='object')return false;if(x.source==='deposit_customer_amount')return false;return Object.entries(x).some(([k,v])=>!['inclusion_id','owner_component_id'].includes(k)&&(typeof v==='string'?['ref','series_id','source_id','managed_notional_source_id'].includes(k)&&keys.has(v):refs(v)));}
+ rows.forEach(x=>{if(x.node!==node&&refs(x.node))dependents.push(x.name);});
+ if(dependents.length&&!confirm('Switch off '+r.name+' for the entire forecast?\n\nThese dependents will receive zero activity:\n'+[...new Set(dependents)].join('\n')+'\n\nSaved assumptions remain available.'))return;}
+ node.scenario_enabled=!turnOff;renderContent();refresh();
+}
+function swControl(node){const st=swStates(),r=st.rows.find(r=>r.node===node);if(!r)return '';const i=swInventory().findIndex(x=>x.node===node),partial=r.on&&st.rows.some(x=>x.parent===r.id&&!x.on);
+ return `<span class="sw-control"><button type="button" role="switch" aria-checked="${node.scenario_enabled!==false}" aria-label="Include ${esc(r.name)}" onclick="swToggle(swInventory()[${i}].node)">${node.scenario_enabled===false?'Off':'On'}</button><small>${esc(r.on?(partial?'Some components Off':'Included'):r.reason)}</small></span>`;
+}
+function swSetOwner(i,value){const target=swInventory().find(r=>r.id===value)?.node;const rows=swEnsureIds();if(value)rows[i].node.owner_component_id=target?.inclusion_id||value;else delete rows[i].node.owner_component_id;renderContent();refresh();}
+function swAddGroup(){const name=document.getElementById('sw-group-name').value.trim();if(!name)return;swEnsureIds();(cfg.assumptions.component_groups||(cfg.assumptions.component_groups=[])).push({id:_seriesId('group'),name,members:[],scenario_enabled:true});renderContent();refresh();}
+function swGroupMember(gi,id,on){const target=swInventory().find(r=>r.id===id)?.node;swEnsureIds();id=target?.inclusion_id||id;const g=cfg.assumptions.component_groups[gi];g.members=on?[...new Set([...(g.members||[]),id])]:(g.members||[]).filter(x=>x!==id);renderContent();refresh();}
+function swGroupToggle(i){cfg.assumptions.component_groups[i].scenario_enabled=cfg.assumptions.component_groups[i].scenario_enabled===false;renderContent();refresh();}
+function swPanelHtml(){const st=swStates();let h=`<section class="sw-panel"><button type="button" onclick="window._swOpen=!window._swOpen;renderContent()">${window._swOpen?'▾':'▸'} Model inclusion</button><span> Whole forecast · Off means never included</span>`;if(!window._swOpen)return h+'</section>';
+ h+='<p>Switch products, streams or acquisition channels off without losing assumptions. Shared and unowned expenses remain active.</p><table><thead><tr><th>Component</th><th>Include</th><th>Expense ownership</th></tr></thead><tbody>';
+ st.rows.forEach((r,i)=>{const own=['role','cost_pool','expense'].includes(r.kind);h+=`<tr><td>${r.parent?'↳ ':''}${esc(r.name)}<small>${esc(r.kind.replaceAll('_',' '))}</small></td><td>${swControl(r.node)}</td><td>${own?`<select aria-label="Owner of ${esc(r.name)}" onchange="swSetOwner(${i},this.value)"><option value="">Shared / unowned — stays active</option>${st.rows.filter(x=>['lending_products','deposit_products','obs_exposures','feed','channel'].includes(x.kind)).map(x=>`<option value="${esc(x.id)}"${r.node.owner_component_id===x.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select>`:'—'}</td></tr>`;});h+='</tbody></table><h4>Offering groups</h4>';
+ st.groups.forEach((g,i)=>{h+=`<details><summary>${esc(g.name)} <button type="button" role="switch" aria-checked="${g.scenario_enabled!==false}" onclick="swGroupToggle(${i});event.preventDefault()">${g.scenario_enabled===false?'Off':'On'}</button></summary>`;st.rows.forEach(r=>h+=`<label><input type="checkbox"${(g.members||[]).includes(r.id)?' checked':''} onchange="swGroupMember(${i},'${r.id}',this.checked)">${esc(r.name)}</label>`);h+='</details>';});
+ h+='<div><input id="sw-group-name" aria-label="New offering group" placeholder="Offering group name"><button type="button" onclick="swAddGroup()">Add group</button></div></section>';return h;
+}
+function swDisclosureHtml(){const d=lastRes?.component_inclusion;if(!d)return '';let h='<section class="sw-panel"><h3>Excluded components</h3><p>'+d.excluded.map(x=>esc(x.name)).join(' · ')+'</p>';
+ (d.warnings||[]).forEach(w=>h+='<p>'+esc(w.consumer)+' receives zero activity from '+esc(w.source)+'.</p>');const c=d.comparison;if(c?.available===false){h+='<p>'+esc(c.reason)+'</p>';}else if(c){const sum=k=>(c[k]||[]).reduce((x,y)=>x+y,0)/1000;h+='<table><tr><th>Change versus All-On ($000s)</th><th>Full forecast</th></tr>';[['direct_removal','Direct removal at base plug'],['funding_plug_effect','Funding / plug change'],['capital_tax_interaction_residual','Capital/tax and interaction residual'],['total_net_income_change','Total net income change']].forEach(([k,l])=>h+='<tr><td>'+l+'</td><td>'+sum(k).toFixed(3)+'</td></tr>');h+='</table><p>Scenario opening adjustment ($000s): '+Object.entries(c.opening_reconciliation||{}).map(([k,v])=>esc(k)+' '+(v/1000).toFixed(3)).join(' · ')+'</p>';}return h+'</section>';}
+
+
+const _swRenderContent=renderContent;
+renderContent=function(){const v=_swRenderContent.apply(this,arguments);if(currentTab==='overview'&&lastRes?.component_inclusion){const host=document.getElementById('content');if(host)host.insertAdjacentHTML('afterbegin',swDisclosureHtml());}return v;};
 </script>
 </body>
 </html>

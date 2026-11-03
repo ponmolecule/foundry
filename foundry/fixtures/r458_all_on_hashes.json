@@ -1,0 +1,17 @@
+{
+  "baseline_commit": "2b367f6d0799ba932397b3fdb6fea5860e5ec8ac",
+  "serialization": "sha256(json.dumps(run_v2(config), sort_keys=True, default=str).encode())",
+  "sha256": {
+    "foundry/fixtures/core_bank_test_base.json": "870052891b60e9b7c9f3d2ebd5ee5dbd44e875c0423377f825732375dcecf4cb",
+    "foundry/fixtures/parity/configs/pf_a_base.json": "70f279678c6a5c5b6f1f4a5e840da2b9a2bad26b080119f6b0cbb8fa5031f7a9",
+    "foundry/fixtures/parity/configs/pf_a_combined_stress.json": "0591fc4d0403304caa19a44cdaa9e2f785bc9d6a36f642b31a69b6850aa5b6a2",
+    "foundry/fixtures/parity/configs/pf_a_fv_election.json": "b650f55ac8b01303a48d633be7518eb50411788b847938b1328b70a8dcea1a92",
+    "foundry/fixtures/parity/configs/pf_a_ots_msr.json": "a2c90cf605bda585dca528bd3426af08ec04d5ce5afeb225fe302e85f99bec4e",
+    "foundry/fixtures/parity/configs/pf_a_warning_heavy.json": "2d6c31e9de4dd8dc907120d0d1930e9b0bf78d42b0ddcf0edf6efc6c5abbf0c6",
+    "foundry/fixtures/parity/configs/pf_b_base.json": "35f59ea599f9209f2d0cdcbf5b3d701c3bad56bcb719a7cd20b3ae840ef2026d",
+    "foundry/fixtures/parity/configs/pf_b_htm_securities.json": "dfa469d84ef1602f44ab00c07852b088fcb6ede117e3244cf543cbea3a739d02",
+    "foundry/fixtures/parity/configs/pf_b_overrides.json": "3b8388a92456089b99005b54122ae5326aa7f84ed0960d215881c9fe10f26a64",
+    "foundry/fixtures/parity/configs/pf_b_reserve_build.json": "6966fe9f7766a96328ae7ec0e9d7427f9c3efbaadc89ebeb1b29ff55fe3623d2",
+    "foundry/fixtures/universal_template_bank.json": "cf7d70d6871a5f85c6215ddf1d242b5404ac28ba4fb4813f245a0a62b2701b63"
+  }
+}

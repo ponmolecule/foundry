@@ -103,6 +103,10 @@ def exec_summary_pdf(cfg: dict, res: dict) -> bytes:
     meta.append("Generated " + _dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M") + "Z")
     story.append(Paragraph("  \u00b7  ".join(meta), sub))
 
+    if res.get('component_inclusion'):
+        story.append(Paragraph('Excluded components', h2))
+        for row in res['component_inclusion']['excluded']:
+            story.append(Paragraph(esc(row['name']) + ' (' + esc(row['kind']) + ')', bullet))
     # the call
     story.append(Paragraph("The call", h2))
     for line in (V.verdict_lines(cfg, res) or ["No verdict generated."]):

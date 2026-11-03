@@ -353,6 +353,17 @@ def _apply_overlays(lend, dep, a, ov, ppy=4):
 
 
 def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
+    from .component_switches import prepare as prepare_component_switches
+    _switch_original = cfg
+    cfg = prepare_component_switches(cfg)
+    _switch_opening_reference = cfg.get('_switch_opening_reference')
+    if cfg is not _switch_original:
+        from .component_switches import all_on
+        try:
+            _switch_opening_reference = run_pf_a(all_on(_switch_original))['bs']
+        except (ValueError,TypeError,KeyError,IndexError):
+            _switch_opening_reference = None
+        cfg['_switch_opening_reference'] = _switch_opening_reference
     from .annual_compensation import enabled, run_with_annual_pools
     if _comp_plan is None and not _comp_probe and enabled(cfg):
         return run_with_annual_pools(cfg, run_pf_a)
@@ -1131,6 +1142,11 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
         investable = (funding - net_loans_end - (non_earn if ne is None else ne)
                       - msr_end - sec_books_end - float(extra_assets or 0.0))
         req_cash = max(cash_floor * dep_bal, float(required_cash or 0.0))
+        if ne_q[0] == 0 and _switch_opening_reference is not None:
+            _opening_sec = _switch_opening_reference['sec'][0]
+            _net_cash = investable - _opening_sec
+            _cash = max(req_cash, _net_cash)
+            return _cash, _opening_sec, _cash - _net_cash
         if investable >= req_cash:
             # Explicit policy owns surplus routing independently of module activation.
             # Unversioned legacy inputs retain the historical module-based behavior.

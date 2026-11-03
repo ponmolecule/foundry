@@ -518,6 +518,9 @@ def run_v2(cfg):
             scen_results[scen] = run_parity(c)
         scen_labels[scen] = label
 
+    _authored_switch_cfg = cfg
+    from .component_switches import prepare as prepare_component_switches
+    cfg = prepare_component_switches(cfg)
     base = scen_results["base"]
 
     # Three-way per-segment charge-off comparison (the contrast that sells the tool): for each
@@ -1479,6 +1482,11 @@ def run_v2(cfg):
     for f in results.get("flags") or []:
         f["source"] = "modeled" if str(f.get("id", "")).split(":")[0] in _MODELED_FLAG_IDS else "input"
 
+    from .component_switches import disclosure, comparison
+    _switches = disclosure(_authored_switch_cfg)
+    if _switches:
+        results['component_inclusion'] = _switches
+        results['component_inclusion']['comparison'] = comparison(_authored_switch_cfg, base_exact)
     results["run_hash"] = _hash(results)
     # Presentation only, attached after the run hash: the reporting manifest groups engine results for
     # exhibits and never feeds back into any engine value. See foundry/v2/reporting.py.

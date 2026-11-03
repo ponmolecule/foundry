@@ -1895,6 +1895,25 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     wb = Workbook()
     wb.remove(wb.active)
 
+    switch = results.get('component_inclusion')
+    if switch:
+        ws = wb.create_sheet('Component Inclusion')
+        ws.append(['Excluded component','Kind','ID','Blocked by'])
+        for row in switch['excluded']:
+            ws.append([row['name'],row['kind'],row['id'],', '.join(row['blocked_by'])])
+        ws.append([]); ws.append(['Scenario opening adjustment','Raw dollars'])
+        for k,v in (switch.get('comparison',{}).get('opening_reconciliation') or {}).items():
+            if isinstance(v,(int,float)): ws.append([k,v])
+        ws.append([]); ws.append(['Enabled consumer','Excluded quantity source'])
+        for row in switch.get('warnings',[]):ws.append([row['consumer'],row['source']])
+        ws.append([]); ws.append(['Shared / unowned expenses remaining active','Kind'])
+        for row in switch.get('shared',[]): ws.append([row['name'],row['kind']])
+        bridge=switch.get('comparison') or {}
+        ws.append([]); ws.append(['Change versus All-On','Raw dollars by engine period'])
+        if bridge.get('available') is False: ws.append([bridge['reason']])
+        for key in ('direct_removal','funding_plug_effect','capital_tax_interaction_residual','total_net_income_change'):
+            if key in bridge: ws.append([key]+bridge[key])
+        ws.column_dimensions['A'].width=45;ws.column_dimensions['B'].width=40
     idx = wb.create_sheet("Index")
     hr = _sheet_title(idx, "Foundry Calculation Audit Workbook",
                       "Native-cadence reconciliation output. Designed for model comparison and debugging; not a filing exhibit.", 8)
@@ -1970,6 +1989,10 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         headers=["Config path", "ID field", "Series ID / target", "Owner module", "Semantic type", "Source",
                  "Trajectory / mode", "Cadence / period", "Resolution", "Link kind", "Link target", "Aggregation"],
         rows=_series_provenance_rows(cfg), widths=[55, 22, 34, 28, 26, 14, 20, 18, 16, 28, 34, 16], freeze_col=3)
+
+    from .component_switches import prepare as prepare_component_switches
+    cfg = prepare_component_switches(cfg)
+    a = cfg.get('assumptions') or {}
 
     _write_wide_rows(wb.create_sheet("Income Statement"), cfg,
                      _exact_financial_rows(is_, "Income Statement", "$000s / engine period", n),

@@ -1,0 +1,13 @@
+# r459 — Whole-forecast component inclusion
+
+Products and their fee/cost streams, acquisition feeds/channels, workforce roles, expense categories, and cost pools can be switched Off without deleting saved inputs. Off means zero contributions throughout the horizon; run-off is outside this release. All existing components default to On.
+
+Products → Model inclusion exposes the full inventory, explicit expense ownership and named offering groups. Product and stream editors also expose their own switches. Effective inclusion requires the component, parent, owner and all containing groups to be On. A parent shows a partial state when a child is Off; restoring it preserves individual child settings. Switching a quantity source Off lists its configured consumers before confirmation.
+
+Quantity identities remain published with zero activity, including deposit-count and workforce-capacity links. Deposit assumption links continue reading saved assumptions. Owned roles (including headcount floors), expense categories and pools become zero; shared/unowned expenses stay active and are labeled. Excluded input values are not evaluated, while ownership/group structure remains validated. Enabled quantity consumers receive exclusion warnings.
+
+Opening-book removal changes opening cash, with borrowing absorbing a cash deficit, while preserving opening equity and the baseline securities position. The result includes an explicit scenario opening adjustment. The comparison bridge uses unrounded dollars: operating change at baseline funding, funding/plug change, and a capital/tax and interaction residual that reconciles exactly to net income. If excluded saved inputs cannot support an All-On run, the comparison is explicitly unavailable; exclusion itself still runs.
+
+The switch is applied before engine evaluation for both parity profiles and all scenario overlays, including DFAST. Executive views, PDF and calculation audit workbook list exclusions. The audit workbook retains the authored configuration snapshot and uses effective inputs for calculation detail.
+
+Validation: full serialized outputs for 11 core/universal/parity fixtures match exact r458 commit `2b367f6d0799ba932397b3fdb6fea5860e5ec8ac`; reproducible hashes are committed. Regression coverage includes restoration, linked quantity zeroing, controlled leaf deletion, groups, invalid excluded inputs, owned workforce floors, shared expenses, acquisition channels/feeds, saved deposit assumption links, cost-pool identities, both profiles, opening offsets and export generation. Chromium exercises product/stream controls, dependency preview, groups and read-only rendering.

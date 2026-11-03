@@ -1564,6 +1564,8 @@ def fee_streams_order(streams):
 def fee_quantity_kind(stream, dependency_kind="native"):
     """Shared structural unit rule for legacy and cross-product quantities."""
     st = stream or {}
+    if st.get("_scenario_quantity_kind"):
+        return st["_scenario_quantity_kind"]
     basis = str(st.get("basis") or "").strip().lower()
     if basis == "balance": return "money"
     if basis == "account": return "count"

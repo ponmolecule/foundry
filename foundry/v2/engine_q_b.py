@@ -17,7 +17,18 @@ def _ov(p, field, q, base):
     return float(v) if v is not None else base
 
 
-def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
+def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening=False):
+    from .component_switches import prepare as prepare_component_switches
+    _switch_original = cfg
+    cfg = prepare_component_switches(cfg)
+    _switch_opening_reference = cfg.get('_switch_opening_reference')
+    if cfg is not _switch_original:
+        from .component_switches import all_on
+        try:
+            _switch_opening_reference=run_pf_b(all_on(_switch_original),_switch_capture_opening=True)['scenario_opening']
+        except (ValueError,TypeError,KeyError,IndexError):
+            _switch_opening_reference=None
+        cfg['_switch_opening_reference']=_switch_opening_reference
     from .annual_compensation import enabled, run_with_annual_pools
     if _comp_plan is None and not _comp_probe and enabled(cfg):
         if int(cfg["assumptions"].get("periods_per_year") or 4) != 4:
@@ -194,10 +205,14 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
     _aoci_sens = float(a.get("aoci_sensitivity_annual") or 0.0)
     aoci_cum = 0.0
 
-    def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end, extra_liab=0.0, other_liab_level=None):
+    def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end, extra_liab=0.0, other_liab_level=None, opening=False):
         uses = gross_end - alll_end + sec_prod_end + _ne[0] - _sched_t[_ne_q[0]]
         _ol = _other_liab_open if other_liab_level is None else float(other_liab_level or 0.0)
         liquid = dep_end + _ol + float(extra_liab or 0.0) + equity_end - uses
+        if opening and _switch_opening_reference is not None:
+            ref_sec=_switch_opening_reference['sec']
+            net_cash=liquid-ref_sec
+            return max(0.,net_cash),ref_sec,max(0.,-net_cash)
         borrow = 0.0
         if liquid < 0:
             borrow = -liquid
@@ -208,7 +223,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
     dep0 = sum(p["_beg"][0] for p in dep)
     _ne = [non_earn]
     _ne_q = [0]
-    cash, sweep, borrow = plug(gl0, alll, sec0, dep0, equity)
+    cash, sweep, borrow = plug(gl0, alll, sec0, dep0, equity, opening=True)
     prev_assets = cash + sweep + sec0 + (gl0 - alll) + non_earn
 
     out_bs = {k: [] for k in ("cash", "afs", "htm", "grossLoans", "alll", "netLoans",
@@ -226,9 +241,10 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
     out_bs["dta"] = []
     if _tax_ledger.opening_dta:
         _ne[0] += _tax_ledger.opening_dta
-        cash, sweep, borrow = plug(gl0, alll, sec0, dep0, equity)
+        cash, sweep, borrow = plug(gl0, alll, sec0, dep0, equity, opening=True)
         prev_assets = cash + sweep + sec0 + (gl0 - alll) + _ne[0]
 
+    _scenario_opening=dict(cash=cash,sec=sweep,borrow=borrow,netLoans=gl0-alll,deposits=dep0,equity=equity)
     for qi in range(Q):
         q = qi + 1
         from .source_catalog import runtime_balances
@@ -494,6 +510,8 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
     if _ol_prepared is None:
         out_bs.pop("otherLiab", None)
     _out = {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios, "tax_interim": _tax_ledger.audit()}
+    if _switch_capture_opening or cfg.get('_component_switches_prepared'):
+        _out['scenario_opening']=_scenario_opening
     if _oa_prepared is not None:
         _out["bs"]["otherAssets"] = _oa_t[1:]
         _out["other_assets_detail"] = other_asset_audit_payload(_oa_prepared, _oa_t[1:], _oa_period_rows)
