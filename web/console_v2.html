@@ -1505,6 +1505,7 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 /* Product formula costs share the expense formula editor, with room to author it. */
 .lfx-st .lfx-sted .lfx-b.formula-cost-layout{grid-template-columns:minmax(0,1fr)!important}
 .formula-cost-layout>.lfx-rail,.formula-cost-layout>.lfx-ro{display:none!important}
+.product-formula-numbers{grid-column:1/-1;padding:0 0 8px}.product-formula-numbers .result-numbers-access{margin:0}
 .product-formula-editor{min-width:0;max-width:100%}
 .product-formula-editor .fx-chip{background:#f5ecda;color:#775a24}
 .product-formula-editor .fx-add a{color:#775a24}
@@ -7422,6 +7423,13 @@ function _feeStreamResolvedOutput(i,si,res,view){
  }
  return {sid,role,values,label,unit,financial,income:Array.isArray(income)?income.map(v=>v==null?null:+v/1000):null,cost:Array.isArray(cost)?cost.map(v=>v==null?null:+v/1000):null,format:v=>v==null?'—':Number(v).toLocaleString('en-US',{maximumSignificantDigits:6})};
 }
+// r460: product formula inspection reads the same captured engine expense used for posting.
+function _formulaCostNumbersHtml(i,si){
+ const st=((_stOwner(i)||{}).fee_streams||[])[si]||{},r=(typeof lastRes!=='undefined'&&lastRes)||{},sid=String(st.quantity_series_id||''),rec=((r.fee_stream_economics||{}).series||{})[sid],raw=rec&&rec.fee_product_cost;
+ const rows=Array.isArray(raw)&&raw.length?[{name:st.name||'Formula cost',unit:'$000s',values:raw.map(v=>v==null?null:+v/1000)}]:[];
+ const numbers=_resultNumbersLink(rows,!!(typeof lastErrs!=='undefined'&&lastErrs&&lastErrs.length),{title:(st.name||'Formula cost')+' · period values',periodTag:PPY()===12?'M':PPY()===4?'Q':'Y',note:'Engine-calculated direct expense, before any bank-level gross-up. Included in product costs; do not add it again.'});
+ return `<div class="product-formula-numbers" data-formula-cost-numbers="${i}:${si}">${numbers||'<span class="memo">Run the model successfully to inspect this formula’s expense.</span>'}</div>`;
+}
 // r359: one display-unit contract for resolved stream quantity surfaces.
 function _feeStreamDisplay(i,si){const kind=_feeStreamQuantityKind(i,si,{});return {kind,unit:kind==='money'?'$000s':kind==='count'?'count':'native units',scale:v=>v==null?null:Number(v)/(kind==='money'?1000:1),format:v=>v==null?'—':Number(v).toLocaleString('en-US',{maximumSignificantDigits:6})};}
 // r358: a fee stream previews its own engine quantity, after its driver transformations.
@@ -8450,7 +8458,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       const ck = st.cost.kind || "none";let _rbOpts=[];
       if(ck==='linked_formula_opex'){
         h+=`<section class="st-definition"><div class="st-definition-head"><b>Product expense</b>${swControl(st)}<span>Linked formula · posts once to this product</span></div><div class="fld"><label>Stream name</label><input value="${esc(st.name||'Product expense')}" onchange="setPath('${sb}.name',this.value);refresh()"></div></section>`;
-        h+=`<div class="st-sec" data-st="costs"><div class="st-section-heading fld wide"><b>Cost formula</b><span>Reuse modeled balances, rates and activity. Source quantities do not post again.</span></div><div class="fld wide product-formula-editor">${_opexFormulaDriverEditorHtml(-(+_fi+1),si,st.cost.params.formula)}</div><div class="fld wide"><label>Gross-up eligibility</label><select aria-label="Product formula gross-up" onchange="if(this.value==='inherit')delete _stOwner(${_fi}).fee_streams[${si}].cost.gross_up_eligible;else _stOwner(${_fi}).fee_streams[${si}].cost.gross_up_eligible=this.value==='yes';refresh()">${[['inherit','Use stream-cost group setting'],['yes','Include in gross-up'],['no','Exclude from gross-up']].map(([v,l])=>`<option value="${v}"${(st.cost.gross_up_eligible==null?'inherit':st.cost.gross_up_eligible?'yes':'no')===v?' selected':''}>${l}</option>`).join('')}</select></div></div>`;
+        h+=`<div class="st-sec" data-st="costs"><div class="st-section-heading fld wide"><b>Cost formula</b><span>Reuse modeled balances, rates and activity. Source quantities do not post again.</span></div>${_formulaCostNumbersHtml(+_fi,si)}<div class="fld wide product-formula-editor">${_opexFormulaDriverEditorHtml(-(+_fi+1),si,st.cost.params.formula)}</div><div class="fld wide"><label>Gross-up eligibility</label><select aria-label="Product formula gross-up" onchange="if(this.value==='inherit')delete _stOwner(${_fi}).fee_streams[${si}].cost.gross_up_eligible;else _stOwner(${_fi}).fee_streams[${si}].cost.gross_up_eligible=this.value==='yes';refresh()">${[['inherit','Use stream-cost group setting'],['yes','Include in gross-up'],['no','Exclude from gross-up']].map(([v,l])=>`<option value="${v}"${(st.cost.gross_up_eligible==null?'inherit':st.cost.gross_up_eligible?'yes':'no')===v?' selected':''}>${l}</option>`).join('')}</select></div></div>`;
       }else{
       h += '<section class="st-definition" aria-label="Shared stream definition"><div class="st-definition-head"><b>Stream definition</b><span>Shared across Activity, Pricing, Timing and Costs</span></div><div class="st-definition-fields">';
       h += swControl(st);
@@ -9038,7 +9046,7 @@ function _lfxLiveHtml(kind,i,j){let p,C;
     return h+`<div class="lfx-ribcap"><span>${P?`Engine figures at ${_lfxQ(ref)}, ${C.n!=null?'one year into the forecast':'the product’s first full-size '+per}.`:'Figures appear after the next complete run.'} Driver streams carry a quantity for other streams and post nothing themselves.</span><span>$000s</span></div></div>`;}
   if(kind==='fqty'){const out=_feeStreamResolvedOutput(1000+(+i),+j,C.res),v=out.values&&out.values[t];return `${A('fqty')}>${v!=null?' · '+out.format(v)+' '+out.unit:''}</span>`;}
   return '';}
-function refreshLfxLive(){document.querySelectorAll('[data-lfx-live]').forEach(el=>{const html=_lfxLiveHtml(el.getAttribute('data-lfx-live'),+el.getAttribute('data-i'),el.hasAttribute('data-j')?+el.getAttribute('data-j'):null);if(html)el.outerHTML=html;});}
+function refreshLfxLive(){document.querySelectorAll('[data-lfx-live]').forEach(el=>{const html=_lfxLiveHtml(el.getAttribute('data-lfx-live'),+el.getAttribute('data-i'),el.hasAttribute('data-j')?+el.getAttribute('data-j'):null);if(html)el.outerHTML=html;});document.querySelectorAll('[data-formula-cost-numbers]').forEach(el=>{const [i,j]=el.dataset.formulaCostNumbers.split(':').map(Number);el.outerHTML=_formulaCostNumbersHtml(i,j);});}
 function _lfxStripHtml(p,i){
   const {res,stale}=_lfxRes(),P=res?(res.products||[]).find(x=>x&&x.name===p.name&&x.family==='lending'):null;
   const fd=p.funded_flow_driver||{},fp=fd.flow_path||{},src=(fd.input_stage||'funded_volume')==='source_activity',ref=_lfxRef(p,P),t=ref-1;
