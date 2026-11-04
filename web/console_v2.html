@@ -1642,6 +1642,28 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .fxs-pane .lfx-grid .fld>.lfx-seg button{white-space:normal}
 
 .config-run-error{margin:12px 0;padding:12px 16px;border:1px solid #A64938;background:#FFF4EF;color:#873B2E;border-radius:6px}
+
+/* Linked monetary costs own their layout; source names are not form-row labels. */
+.lfx-st .lfx-sted .st-body .spend-links{grid-column:1/-1;margin:0 0 16px;max-width:640px;width:100%;box-sizing:border-box;min-width:0;color:#35342F}
+.lfx-st .lfx-sted .st-body .spend-links-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 8px;font-size:12px;font-weight:600}
+.lfx-st .lfx-sted .st-body .spend-action{display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:4px 10px;border:1px solid #C8C3B8;border-radius:4px;background:#FFF;color:#715321;font:500 12px var(--k-font,inherit);cursor:pointer;white-space:nowrap}
+.lfx-st .lfx-sted .st-body .spend-action:hover{border-color:#A27831;background:#FAF7F0}
+.lfx-st .lfx-sted .st-body .spend-source{display:grid;grid-template-columns:minmax(0,1fr) 100px 30px;gap:16px;align-items:center;padding:14px 12px;border:1px solid #DEDAD1;border-radius:5px;background:#FAFAF8;margin:0 0 8px;min-width:0}
+.lfx-st .lfx-sted .st-body .spend-source-name{display:flex;flex-direction:column;gap:4px;min-width:0;overflow-wrap:anywhere}
+.lfx-st .lfx-sted .st-body .spend-source-name strong{font-size:13px;font-weight:600;line-height:1.4;color:#35342F}
+.lfx-st .lfx-sted .st-body .spend-source-name>span{font-size:11px;line-height:1.5;color:#76736C}
+.lfx-st .lfx-sted .st-body .spend-allocation>label{display:block;margin:0 0 5px;text-align:left;font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;color:#69665F}
+.lfx-st .lfx-sted .st-body .spend-percent{position:relative}
+.lfx-st .lfx-sted .st-body .spend-percent>input[type=number]{box-sizing:border-box;width:100%!important;max-width:100%;height:32px!important;padding:0 28px 0 9px!important;text-align:left;font-size:12px!important;font-weight:400!important;-moz-appearance:textfield}
+.lfx-st .lfx-sted .st-body .spend-percent>input::-webkit-inner-spin-button,.lfx-st .lfx-sted .st-body .spend-percent>input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.lfx-st .lfx-sted .st-body .spend-percent>span{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:12px;color:#76736C;pointer-events:none}
+.lfx-st .lfx-sted .st-body .spend-remove{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border:1px solid transparent;border-radius:4px;background:transparent;color:#777167;font:400 22px/1 var(--k-font,inherit);cursor:pointer}
+.lfx-st .lfx-sted .st-body .spend-remove:hover{color:#943F2C;border-color:#DCC7BF;background:#FFF}
+.lfx-st .lfx-sted .st-body .spend-links :is(button,input):focus-visible{outline:2px solid #A27831!important;outline-offset:2px}
+.lfx-st .lfx-sted .st-body .spend-links-note{font-size:11px;line-height:1.5;color:#76736C;margin:6px 0 0}
+@container (max-width:640px){.lfx-st .lfx-sted .st-body .spend-links{margin-left:0;max-width:100%}.lfx-st .lfx-sted .st-body .spend-source{grid-template-columns:minmax(0,1fr) 84px 28px;gap:10px}}
+@container (max-width:400px){.lfx-st .lfx-sted .st-body .spend-source{grid-template-columns:minmax(0,1fr) 28px}.lfx-st .lfx-sted .st-body .spend-source-name{grid-column:1}.lfx-st .lfx-sted .st-body .spend-allocation{grid-column:1;max-width:100px}.lfx-st .lfx-sted .st-body .spend-remove{grid-column:2;grid-row:1}}
+
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -8757,11 +8779,12 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
           // scalar-only streams render as a Flat path until the user explicitly authors a path.
           const _cbase=_legacyPct?+(_cp.pct||0):(_amountCost?+(_cp.amount||0):+(ck==="per_account"?_cp.cost_per_account||0:_cp.cost_per_unit||0)),_cf=_cp.factor_path||{value:_cbase,trajectory:"flat",period:"year",resolution:"step"},_ct=_cf.trajectory||"flat",_cper=_cf.period||"year",_cres=_cf.resolution||((_cf.growth_spec||{}).method)||"step",_cscale=_legacyPct?100:(_amountCost?0.001:1),_cval=(+(_cf.value==null?_cbase:_cf.value))*_cscale;
           if(_amountCost){
-            h+=`<div class="fld wide"><button class="pillbtn" onclick="feeSpendAdd(${_fi},${si})">+ Add linked source</button><span class="memo">Reuse acquisition spend by feed or channel. Allocation follows the source dollars each period; no additional cadence conversion. Replace an existing expense rather than adding a second posting.</span></div>`;
+            h+=`<div class="spend-links"><div class="spend-links-heading"><span>Linked spend</span><button type="button" class="spend-action" aria-label="+ Add linked source" onclick="feeSpendAdd(${_fi},${si})">+ Add source</button></div>`;
             for(const [k,x] of (_cp.linked_sources||[]).entries()){
-              const meta=(catalogSources('product_cost_flow')||[]).find(r=>r.series_id===x.series_id);
-              h+=`<div class="fld wide"><label>${esc(meta?meta.label:x.series_id)}</label><label>Allocation (%) <input type="number" min="0" max="100" value="${100*(x.share==null?1:x.share)}" onchange="_stOwner(${_fi}).fee_streams[${si}].cost.params.linked_sources[${k}].share=+this.value/100;refresh()"></label><button class="pillbtn" onclick="feeSpendRemove(${_fi},${si},${k})">Remove link</button></div>`;
+              const meta=(catalogSources('product_cost_flow')||[]).find(r=>r.series_id===x.series_id),parts=(meta?meta.label:x.series_id).split(' › '),title=parts.length>2?parts[parts.length-2]:parts[0],path=parts.filter((_,j)=>j!==parts.length-2).join(' › '),aid=`spendAllocation_${_fi}_${si}_${k}`;
+              h+=`<div class="spend-source"><div class="spend-source-name"><strong>${esc(title)}</strong><span>${esc(path)}</span></div><div class="spend-allocation"><label for="${aid}">Allocation</label><div class="spend-percent"><input id="${aid}" aria-label="Allocation (%) — ${esc(title)}" type="number" min="0" max="100" value="${100*(x.share==null?1:x.share)}" onchange="_stOwner(${_fi}).fee_streams[${si}].cost.params.linked_sources[${k}].share=+this.value/100;refresh()"><span aria-hidden="true">%</span></div></div><button type="button" class="spend-remove" aria-label="Remove link" title="Remove link" onclick="feeSpendRemove(${_fi},${si},${k})">×</button></div>`;
             }
+            h+=`<p class="spend-links-note">${_cp.linked_sources?'Follows source spend each period.':'Choose a source to replace the entered amount.'}</p></div>`;
           }
           if(!_cp.linked_sources){
           const _cpathLabel="Cost path";
@@ -8802,7 +8825,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
             h += `<div class="fld wide"><label>Cost multiplier schedule (${_mper})</label><textarea id="${_mid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_mid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_mid}_load" class="pillbtn" disabled onclick="_feeSetCostMultiplierSchedule(${_fi},${si},document.getElementById('${_mid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCostMultiplierSchedule(${_fi},${si})"${Object.keys(_msched).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_msched,1,_mper)}</div></div>`;
           }
           h += `<div class="fld wide"><span class="memo" style="margin:0">Unit costs use raw dollars, not $000s. Direct cost path × Cost multiplier path = effective cost factor. Neither path is divided by model cadence.</span></div>`;
-          } else if(_amountCost) h += `<div class="fld wide"><span class="memo" style="margin:0">This positive amount posts directly to Noninterest Expense: Fee Product Costs. It does not reduce fee revenue and does not require contra-revenue presentation.</span></div>`;
+          } else if(_amountCost&&!_cp.linked_sources) h += `<div class="fld wide"><span class="memo" style="margin:0">This positive amount posts directly to Noninterest Expense: Fee Product Costs. It does not reduce fee revenue and does not require contra-revenue presentation.</span></div>`;
           if(ck==="pct_of_balance_opex") h += `<div class="fld wide"><span class="memo">Annual cost rate × selected own balance ÷ model periods per year. Posts once to noninterest expense and is attributed to this product.</span></div>`;
           if(_legacyPct && ck!=="pct_of_balance_opex") h += `<div class="fld wide"><span class="memo" style="margin:0">${ck==="pct_of_revenue"?"Revenue share reduces reported fee income (contra-revenue).":(ck==="pct_of_throughput_opex"?"Operating cost applies the rate to Transaction throughput, preserves gross fee income, and reports the calculated amount in Noninterest Expense: Fee Product Costs.":"Operating cost applies the rate to gross fee revenue, preserves gross fee income, and reports the calculated amount in Noninterest Expense: Fee Product Costs.")}</span></div>`;
         }
