@@ -74,6 +74,8 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
         _auc_beginning_sources[_feed_key] = float((_feed_cfg or {}).get("beginning_auc") or 0.0)
     from .account_activity import resolve as resolve_account_activity
     _activity_series, _ = resolve_account_activity(a, Q, 4, _growth_ctx)
+    from .acquisition_spend import resolve as resolve_acquisition_spend
+    _acquisition_spend = resolve_acquisition_spend(a, Q, 4, _growth_ctx)
     from .income_modules import simple_overhead_series
     _simple_overhead = simple_overhead_series(a, Q, 4, _growth_ctx)
     # Cost pools are shared non-posting native-period flows. Profile B does not yet use
@@ -313,7 +315,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
                 _lr = linked_component_period_result(
                     _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
                               "fee_product_costs": 0.0,
-                              "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
+                              "customer_acquisition_auc_monthly": _auc_month_sources, "acquisition_spend": _acquisition_spend, "account_activity": _activity_series,
                               "customer_acquisition_auc_beginning": _auc_beginning_sources,
                               "catalog_balances": _catalog_balances_q, "financial_observations": _financial_obs,
                               "fee_stream_quantity_history": {},
@@ -344,7 +346,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
                         "net_interest_income": _hist_nii,
                         "total_operating_revenue": _hist_total,
                     },
-                    "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
+                    "customer_acquisition_auc_monthly": _auc_month_sources, "acquisition_spend": _acquisition_spend, "account_activity": _activity_series,
                     "customer_acquisition_auc_beginning": _auc_beginning_sources,
                     "catalog_balances": _catalog_balances_q, "financial_observations": _financial_obs,
                               "fee_stream_quantity_history": {},

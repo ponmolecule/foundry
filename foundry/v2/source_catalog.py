@@ -42,6 +42,9 @@ def catalog(a):
     from .income_modules import _fee_stream_quantity_kinds
     from .fee_links import has_links, FeeLinkPlan
     rows=balance_catalog(a)
+    from .acquisition_spend import catalog as spend_catalog
+    for x in spend_catalog(a):
+        rows.append(dict(x,family='Customer acquisition',unit='money_flow',temporal='flow',measures=[],consumers=['product_cost_flow'],driver='acquisition_spend'))
     for key,label in [('effr','EFFR'),('sofr','SOFR'),('prime','Prime')]:
         rows.append(dict(series_id=key,label=label+' reference rate (annual)',family='Rates',unit='rate',temporal='rate',measures=[],consumers=['opex_formula'],driver='reference_rate'))
     for p in a.get('deposit_products') or []:

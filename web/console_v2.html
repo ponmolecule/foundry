@@ -7252,6 +7252,8 @@ function _feeSetFlatAmountSchedule(i,si,text){
 function _feeClearFlatAmountSchedule(i,si){
   const fa=_feeEnsureFlatAmount(i,si); fa.schedule={}; fa.trajectory="flat"; renderContent(); refresh();
 }
+async function feeSpendAdd(i,si){return openSourceCatalog('product_cost_flow',x=>{const cp=_stOwner(i).fee_streams[si].cost.params;cp.linked_sources=cp.linked_sources||[];if(!cp.linked_sources.some(v=>v.series_id===x.series_id))cp.linked_sources.push({series_id:x.series_id,share:1});delete cp.factor_path;delete cp.multiplier_path;renderContent();refresh();});}
+function feeSpendRemove(i,si,k){const cp=_stOwner(i).fee_streams[si].cost.params;cp.linked_sources.splice(k,1);if(!cp.linked_sources.length)delete cp.linked_sources;renderContent();refresh();}
 function _feeEnsureCostFactor(i,si){
   const st=_stOwner(i).fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
   const cp=st.cost.params;if(cp.factor_path)return cp.factor_path;
@@ -8754,6 +8756,14 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
           // The direct cost path and the multiplier are two separate economic layers. Legacy
           // scalar-only streams render as a Flat path until the user explicitly authors a path.
           const _cbase=_legacyPct?+(_cp.pct||0):(_amountCost?+(_cp.amount||0):+(ck==="per_account"?_cp.cost_per_account||0:_cp.cost_per_unit||0)),_cf=_cp.factor_path||{value:_cbase,trajectory:"flat",period:"year",resolution:"step"},_ct=_cf.trajectory||"flat",_cper=_cf.period||"year",_cres=_cf.resolution||((_cf.growth_spec||{}).method)||"step",_cscale=_legacyPct?100:(_amountCost?0.001:1),_cval=(+(_cf.value==null?_cbase:_cf.value))*_cscale;
+          if(_amountCost){
+            h+=`<div class="fld wide"><button class="pillbtn" onclick="feeSpendAdd(${_fi},${si})">+ Add linked source</button><span class="memo">Reuse acquisition spend by feed or channel. Allocation follows the source dollars each period; no additional cadence conversion. Replace an existing expense rather than adding a second posting.</span></div>`;
+            for(const [k,x] of (_cp.linked_sources||[]).entries()){
+              const meta=(catalogSources('product_cost_flow')||[]).find(r=>r.series_id===x.series_id);
+              h+=`<div class="fld wide"><label>${esc(meta?meta.label:x.series_id)}</label><label>Allocation (%) <input type="number" min="0" max="100" value="${100*(x.share==null?1:x.share)}" onchange="_stOwner(${_fi}).fee_streams[${si}].cost.params.linked_sources[${k}].share=+this.value/100;refresh()"></label><button class="pillbtn" onclick="feeSpendRemove(${_fi},${si},${k})">Remove link</button></div>`;
+            }
+          }
+          if(!_cp.linked_sources){
           const _cpathLabel="Cost path";
           h += `<div class="fld"><label>${_cpathLabel}</label><select onchange="_feeCostFactorTrajectory(${_fi},${si},this.value)"><option value="flat"${_ct==="flat"?' selected':''}>Flat</option><option value="growth"${_ct==="growth"?' selected':''}>Growth</option><option value="explicit_schedule"${_ct==="explicit_schedule"?' selected':''}>Schedule</option></select></div>`;
           if(_ct==="flat"||_ct==="growth"){
@@ -8773,6 +8783,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
             h += `<div class="fld wide"><label>${_cschedLabel}</label><textarea id="${_cid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCostFactorSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCostFactorSchedule(${_fi},${si})"${Object.keys(_sched).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_sched,_cscale,_cper)}</div><span class="memo" style="margin:3px 0 0">${_legacyPct?'Paste normal percentage values. ':(_amountCost?'Paste positive cost amounts in $000s. ':'')}Each value applies to one selected natural period; the last loaded value carries forward.</span></div>`;
           }
 
+          } // entered amount path
           if(!_amountCost && !_cp.multiplier_path){
             h += `<div class="fld wide"><button class="btn-plain" onclick="_feeEnsureCostMultiplier(${_fi},${si});renderContent()">+ Add multiplier</button></div>`;
           }
@@ -8800,13 +8811,13 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       }
       h += (globalThis._feeStreamResultPreviewHtml||(()=>''))(_fi,si);
       _stCards.push(h.slice(_stMark)); h=h.slice(0,_stMark);
-      _stMeta.push({name:String(st.name||('Stream '+(si+1))),basis,src:ck==='linked_formula_opex'?'linked_formula':src,ref:String((st.driver||{}).ref||''),rb,ck,rbLab:ck==='linked_formula_opex'?'Not applicable':((_rbOpts||[]).find(o=>o[0]===rb)||[])[1]||'',role:_feeStreamRole(st),qty:((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities||{}).series||{})[st.quantity_series_id]||null,qid:st.quantity_series_id,drv:(st.driver||{}),start:(st.timing||{}).start_period,end:(st.timing||{}).end_period,ramp:(st.timing||{}).ramp_in_periods});
+      _stMeta.push({name:String(st.name||('Stream '+(si+1))),basis,src:ck==='linked_formula_opex'?'linked_formula':((st.cost.params||{}).linked_sources?'linked_spend':src),ref:String((st.driver||{}).ref||''),rb,ck,rbLab:ck==='linked_formula_opex'?'Not applicable':((_rbOpts||[]).find(o=>o[0]===rb)||[])[1]||'',role:_feeStreamRole(st),qty:((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities||{}).series||{})[st.quantity_series_id]||null,qid:st.quantity_series_id,drv:(st.driver||{}),start:(st.timing||{}).start_period,end:(st.timing||{}).end_period,ramp:(st.timing||{}).ramp_in_periods});
     });
     if(_lfx) h += '<div class="lfx-st">'+_lfxLiveHtml('ststrip',+_fi);
     if(_stMeta.length){ // r205: product-level driver chain, then the stream grid beside the selected stream's unchanged editor
       const BAS={balance:'Balance',transaction:'Transaction',account:'Account',flat:'Flat',event:'Event'};
       const CK=_PRD_CK;
-      const SRC={linked_formula:'Formula sources',constant:'Entered',stream_ref:'Another stream',fee_stream_quantity:'Linked stream quantity',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool',managed_notional:'Managed notional (AUC)'};
+      const SRC={linked_spend:'Linked spend',linked_formula:'Formula sources',constant:'Entered',stream_ref:'Another stream',fee_stream_quantity:'Linked stream quantity',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool',managed_notional:'Managed notional (AUC)'};
       const _src=m=>m.src==='stream_ref'?(m.ref?esc(m.ref):'Another stream (not set)'):(m.src==='fee_stream_quantity'?esc(feeQuantityLabel(m.ref)):m.src==='bank_aggregate'?esc(_prdLab(m.ref||'total_deposits')):esc(SRC[m.src]||_prdLab(m.src)));
       const m=_stMeta[_stSel]||_stMeta[0];
       const chain=[_stSel]; { let cur=m,guard=0; while(cur&&cur.src==='stream_ref'&&cur.ref&&guard++<12){ const j=_stMeta.findIndex(z=>z.name===cur.ref); if(j<0||chain.includes(j)) break; chain.unshift(j); cur=_stMeta[j]; } }
@@ -17034,8 +17045,7 @@ function _ensureLinkableSeriesIds(){
   // Channel identities predate automatic flow publication; keep their existing
   // creation behavior, but never persist derived publication maps on a read.
   Object.values((cfg.assumptions||{}).cac_feeds||{}).forEach(fd=>{
-    if(fd&&(fd.intra_period_path||'monthly_flows')==='monthly_flows')
-      (fd.channels||[]).forEach(ch=>_cacEnsureDerivedIds(ch));
+    if(fd)(fd.channels||[]).forEach(ch=>_cacEnsureDerivedIds(ch));
   });
   (nd.categories||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("opex");if(!x.owner_module)x.owner_module="operating_expense";});
   const _wf=nd.workforce||null;
@@ -17066,6 +17076,7 @@ async function openSourceCatalog(consumer,onSelect,allowedIds,categoryId){
   let rows;try{rows=await loadSourceCatalog();if(categoryId){const r=await fetch('/api/v2/source-catalog',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfg,consumer_category:categoryId})});const data=await r.json();if(!r.ok)throw Error(data.error||'Source catalog unavailable');rows=data.sources||[];}}catch(e){alert(e.message);return;}
   let dlg=document.getElementById('sourceCatalogDialog');if(dlg)dlg.remove();dlg=document.createElement('dialog');dlg.id='sourceCatalogDialog';dlg.style.cssText='position:fixed;top:12vh;left:50%;transform:translateX(-50%);margin:0;box-sizing:border-box;width:min(780px,90vw);max-height:80vh;background:#F9F8F6;color:#2A2A2A;border:1px solid #C1C1BE;border-radius:6px;padding:20px';
   dlg.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:16px">Source catalog</b><button class="btn-plain" aria-label="Close source catalog" onclick="this.closest(\'dialog\').close()">×</button></div><p class="cmut">Reusable modeled quantities. Selecting a source links its quantity; it does not duplicate revenue or expense.</p><input id="sourceCatalogSearch" type="search" placeholder="Search product, quantity, or unit" style="width:100%;box-sizing:border-box;padding:8px;margin-bottom:12px"><div id="sourceCatalogList" style="max-height:55vh;overflow:auto"></div>';
+  if(consumer==='product_cost_flow')dlg.querySelector('p').textContent='Select a modeled spend flow. The linked allocation posts as this product’s cost; the acquisition calculation itself does not post an expense.';
   document.body.appendChild(dlg);
   function paint(){const q=dlg.querySelector('input').value.toLowerCase(),list=dlg.querySelector('#sourceCatalogList');list.innerHTML='';for(const x of rows.filter(x=>(x.label+' '+x.unit+' '+x.family).toLowerCase().includes(q))){const eligible=(consumer==='opex_tiered'?!!(allowedIds&&allowedIds.has(x.series_id)):((x.consumers||[]).includes(consumer)&&(!allowedIds||allowedIds.has(x.series_id)||allowedIds.has(x.driver+'::'+x.series_id)))),b=document.createElement('button');b.type='button';b.disabled=!eligible;b.style.cssText='display:block;width:100%;text-align:left;padding:10px;background:transparent;border:0;border-bottom:1px solid #D8D5CE;color:inherit';b.innerHTML='<b>'+esc(x.label)+'</b><div class="cmut">'+esc(({money_stock:'Balance ($)',money_flow:'Money per period ($)',count:'Count',share:'Share (%)',native:'Source quantity'}[x.unit]||x.unit)+((x.measures||[]).length?' · '+(x.measures||[]).map(m=>({period_end:'End balance',period_begin:'Beginning balance',period_average:'Average balance'}[m]||m)).join(' / '):''))+'</div>'+(!eligible?'<div class="cmut">'+esc(x.unavailable_reason||'Unavailable here: incompatible units, timing, or dependency for this input.')+'</div>':'');b.onclick=()=>{const val=['fee_income','gain_on_sale','servicing_net','noninterest_income','net_fee_income'].includes(x.driver)?x.driver:x.driver+'::'+x.series_id;dlg.close();onSelect(x,val);};list.appendChild(b);}if(!list.children.length)list.innerHTML='<p class="cmut">No matching sources.</p>';}
   dlg.querySelector('input').oninput=paint;dlg.addEventListener('close',()=>dlg.remove());paint();dlg.showModal();dlg.querySelector('input').focus();

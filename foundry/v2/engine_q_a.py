@@ -526,6 +526,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
         a, Q, ppy, growth_context=_growth_ctx) if (a.get("cac_feeds") or {}) else {}
     from .account_activity import resolve as resolve_account_activity
     _activity_series, _adoption_audit = resolve_account_activity(a, Q, ppy, _growth_ctx)
+    from .acquisition_spend import resolve as resolve_acquisition_spend
+    _acquisition_spend = resolve_acquisition_spend(a, Q, ppy, _growth_ctx)
     _cac_monthly_counts = {}
     if _activity_series or any((s.get('cost') or {}).get('kind') == 'per_account' for k in ('obs_exposures','lending_products','deposit_products') for p in a.get(k) or [] for s in p.get('fee_streams') or []):
         for f in (a.get('cac_feeds') or {}).values():
@@ -749,7 +751,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                                                             "managed_notional": _mn_avg[q - 1],
                                                             "managed_notional_end": _mn_end[q - 1],
                                                             "cost_pool": _cost_pool_ctx(q),
-                                                            "customer_acquisition_count": _cac_customer_count_ctx(q), "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,
+                                                            "customer_acquisition_count": _cac_customer_count_ctx(q), "acquisition_spend": _acquisition_spend, "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,
                                                             "capture_stream_qty": _fee_stream_qty_series,
                                                             "capture_stream_economics": _fee_stream_econ_series,
                                                             "growth_context": _growth_ctx}, ppy)
@@ -999,7 +1001,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                                                             **({"distributed_balance": _linked_level["distributed_balance"][q - 1]}
                                                                if _linked_level and "distributed_balance" in _linked_level else {}),
                                                             "cost_pool": _cost_pool_ctx(q),
-                                                            "customer_acquisition_count": _cac_customer_count_ctx(q), "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,
+                                                            "customer_acquisition_count": _cac_customer_count_ctx(q), "acquisition_spend": _acquisition_spend, "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,
                                                             "capture_stream_qty": _fee_stream_qty_series,
                                                             "capture_stream_economics": _fee_stream_econ_series,
                                                             "growth_context": _growth_ctx}, ppy)
@@ -1417,7 +1419,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 _inc, _cost = product_fee_streams_q(_dp, q, {"own_balance": _avg, "own_balance_begin": _beg, "own_balance_end": _retained,
                     "distributed_balance": _swept, "managed_notional": _dp["_mn_avg"][q - 1],
                     "managed_notional_end": _dp["_mn_end"][q - 1],
-                    "cost_pool": _cost_pool_ctx(q), "customer_acquisition_count": _cac_customer_count_ctx(q), "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,
+                    "cost_pool": _cost_pool_ctx(q), "customer_acquisition_count": _cac_customer_count_ctx(q), "acquisition_spend": _acquisition_spend, "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,
                     "capture_stream_qty": _fee_stream_qty_series, "capture_stream_economics": _fee_stream_econ_series,
                     "linked_stream_qty": _fee_stream_qty_series,
                     "linked_stream_defs": {sid:_fee_links.nodes[node] for sid,node in _fee_links.ids.items()} if _fee_links else {},
@@ -1614,7 +1616,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                                  "fee_product_costs": fee_opex, "other_income": _other_income_total[q - 1],
                                  "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
                                                            for sid, arr in _fee_stream_qty_series.items()},
-                                 "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
+                                 "customer_acquisition_auc_monthly": _auc_month_sources, "acquisition_spend": _acquisition_spend, "account_activity": _activity_series,
                                  "customer_acquisition_auc_beginning": _auc_beginning_sources,
                                  "catalog_balances": _catalog_balances_q, "financial_observations": _financial_obs,
                     "fee_stream_quantity_history": _fee_stream_qty_series,
@@ -1775,7 +1777,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                     },
                     "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
                                               for sid, arr in _fee_stream_qty_series.items()},
-                    "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
+                    "customer_acquisition_auc_monthly": _auc_month_sources, "acquisition_spend": _acquisition_spend, "account_activity": _activity_series,
                     "customer_acquisition_auc_beginning": _auc_beginning_sources,
                     "catalog_balances": _catalog_balances_q, "financial_observations": _financial_obs,
                     "fee_stream_quantity_history": _fee_stream_qty_series,

@@ -865,6 +865,11 @@ def _validate_fee_stream_shape(stream):
     # the short-lived r82 replacement-path contract). multiplier_path is a separate
     # dimensionless economic layer. A saved r82 factor_path with no multiplier therefore
     # remains exact because its implicit multiplier is 1.0.
+    if _cp.get('linked_sources') is not None:
+        from .acquisition_spend import validate_links
+        if ck != 'periodic_amount_opex':raise ValueError('Spend links require a periodic product cost')
+        validate_links(_cp['linked_sources'])
+        if _cp.get('factor_path') is not None or _cp.get('multiplier_path') is not None:raise ValueError('Linked spend replaces the entered amount path')
     _factor_path = _cp.get("factor_path")
     _multiplier_path = _cp.get("multiplier_path")
     if (_factor_path is not None or _multiplier_path is not None) and ck == "none":
@@ -1450,7 +1455,11 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         # as Flat revenue. Values are authored as positive dollars and periodized once.
         amount_path = factor_path or {"value": float(cp.get("amount") or 0.0),
                                       "trajectory": "flat", "period": "year"}
-        opcost = _fee_entered_flow_value(amount_path, q, ppy, ctx)
+        if cp.get('linked_sources') is not None:
+            from .acquisition_spend import value as spend_value
+            opcost = spend_value(cp['linked_sources'], (ctx or {}).get('acquisition_spend') or {}, q)
+        else:
+            opcost = _fee_entered_flow_value(amount_path, q, ppy, ctx)
     elif ck == "pct_of_revenue":
         base_pct = float(cp.get("pct") or 0.0)
         base_path_pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_pct)
