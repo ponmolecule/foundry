@@ -32,7 +32,7 @@ def resolve(a,n,ppy,growth_context=None):
         if name not in cache:cache[name]=cac_auc_rollforward(a['cac_feeds'][name],n,ppy,assumptions=a,growth_context=growth_context)['monthly']
         rows=cache[name]
         vals=[float(r['total_spend'] if 'channel' not in x else r['channels'][x['channel']]['spend']) for r in rows]
-        out[x['series_id']]=[sum(vals[i:i+width]) for i in range(0,n*width,width)]
+        out[x['series_id']]={'values':[sum(vals[i:i+width]) for i in range(0,n*width,width)],'monthly':vals}
     missing=requested-set(out)
     if missing:raise ValueError('Missing acquisition spend source: '+', '.join(sorted(missing)))
     return out
@@ -47,13 +47,13 @@ def validate_links(items):
         share=float(x.get('share',1))
         if not math.isfinite(share) or not 0<=share<=1:raise ValueError('Spend allocation must be between 0 and 100%')
 
-def value(items,sources,q):
+def value(items,sources,q,monthly=False):
     validate_links(items)
     total=0.
     for x in items:
         sid=x['series_id']
         if sid not in sources:raise ValueError('Missing acquisition spend source: '+sid)
-        total+=sources[sid][q-1]*float(x.get('share',1))
+        total+=sources[sid]['monthly' if monthly else 'values'][q-1]*float(x.get('share',1))
     return total
 
 def validate(a):

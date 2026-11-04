@@ -7274,7 +7274,7 @@ function _feeSetFlatAmountSchedule(i,si,text){
 function _feeClearFlatAmountSchedule(i,si){
   const fa=_feeEnsureFlatAmount(i,si); fa.schedule={}; fa.trajectory="flat"; renderContent(); refresh();
 }
-async function feeSpendAdd(i,si){return openSourceCatalog('product_cost_flow',x=>{const cp=_stOwner(i).fee_streams[si].cost.params;cp.linked_sources=cp.linked_sources||[];if(!cp.linked_sources.some(v=>v.series_id===x.series_id))cp.linked_sources.push({series_id:x.series_id,share:1});delete cp.factor_path;delete cp.multiplier_path;renderContent();refresh();});}
+async function feeSpendAdd(i,si){return openSourceCatalog('product_cost_flow',x=>{const cp=_stOwner(i).fee_streams[si].cost.params;cp.linked_sources=cp.linked_sources||[];if(!cp.linked_sources.some(v=>v.series_id===x.series_id))cp.linked_sources.push({series_id:x.series_id,share:1});renderContent();refresh();});}
 function feeSpendRemove(i,si,k){const cp=_stOwner(i).fee_streams[si].cost.params;cp.linked_sources.splice(k,1);if(!cp.linked_sources.length)delete cp.linked_sources;renderContent();refresh();}
 function _feeEnsureCostFactor(i,si){
   const st=_stOwner(i).fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
@@ -8807,10 +8807,10 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
           }
 
           } // entered amount path
-          if(!_amountCost && !_cp.multiplier_path){
+          if(!_cp.multiplier_path){
             h += `<div class="fld wide"><button class="btn-plain" onclick="_feeEnsureCostMultiplier(${_fi},${si});renderContent()">+ Add multiplier</button></div>`;
           }
-          if(!_amountCost && _cp.multiplier_path){
+          if(_cp.multiplier_path){
           const _cm=_cp.multiplier_path||{value:1,trajectory:"flat",period:"year",resolution:"step"},_mt=_cm.trajectory||"flat",_mper=_cm.period||"year",_mres=_cm.resolution||((_cm.growth_spec||{}).method)||"step",_mval=(+(_cm.value==null?1:_cm.value));
           h += `<div class="fld"><label>Cost multiplier path</label><select onchange="_feeCostMultiplierTrajectory(${_fi},${si},this.value)"><option value="flat"${_mt==="flat"?' selected':''}>Flat</option><option value="growth"${_mt==="growth"?' selected':''}>Growth</option><option value="explicit_schedule"${_mt==="explicit_schedule"?' selected':''}>Schedule</option></select></div>`;
           if(_mt!=="flat") h += `<div class="fld"><label>${_mt==="growth"?"Multiplier growth period":"Multiplier schedule period"}</label><select onchange="_feeCostMultiplierPeriod(${_fi},${si},this.value)"><option value="month"${_mper==="month"?' selected':''}>Month</option><option value="quarter"${_mper==="quarter"?' selected':''}>Quarter</option><option value="year"${_mper==="year"?' selected':''}>Year</option></select></div>`;
@@ -8824,7 +8824,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
             const _mid=`feeCostMultiplierPaste_${_fi}_${si}`,_msched=_cm.schedule||{};
             h += `<div class="fld wide"><label>Cost multiplier schedule (${_mper})</label><textarea id="${_mid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_mid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_mid}_load" class="pillbtn" disabled onclick="_feeSetCostMultiplierSchedule(${_fi},${si},document.getElementById('${_mid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCostMultiplierSchedule(${_fi},${si})"${Object.keys(_msched).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_msched,1,_mper)}</div></div>`;
           }
-          h += `<div class="fld wide"><span class="memo" style="margin:0">Unit costs use raw dollars, not $000s. Direct cost path × Cost multiplier path = effective cost factor. Neither path is divided by model cadence.</span></div>`;
+          h += `<div class="fld wide"><span class="memo" style="margin:0">${_amountCost?"Period cost × multiplier = product cost.":"Unit costs use raw dollars, not $000s. Direct cost path × Cost multiplier path = effective cost factor. Neither path is divided by model cadence."}</span></div>`;
           } else if(_amountCost&&!_cp.linked_sources) h += `<div class="fld wide"><span class="memo" style="margin:0">This positive amount posts directly to Noninterest Expense: Fee Product Costs. It does not reduce fee revenue and does not require contra-revenue presentation.</span></div>`;
           if(ck==="pct_of_balance_opex") h += `<div class="fld wide"><span class="memo">Annual cost rate × selected own balance ÷ model periods per year. Posts once to noninterest expense and is attributed to this product.</span></div>`;
           if(_legacyPct && ck!=="pct_of_balance_opex") h += `<div class="fld wide"><span class="memo" style="margin:0">${ck==="pct_of_revenue"?"Revenue share reduces reported fee income (contra-revenue).":(ck==="pct_of_throughput_opex"?"Operating cost applies the rate to Transaction throughput, preserves gross fee income, and reports the calculated amount in Noninterest Expense: Fee Product Costs.":"Operating cost applies the rate to gross fee revenue, preserves gross fee income, and reports the calculated amount in Noninterest Expense: Fee Product Costs.")}</span></div>`;

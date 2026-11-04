@@ -29,7 +29,7 @@ params.factor_path={value:10,trajectory:'growth',period:'year',growth_spec:{rate
 before=JSON.stringify(params);out=render('per_account',params);assert(out.includes('Growth period'));assert(out.includes('Multiplier growth period'));assert.equal(JSON.stringify(params),before);
 params.factor_path={trajectory:'explicit_schedule',period:'month',schedule:{1:10,2:12}};params.multiplier_path={trajectory:'explicit_schedule',period:'quarter',schedule:{1:.8,2:1}};
 out=render('per_account',params);assert(out.includes('Schedule period'));assert(out.includes('Multiplier schedule period'));assert(out.includes('feeCostMultiplierPaste_0_0'));
-out=render('periodic_amount_opex',{amount:12000},'flat');assert(out.includes('Amount is per'));assert(out.includes('value="12"'));assert(!out.includes('+ Add multiplier'));
+out=render('periodic_amount_opex',{amount:12000},'flat');assert(out.includes('Amount is per'));assert(out.includes('value="12"'));assert(out.includes('+ Add multiplier'));
 for(const kind of ['per_unit','pct_of_revenue','pct_of_revenue_opex','pct_of_throughput_opex']){out=render(kind,{cost_per_unit:175,pct:.02},'transaction');assert(out.includes('Cost path'));assert(!out.includes('Schedule period'));}
 console.log('PASS cost controls: flat/growth/explicit, separate billing, optional/authored multipliers, legacy values, periodic amounts and read-only rendering');
 '''

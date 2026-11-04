@@ -869,13 +869,10 @@ def _validate_fee_stream_shape(stream):
         from .acquisition_spend import validate_links
         if ck != 'periodic_amount_opex':raise ValueError('Spend links require a periodic product cost')
         validate_links(_cp['linked_sources'])
-        if _cp.get('factor_path') is not None or _cp.get('multiplier_path') is not None:raise ValueError('Linked spend replaces the entered amount path')
     _factor_path = _cp.get("factor_path")
     _multiplier_path = _cp.get("multiplier_path")
     if (_factor_path is not None or _multiplier_path is not None) and ck == "none":
         raise ValueError("fee cost path requires an active fee cost kind")
-    if ck == "periodic_amount_opex" and _multiplier_path is not None:
-        raise ValueError("fee periodic product cost uses its amount path directly and cannot use a cost multiplier")
 
     def _validate_cost_path(path, *, multiplier=False):
         fp = dict(path or {})
@@ -894,7 +891,7 @@ def _validate_fee_stream_shape(stream):
         except (TypeError, ValueError):
             raise ValueError(f"fee cost {noun} value must be numeric")
         if multiplier:
-            if fval < 0.0:
+            if not math.isfinite(fval) or fval < 0.0:
                 raise ValueError("fee cost multiplier value must be nonnegative")
         elif ck in {"periodic_amount_opex", "per_account"} and (not math.isfinite(fval) or fval < 0.0):
             raise ValueError("fee periodic product cost amount must be nonnegative")
@@ -911,7 +908,7 @@ def _validate_fee_stream_shape(stream):
             except (TypeError, ValueError):
                 raise ValueError(f"fee cost {noun} schedule values must be numeric")
             if multiplier:
-                if any(v < 0.0 for v in vals):
+                if any(not math.isfinite(v) or v < 0.0 for v in vals):
                     raise ValueError("fee cost multiplier schedule values must be nonnegative")
             elif ck in {"periodic_amount_opex", "per_account"} and any(not math.isfinite(v) or v < 0.0 for v in vals):
                 raise ValueError("fee periodic product cost schedule values must be nonnegative")
@@ -1431,7 +1428,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     factor_path = cp.get("factor_path")           # direct-cost path; r82 configs remain compatible
     multiplier_path = cp.get("multiplier_path")  # separate dimensionless layer; defaults to 1.0
     mult = (_fee_cost_factor_value(multiplier_path, q, ppy, ctx, 1.0)
-            if multiplier_path is not None else 1.0)
+            if multiplier_path is not None and ck != "periodic_amount_opex" else 1.0)
     direct_cost_factor = None
     effective_cost_factor = None
     if ck == "per_account":
@@ -1460,6 +1457,23 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             opcost = spend_value(cp['linked_sources'], (ctx or {}).get('acquisition_spend') or {}, q)
         else:
             opcost = _fee_entered_flow_value(amount_path, q, ppy, ctx)
+        if multiplier_path is not None:
+            # Apply the dimensionless path to each canonical month's dollars before
+            # summing; an intra-quarter change must not scale the entire quarter.
+            base_cost = opcost
+            width = 12 // int(ppy)
+            opcost = 0.0
+            for month in range((int(q)-1)*width+1, int(q)*width+1):
+                base = (spend_value(cp['linked_sources'], (ctx or {}).get('acquisition_spend') or {}, month, monthly=True)
+                        if cp.get('linked_sources') is not None
+                        else _fee_entered_flow_value(amount_path, month, 12, ctx))
+                monthly_mult = _fee_cost_factor_value(multiplier_path, month, 12, ctx, 1.0)
+                if not math.isfinite(monthly_mult) or monthly_mult < 0:
+                    raise ValueError('Cost multiplier must remain finite and nonnegative')
+                opcost += base * monthly_mult
+            direct_cost_factor = base_cost
+            effective_cost_factor = opcost
+            mult = opcost / base_cost if base_cost else mult
     elif ck == "pct_of_revenue":
         base_pct = float(cp.get("pct") or 0.0)
         base_path_pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_pct)

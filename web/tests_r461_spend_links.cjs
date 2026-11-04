@@ -12,12 +12,17 @@ try{
 const page=await browser.newPage({viewport:{width:1500,height:1050}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/*',r=>r.fulfill({status:200,json:{sources:fx.sources}}));await page.goto('http://foundry.test');await page.setContent(html);
 await page.evaluate(f=>{cfg=normalizeCfg(f.cfg);lastRes=f.result;lastErrs=[];refresh=()=>{};scheduleAutosave=()=>{};window._stTab='costs';window.SNAPSHOT=false;let i=cfg.assumptions.obs_exposures.length-1;window._stSelObj=cfg.assumptions.obs_exposures[i].fee_streams[0];renderContent=()=>{document.getElementById('content').innerHTML=_feeStreamsSectionHtml('obs',cfg.assumptions.obs_exposures[i],'assumptions.obs_exposures.'+i,i)};renderContent();_calculatedInputs=JSON.stringify(cfg);_calculationState='idle';},fx);
+await page.getByRole('button',{name:'+ Add multiplier',exact:true}).click();
+await page.locator('input[onchange*="_feeCostMultiplierValue"]').fill('1.2');await page.locator('input[onchange*="_feeCostMultiplierValue"]').dispatchEvent('change');
 await page.getByRole('button',{name:'+ Add linked source',exact:true}).click();await page.locator('#sourceCatalogSearch').fill('Digital');await page.locator('#sourceCatalogList button:enabled').click();
 assert(await page.getByText('Allocation',{exact:true}).count());
-assert.equal(await page.evaluate(()=>cfg.assumptions.obs_exposures.at(-1).fee_streams[0].cost.params.factor_path),undefined);
+assert.equal(await page.evaluate(()=>cfg.assumptions.obs_exposures.at(-1).fee_streams[0].cost.params.multiplier_path.value),1.2);
+const multiplierPath=page.locator('select[onchange*="_feeCostMultiplierTrajectory"]');await multiplierPath.selectOption('growth');assert(await page.getByText('Starting multiplier',{exact:true}).count());await multiplierPath.selectOption('explicit_schedule');assert(await page.locator('textarea[id^="feeCostMultiplierPaste"]').count());const paste=page.locator('textarea[id^="feeCostMultiplierPaste"]');await paste.fill('1\t1.02\t1.1');await paste.dispatchEvent('input');await page.locator('button[id^="feeCostMultiplierPaste"][id$="_load"]').click();assert.equal(await page.evaluate(()=>cfg.assumptions.obs_exposures.at(-1).fee_streams[0].cost.params.multiplier_path.schedule['2']),1.02);await multiplierPath.selectOption('flat');
+assert.equal(await page.evaluate(()=>cfg.assumptions.obs_exposures.at(-1).fee_streams[0].cost.params.factor_path.value),21624);
 await page.getByRole('button',{name:'+ Add linked source',exact:true}).click();await page.locator('#sourceCatalogSearch').fill('Other');await page.locator('#sourceCatalogList button:enabled').click();
 const allocations=page.locator('input[onchange*="linked_sources"]');assert.equal(await allocations.count(),2);await allocations.nth(1).fill('25');await allocations.nth(1).dispatchEvent('change');
 assert.equal(await page.evaluate(()=>cfg.assumptions.obs_exposures.at(-1).fee_streams[0].cost.params.linked_sources[1].share),.25);
+await page.locator('.st-body').filter({visible:true}).screenshot({path:'/tmp/r463-cost-multiplier.png'});
 await page.locator('.spend-links').screenshot({path:'/tmp/r462-spend-links.png'});
 const layout=await page.locator('.spend-source').first().evaluate(el=>{const row=el.getBoundingClientRect(),name=el.querySelector('.spend-source-name').getBoundingClientRect(),input=el.querySelector('input').getBoundingClientRect(),button=el.querySelector('button'),color=getComputedStyle(button).color;return {row:row.width,name:name.width,input:input.width,gap:input.left-name.right,color,overflow:el.scrollWidth>el.clientWidth}});
 assert(layout.name>150);assert(layout.input<=110);assert(layout.gap>=10);assert(!layout.overflow);assert.notEqual(layout.color,'rgb(205, 205, 202)');
@@ -27,6 +32,7 @@ await narrow.screenshot({path:'/tmp/r462-spend-links-narrow.png'});
 await page.evaluate(()=>document.getElementById('spendNarrowPreview').remove());
 await page.getByRole('button',{name:'Remove link',exact:true}).nth(1).click();assert.equal(await page.locator('input[onchange*="linked_sources"]').count(),1);
 await page.getByRole('button',{name:'Remove link',exact:true}).click();assert(await page.getByText('Product cost ($000s)',{exact:true}).count());
+assert.equal(await page.evaluate(()=>cfg.assumptions.obs_exposures.at(-1).fee_streams[0].cost.params.multiplier_path.value),1.2);
 assert.deepEqual(errors,[]);console.log('PASS linked-spend UI: catalog, amount replacement, two sources, allocation, removal, entered fallback; no browser errors');
 }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});
