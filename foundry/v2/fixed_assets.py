@@ -354,8 +354,13 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
         if basis != "gross":
             raise ValueError("Component depreciation requires Gross PP&E")
         def component_dep(amounts, spec):
-            rr = _resolve_natural_period_series(spec or {
-                "source":"entered", "trajectory":"flat", "value":0, "period":"year"},
+            # r464's editor displayed Year before persisting a new rate's period.
+            # Missing/empty component-rate periods therefore mean the displayed Year;
+            # explicit invalid periods still fail validation.
+            rate_spec = dict(spec or {"source":"entered", "trajectory":"flat", "value":0})
+            if not rate_spec.get("period"):
+                rate_spec["period"] = "year"
+            rr = _resolve_natural_period_series(rate_spec,
                 n, ppy, growth_context=growth_context)
             if any(not math.isfinite(r) or r < 0 for r in rr):
                 raise ValueError("Component depreciation rates must be finite and non-negative")

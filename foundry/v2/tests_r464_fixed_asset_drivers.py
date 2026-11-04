@@ -48,6 +48,17 @@ class Drivers(unittest.TestCase):
         self.assertEqual(q['gross'],[20000,5000,25000])
         self.assertAlmostEqual(q['depreciation_expense'][2],3*5000*.2/12+2*20000/36)
 
+    def test_displayed_year_default(self):
+        for period in (None, ""):
+            c=self.config();fl=c['formula_level']
+            fl['depreciation']['base_rate_spec']=spec(.2)
+            rr=fl['components'][0]['depreciation_rate_spec']
+            if period is None: rr.pop('period')
+            else: rr['period']=period
+            r=self.resolve(c,6,12)
+            expected=self.resolve(self.config(),6,12)
+            self.assertEqual(r['depreciation_expense'],expected['depreciation_expense'])
+
     def test_invalid_and_net(self):
         for field,value in [('lag_months',-1),('driver_divisor',0),('initial_driver',float('nan')),('driver_rounding','bad')]:
             c=self.config();c['formula_level']['components'][0][field]=value
