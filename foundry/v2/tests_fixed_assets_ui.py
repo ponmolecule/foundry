@@ -35,6 +35,8 @@ cfg.assumptions.premises_equipment=1200000; cfg.assumptions.premises_depreciatio
 faSetMode("formula_level");
 const fl=JSON.parse(JSON.stringify(cfg.assumptions.fixed_assets.formula_level));
 faFormulaAddComponent();
+faFormulaDepKind("component_rates");
+if(cfg.assumptions.fixed_assets.formula_level.depreciation.kind!=="component_rates")throw Error("component rate selection lost");
 const linked=JSON.parse(JSON.stringify(cfg.assumptions.fixed_assets.formula_level.components));
 faPaste("Asset\tCost\tIn Service\tUseful Life\nFurniture\t350\tAt opening\t7\nServers\t250\tM18\t5", "replace");
 const rows=JSON.parse(JSON.stringify(cfg.assumptions.fixed_assets.assets));
@@ -84,6 +86,10 @@ console.log(JSON.stringify({rows,mode:cfg.assumptions.fixed_assets.mode,n:cfg.as
     ck("new fixed-asset component gets an economic driver-derived name, not an implementation placeholder",
        len(linked)==1 and linked[0].get("name")=="Fixed assets · Total workforce"
        and 'name:"Linked asset component"' not in html)
+    ck("component rates and driver transforms are exposed",
+       'Rates by component' in html and 'Driver timing and grouping' in html
+       and 'Count before M1' in html and 'driver_divisor' in html
+       and 'depreciation_rate_spec' in html)
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1
 

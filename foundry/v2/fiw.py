@@ -424,14 +424,25 @@ def _fixed_asset_formula_level_sheet(ws, formula_level):
         row(cr + ".driver_spec.link.kind", section, "Driver kind", link.get("kind"), "stable Series kind", True)
         row(cr + ".driver_spec.link.series_id", section, "Driver Series ID", link.get("series_id"), "stable Series ID", True)
         row(cr + ".driver_spec.link.aggregation", section, "Driver aggregation", link.get("aggregation", "end"), "end / average", True)
+        for field, label, default, unit in (
+            ("lag_months", "Driver lag", 0, "months"),
+            ("initial_driver", "Count before M1", 0, "count"),
+            ("driver_divisor", "Driver units per group", 1, "count"),
+            ("driver_rounding", "Round groups", "none", "none / floor / ceil / nearest")):
+            row(cr + "." + field, section, label, comp.get(field, default), unit)
+        series_rows(cr + ".depreciation_rate_spec", section, "Component depreciation rate",
+                    comp.get("depreciation_rate_spec") or {"source":"entered","trajectory":"flat","value":0,"period":"year"}, "rate", True)
         series_rows(cr + ".multiplier_spec", section, "Multiplier",
                     comp.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":0.0},
                     "multiplier")
 
     dep = dict(fl.get("depreciation") or {})
     kind = dep.get("kind") or "rate_of_level"
-    row(root + ".depreciation.kind", "Depreciation", "Source", kind, "rate_of_level / entered")
-    if kind == "rate_of_level":
+    row(root + ".depreciation.kind", "Depreciation", "Source", kind, "rate_of_level / entered / component_rates")
+    if kind == "component_rates":
+        series_rows(root + ".depreciation.base_rate_spec", "Depreciation", "Base depreciation rate",
+                    dep.get("base_rate_spec") or {"source":"entered","trajectory":"flat","value":0,"period":"year"}, "rate", True)
+    elif kind == "rate_of_level":
         series_rows(root + ".depreciation.rate_spec", "Depreciation", "Depreciation rate",
                     dep.get("rate_spec") or {"source":"entered","trajectory":"flat","value":0.0,"period":"year"},
                     "rate", True)

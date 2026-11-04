@@ -1555,6 +1555,10 @@ def _fixed_asset_rows(cfg, results, n):
         sid = str(comp.get("component_id") or f"component_{i+1}")
         driver_sid = str(comp.get("driver_series_id") or "")
         rows.extend([
+            (name, "Raw linked driver quantity", f"{sid}:raw_driver", "native linked-Series units",
+             [None] + [float(x or 0) for x in comp.get("raw_driver", comp.get("driver", []))], _RAW_NUM_FMT),
+            (name, "Authored component depreciation before aggregate cap", f"{sid}:depreciation", "$000s · engine period",
+             [None] + money(comp.get("depreciation") or []), _RAW_MONEY_FMT),
             (name, "Linked driver quantity", f"{sid}:driver:{driver_sid}", "native linked-Series units",
              [None] + [float(x or 0.0) for x in (comp.get("driver") or [])], _RAW_NUM_FMT),
             (name, "Multiplier", f"{sid}:multiplier", "$000s / driver unit",

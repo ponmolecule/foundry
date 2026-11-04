@@ -16,6 +16,9 @@ field in the schema so future schedule methods do not require a data-model migra
 
 from __future__ import annotations
 
+import math
+from copy import deepcopy
+
 from typing import Any, Dict, Iterable, List, Mapping, Tuple
 
 
@@ -162,9 +165,50 @@ def _formula_component_display_name(component: Mapping[str, Any] | None, index: 
             pass
     return f"Fixed-asset component {index + 1}"
 
+def _monthly_workforce_driver(ns, assumptions, months, source_ppy, context):
+    """Preserve native hire windows and capacity-feed cadence on a monthly grid."""
+    from .workforce import workforce_role_count_series, workforce_capacity_monthly
+    wf = (assumptions.get("nie_detail") or {}).get("workforce") or {}
+    sid = (ns.get("link") or {}).get("series_id")
+    roles = list(wf.get("roles") or [])
+    if sid != wf.get("total_count_series_id"):
+        roles = [r for r in roles if r.get("series_id") == sid]
+        if len(roles) != 1:
+            raise ValueError("Fixed-asset workforce source is missing or ambiguous")
+    span = 12 // source_ppy
+    native_cadence = {1:"year",4:"quarter",12:"month"}[source_ppy]
+    out = [0.0] * months
+    def remap(obj):
+        if isinstance(obj, dict):
+            for k,v in list(obj.items()):
+                if k in ("cadence", "period") and v == "model_period": obj[k] = native_cadence
+                else: remap(v)
+        elif isinstance(obj,list):
+            for v in obj: remap(v)
+    for raw in roles:
+        if raw.get("activation"):
+            raise ValueError("Fixed-asset links cannot consume metric-triggered workforce")
+        role = deepcopy(raw)
+        remap(role)
+        hire = (int(raw.get("hire_period") or 1)-1)*span+1
+        end = raw.get("end_period")
+        end = int(end)*span if end not in (None, "") else months
+        role["hire_period"] = hire
+        role["end_period"] = end
+        if raw.get("capacity_count"):
+            vals = workforce_capacity_monthly(raw, months, assumptions=assumptions,
+                growth_context=context, source_ppy=source_ppy)["counts"]
+            vals = [v if hire <= i <= end else 0.0 for i,v in enumerate(vals,1)]
+        else:
+            vals = workforce_role_count_series(role, months, 12,
+                growth_context=context, assumptions=assumptions)
+        out = [a+b for a,b in zip(out,vals)]
+    return out
+
+
 def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
                               assumptions: Mapping[str, Any] | None,
-                              n_periods: int, ppy: int, *, growth_context=None) -> Dict[str, Any]:
+                              n_periods: int, ppy: int, *, growth_context=None, _source_ppy=None) -> Dict[str, Any]:
     """Resolve the Formula / level fixed-asset methodology.
 
     The authored period-end fixed-asset level is composed from an entered base plus zero
@@ -191,6 +235,47 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
     if n < 0 or ppy <= 0:
         raise ValueError("n_periods must be >= 0 and ppy must be > 0")
     cfg = _formula_level_config(fixed_assets)
+    # New transforms are evaluated on the monthly economic grid, before sampling
+    # closing stocks and summing flows. Old configurations retain their exact path.
+    enhanced = (str((cfg.get("depreciation") or {}).get("kind")) == "component_rates"
+                or any(c.get("lag_months") or c.get("driver_divisor", 1) != 1
+                       or c.get("driver_rounding", "none") != "none"
+                       for c in cfg.get("components") or []))
+    if enhanced and ppy != 12:
+        if ppy not in (1, 4):
+            raise ValueError("fixed-asset transforms require monthly, quarterly or annual cadence")
+        span = 12 // ppy
+        monthly_fa = deepcopy(fixed_assets)
+        def native_paths(obj):
+            if isinstance(obj, dict):
+                for k,v in list(obj.items()):
+                    if k in ("cadence", "period") and v == "model_period":
+                        obj[k] = {1:"year",4:"quarter"}[ppy]
+                    else:
+                        native_paths(v)
+            elif isinstance(obj,list):
+                for v in obj: native_paths(v)
+        native_paths(monthly_fa)
+        result = fixed_asset_formula_level(monthly_fa, assumptions, n * span, 12,
+                                          growth_context=growth_context, _source_ppy=ppy)
+        for key in ("gross", "accumulated_depreciation", "net"):
+            v = result[key]
+            result[key] = [v[0]] + [v[t] for t in range(span, len(v), span)]
+        for key in ("depreciation_expense", "capex"):
+            v = result[key]
+            result[key] = [v[0]] + [sum(v[t:t+span]) for t in range(1, len(v), span)]
+        fl = result["formula_level"]
+        fl["base"] = fl["base"][span-1::span]
+        rr = fl["depreciation_rate_per_engine_period"]
+        fl["depreciation_rate_per_engine_period"] = [sum(rr[t:t+span]) for t in range(0,len(rr),span)]
+        v = fl["accumulated_depreciation_relief"]
+        fl["accumulated_depreciation_relief"] = [v[0]] + [sum(v[t:t+span]) for t in range(1,len(v),span)]
+        for c in fl["components"]:
+            for key in ("driver", "raw_driver", "multiplier", "amount"):
+                c[key] = c[key][span-1::span]
+            c["depreciation"] = [sum(c["depreciation"][t:t+span])
+                                  for t in range(0,len(c["depreciation"]),span)]
+        return result
     basis = str(cfg.get("level_basis") or "gross").strip().lower()
     if basis not in {"gross", "net"}:
         raise ValueError("fixed_assets.formula_level.level_basis must be gross or net")
@@ -214,8 +299,27 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
         ns = normalize_series_spec(dspec, default_value=0.0)
         if ns["source"] != "link":
             raise ValueError(f"fixed_assets.formula_level.components[{i}].driver_spec must be a linked Series")
-        drivers = resolve_series_spec(ns, assumptions or {}, n, ppy,
-                                      context=growth_context, default_value=0.0)
+        if _source_ppy and _source_ppy != 12 and (ns.get("link") or {}).get("kind") == "workforce_role_count":
+            drivers = _monthly_workforce_driver(ns, assumptions or {}, n, _source_ppy, growth_context)
+        else:
+            drivers = resolve_series_spec(ns, assumptions or {}, n, ppy,
+                                          context=growth_context, default_value=0.0)
+        raw_drivers = [float(v or 0) for v in drivers]
+        lag = comp.get("lag_months", 0)
+        divisor = float(comp.get("driver_divisor", 1))
+        initial = float(comp.get("initial_driver", 0))
+        rounding = comp.get("driver_rounding", "none")
+        if (not isinstance(lag, int) or isinstance(lag, bool) or lag < 0 or lag > 1200
+                or not math.isfinite(divisor) or divisor <= 0
+                or not math.isfinite(initial) or initial < 0
+                or rounding not in ("none", "floor", "ceil", "nearest")):
+            raise ValueError("Invalid fixed-asset driver timing or grouping")
+        drivers = ([initial] * min(lag, n) + raw_drivers[:max(0,n-lag)]) if lag else raw_drivers
+        drivers = [v / divisor for v in drivers]
+        if rounding != "none":
+            fn = {"floor": math.floor, "ceil": math.ceil,
+                  "nearest": lambda v: math.floor(v + 0.5)}[rounding]
+            drivers = [float(fn(v)) for v in drivers]
         mults = _resolve_entered_level(comp.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":0.0},
                                        n, ppy, growth_context=growth_context)
         values = [float(d or 0.0) * float(m or 0.0) for d, m in zip(drivers, mults)]
@@ -225,7 +329,9 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
             "name": _formula_component_display_name(comp, i, assumptions, ns),
             "driver_series_id": str((ns.get("link") or {}).get("series_id") or ""),
             "driver_kind": str((ns.get("link") or {}).get("kind") or ""),
+            "raw_driver": raw_drivers,
             "driver": [float(x or 0.0) for x in drivers],
+            "depreciation": [0.0] * n,
             "multiplier": [float(x or 0.0) for x in mults],
             "amount": values,
         })
@@ -244,6 +350,21 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
             raise ValueError("Formula / level depreciation rate cannot be negative")
         dep_authored = [float(level or 0.0) * float(rate or 0.0)
                         for level, rate in zip(target, rates)]
+    elif kind == "component_rates":
+        if basis != "gross":
+            raise ValueError("Component depreciation requires Gross PP&E")
+        def component_dep(amounts, spec):
+            rr = _resolve_natural_period_series(spec or {
+                "source":"entered", "trajectory":"flat", "value":0, "period":"year"},
+                n, ppy, growth_context=growth_context)
+            if any(not math.isfinite(r) or r < 0 for r in rr):
+                raise ValueError("Component depreciation rates must be finite and non-negative")
+            return [v*r for v,r in zip(amounts,rr)]
+        dep_authored = component_dep(base, depcfg.get("base_rate_spec"))
+        for comp, row in zip(cfg.get("components") or [], component_rows):
+            row["depreciation"] = component_dep(row["amount"], comp.get("depreciation_rate_spec"))
+            dep_authored = [a+b for a,b in zip(dep_authored,row["depreciation"])]
+        rates = []
     elif kind == "entered":
         es = dict(depcfg.get("amount_spec") or {
             "source":"entered","trajectory":"flat","value":0.0,"period":"year"})
@@ -252,7 +373,7 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
             raise ValueError("Formula / level entered depreciation cannot be negative")
         rates = []
     else:
-        raise ValueError("fixed_assets.formula_level.depreciation.kind must be entered or rate_of_level")
+        raise ValueError("fixed_assets.formula_level.depreciation.kind must be entered, rate_of_level or component_rates")
 
     dep = [0.0] * (n + 1)
     capex = [0.0] * (n + 1)
