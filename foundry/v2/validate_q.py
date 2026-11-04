@@ -75,6 +75,15 @@ def validate_errors_v2(cfg):
 
 
 def validate_config_v2(cfg):
+    """Validate without editing the caller; return the normalized input copy.
+
+    Switch preparation is private to validation. The returned input retains saved
+    exclusions so run disclosure and All-On comparison still see the authored model.
+    """
+    # Validators may resolve legacy publication metadata; keep it off saved inputs.
+    from copy import deepcopy
+    cfg = deepcopy(cfg)
+    validated_input = cfg
     from .component_switches import prepare as prepare_component_switches
     try:
         cfg = prepare_component_switches(cfg)
@@ -1063,7 +1072,7 @@ def validate_config_v2(cfg):
 
     if errs:
         raise ConfigErrorV2("; ".join(errs))
-    return cfg
+    return validated_input
 
 
 def structural_rate_gaps(cfg):

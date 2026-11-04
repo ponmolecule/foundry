@@ -1,0 +1,21 @@
+// Legacy Series aliases can be shared by a feed and channel; component identity must stay unique.
+const assert=require('assert'),fs=require('fs'),vm=require('vm');
+const h=fs.readFileSync('web/console_v2.html','utf8');
+let serial=0;
+const ctx={cfg:{assumptions:{cac_feeds:{x:{name:'Feed',series_id:'same',channels:[{name:'Channel',series_id:'same'}]}}}},window:{},renderContent(){},refresh(){},_seriesId:()=>`component-${++serial}`};
+vm.createContext(ctx);
+vm.runInContext(h.slice(h.indexOf('/* Whole-forecast component inclusion.'),h.indexOf('const _swRenderContent=')),ctx);
+const original=JSON.stringify(ctx.cfg),rows=ctx.swInventory();
+assert.deepStrictEqual(Array.from(rows,r=>r.id),['cac_feeds.x','cac_feeds.x.channels.0']);
+assert.equal(rows[1].parent,rows[0].id);
+assert.equal(JSON.stringify(ctx.cfg),original,'inventory does not rewrite saved inputs');
+ctx.cfg.assumptions.component_groups=[{id:'offering',members:[rows[0].id],scenario_enabled:false}];
+assert(ctx.swStates().rows.every(r=>!r.on),'feed exclusion propagates to its channel');
+ctx.swEnsureIds();
+assert.equal(ctx.cfg.assumptions.component_groups[0].members[0],ctx.cfg.assumptions.cac_feeds.x.inclusion_id);
+assert(ctx.swStates().rows.every(r=>!r.on),'assigning persisted identities preserves group behavior');
+ctx.cfg.assumptions.component_groups[0].scenario_enabled=true;
+assert(ctx.swStates().rows.every(r=>r.on));
+assert(h.includes('dp=r?_faSum(r.depreciation,ref):null'),'component depreciation uses the public $000s directly');
+for(const m of h.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!/\bsrc=/.test(m[1]))new vm.Script(m[2]);
+console.log('PASS scoped legacy component identities, hierarchy, stable group migration, restoration and public depreciation units');

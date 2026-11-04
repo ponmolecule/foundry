@@ -496,8 +496,7 @@ def _constraint_tests(cfg, scen_results):
 
 
 def run_v2(cfg):
-    cfg = copy.deepcopy(cfg)
-    validate_config_v2(cfg)
+    cfg = validate_config_v2(cfg)
     config_hash = _hash(cfg)
     # Single authoritative reporting horizon, threaded through the whole consumer layer (the T34 lesson:
     # derive once from the config, never re-probe per function). _NP = number of projection periods;

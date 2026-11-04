@@ -58,6 +58,8 @@ def _conv_fixed_assets(fa):
                 cc["multiplier"] = [_k(x) for x in cc["multiplier"]]
             if isinstance(cc.get("amount"), list):
                 cc["amount"] = [_k(x) for x in cc["amount"]]
+            if isinstance(cc.get("depreciation"), list):
+                cc["depreciation"] = [_k(x) for x in cc["depreciation"]]
             comps.append(cc)
         if "components" in ff:
             ff["components"] = comps
@@ -254,7 +256,7 @@ def run_parity(cfg, *, include_exact=False):
     the converted public result without running the engine twice. Existing callers retain the
     historical return shape and rounding contract.
     """
-    validate_config_v2(cfg)   # fail closed before any arithmetic (A.13)
+    cfg = validate_config_v2(cfg)   # fail closed before any arithmetic (A.13)
     profile = cfg.get("parity_profile")
     if profile == "pf_a":
         exact = run_pf_a(cfg)

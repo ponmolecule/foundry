@@ -17897,7 +17897,7 @@ function _faFormulaHtml(fl,comps,dep,drvOpts,basis,openingLevel){
   const ms=c.multiplier_spec||{source:'entered',trajectory:'flat',value:0},mTxt=(ms.trajectory||'flat')==='flat'?'$'+_faKx((+ms.value||0)/1000)+'k per head':'a multiplier path';
   const lag=+c.lag_months||0,div=c.driver_divisor==null?1:+c.driver_divisor,rnd=c.driver_rounding||'none',grouped=div!==1||rnd!=='none';
   const sub=[lag?lag+'-month lag':'no lag',grouped?'groups of '+_numInput(div,8)+({floor:', rounded down',ceil:', rounded up',nearest:', rounded to nearest',none:''}[rnd]||''):'no grouping'].join(' · ');
-  const lv=r?(+(r.amount||[])[ref-1]||0):null,dp=r?_faSum(r.depreciation,ref)/1000:null;if(dp!=null)depComp+=dp;
+  const lv=r?(+(r.amount||[])[ref-1]||0):null,dp=r?_faSum(r.depreciation,ref):null;if(dp!=null)depComp+=dp;
   const rsp=cp+'.depreciation_rate_spec';
   h+=`<tr class="fxa-r${open?' on':''}"><td data-label="Component"><input class="fxa-name" aria-label="Component ${i+1} name" value="${esc(nm)}" onchange="_faFormulaState().components[${i}].name=this.value;refresh()"></td>`
    +`<td data-label="Sets the level"><span class="fxa-how">${esc(dl)} × ${esc(mTxt)}</span><button type="button" class="fxa-edit" aria-expanded="${open}" aria-label="Edit ${esc(nm)} driver" onclick="faCompOpen('${esc(key)}')">${open?'Close':'Edit'}</button><span class="fxa-sub">${esc(sub)}</span></td>`
@@ -19702,6 +19702,9 @@ function swInventory(){
  ['lending_products','deposit_products','obs_exposures'].forEach(k=>(a[k]||[]).forEach((p,i)=>{const id=add(p,k,k+'.'+i);(p.fee_streams||[]).forEach((s,j)=>add(s,'stream',k+'.'+i+'.fee_streams.'+j,id));}));
  Object.entries(a.cac_feeds||{}).forEach(([k,f])=>{const id=add(f,'feed','cac_feeds.'+k);(f.channels||[]).forEach((c,j)=>add(c,'channel','cac_feeds.'+k+'.channels.'+j,id));});
  [['role','nie_detail.workforce.roles',a.nie_detail?.workforce?.roles||[]],['cost_pool','cost_pools',a.cost_pools||[]],['expense','nie_detail.categories',a.nie_detail?.categories||[]]].forEach(([kind,path,items])=>items.forEach((n,i)=>add(n,kind,path+'.'+i)));
+ const counts=new Map();out.forEach(r=>counts.set(r.id,(counts.get(r.id)||0)+1));
+ out.forEach(r=>{if(counts.get(r.id)>1&&!r.node.inclusion_id)r.id=r.path;});
+ const bypath=new Map(out.map(r=>[r.path,r]));out.forEach(r=>{if(r.parent!=null)r.parent=bypath.get(r.path.split('.').slice(0,-2).join('.')).id;});
  return out;
 }
 function swEnsureIds(){

@@ -250,7 +250,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
                  "fmtComma(x){return String(x);},_seriesId:(()=>{let n=0;return p=>p+'-'+(++n);})()})) if(!(k in globalThis)) globalThis[k]=v;\n"  # r436
                  +html[html.index("function _stOwner("):html.index("function _productFormulaActionsHtml(")])  # r436: r232 stream handlers resolve owners via _stOwner (in the fieldsFor slice)
     def _sl(a,b): i=html.index(a); return html[i:html.index(b,i)]  # r436
-    _FEE_ENV=(_sl("let sourceCatalogRows=","\n")+"\n"+_sl("function catalogSources(","\n")+"\n"  # r436: r2xx source catalog
+    _FEE_ENV=(_sl("/* Whole-forecast component inclusion.","const _swRenderContent=")+"\n"
+              +_sl("function loanUnusedReserveHtml(","function _loanAmountEditor(")+"\n"
+              +_sl("let sourceCatalogRows=","\n")+"\n"+_sl("function catalogSources(","\n")+"\n"  # r436: r2xx source catalog
               +_sl("function _prdLab(","const LINE_LABELS =")  # r436: r200 master-detail (_mdPick)
               +_sl("// r219: driver provenance.","// r221: customer-acquisition intra-period path")  # r436: _stSrcChip etc.
               +_sl("// r228: one renderer for a stream","// r233: Setup for loans and deposits")  # r436: _stCellHtml etc.

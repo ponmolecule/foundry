@@ -33,7 +33,7 @@ assert.strictEqual(await num('[data-engine-preview="fa-lv-tot"]'),Math.round(A.g
 const depTot=A.accumulated_depreciation[12]-A.accumulated_depreciation[0]+A.formula_level.accumulated_depreciation_relief.slice(1,13).reduce((s,v)=>s+v,0);
 assert.strictEqual(await num('[data-engine-preview="fa-dp-tot"]'),Math.round(depTot*10)/10);
 const comp=A.formula_level.components[0];
-assert.strictEqual(await num('[data-engine-preview="fa-dp-0"]'),Math.round(comp.depreciation.slice(0,12).reduce((s,v)=>s+v,0)/1000*10)/10,'component depreciation is shown in $000s');
+assert.strictEqual(await num('[data-engine-preview="fa-dp-0"]'),Math.round(comp.depreciation.slice(0,12).reduce((s,v)=>s+v,0)*10)/10,'component depreciation is shown in $000s');
 // 3. Roll-forward foots exactly as displayed.
 const rf=(await page.locator('[data-engine-preview="fxa-rf"] .fxa-v').allInnerTexts()).map(t=>Number(t.split('\n')[0].replace(/,/g,'')));
 assert.strictEqual(rf.length,10);

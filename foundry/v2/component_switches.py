@@ -34,6 +34,19 @@ def inventory(cfg):
         ('cost_pools', 'cost_pool', a.get('cost_pools') or []),
         ('nie_detail.categories', 'expense', (a.get('nie_detail') or {}).get('categories') or [])):
         for i, node in (vals.items() if isinstance(vals,dict) else enumerate(vals)): add(node, kind, f'{key}.{i}')
+    # A legacy Series alias may be shared across different component scopes.
+    # Explicit switch identities remain globally unique; do not rewrite saved IDs.
+    counts = {}
+    for row in rows:
+        counts[row['id']] = counts.get(row['id'], 0) + 1
+    bypath = {row['path']: row for row in rows}
+    for row in rows:
+        if counts[row['id']] > 1 and not row['node'].get('inclusion_id'):
+            row['id'] = row['path']
+    for row in rows:
+        if row['parent'] is not None:
+            parent_path = row['path'].rsplit('.', 2)[0]
+            row['parent'] = bypath[parent_path]['id']
     return rows
 
 

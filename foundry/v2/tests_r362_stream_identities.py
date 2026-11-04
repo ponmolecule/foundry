@@ -14,7 +14,7 @@ class StreamIdentityTests(unittest.TestCase):
         js=Path("web/console_v2.html").read_text()
         start=js.index("function _ensureLinkableSeriesIds(){")
         fn=js[start:js.index("// Shared metadata comes",start)]
-        code="let n=0;let cfg="+json.dumps(cfg)+";function _seriesId(){return 'test-'+(++n)};"+fn+";_ensureLinkableSeriesIds();const first=JSON.stringify(cfg);_ensureLinkableSeriesIds();if(JSON.stringify(cfg)!==first)throw Error('unstable IDs');console.log(JSON.stringify(cfg));"
+        code="const window=globalThis;let n=0;let cfg="+json.dumps(cfg)+";function _seriesId(){return 'test-'+(++n)};"+fn+";_ensureLinkableSeriesIds();const first=JSON.stringify(cfg);_ensureLinkableSeriesIds();if(JSON.stringify(cfg)!==first)throw Error('unstable IDs');console.log(JSON.stringify(cfg));"
         cfg=json.loads(subprocess.check_output(["node", "-"], input=code, text=True))
         r=run_v2(cfg)
         flat,event=cfg["assumptions"]["obs_exposures"][0]["fee_streams"]

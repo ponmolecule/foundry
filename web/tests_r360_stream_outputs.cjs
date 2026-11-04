@@ -4,13 +4,14 @@ for(const m of H.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!/\bsrc=
 if(!process.argv[2]){const r=require('child_process').spawnSync('python3',['-m','foundry.v2.tests_r360_stream_outputs'],{stdio:'inherit',cwd:__dirname+'/..'});process.exit(r.status==null?1:r.status);}
 const {cfg,res}=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
 const ctx={cfg,lastRes:res,window:{},PPY:()=>cfg.assumptions.periods_per_year,esc:s=>String(s).replaceAll('"','&quot;'),_numInput:v=>String(v),document:{querySelectorAll:()=>[]},_lfgArr:f=>cfg.assumptions[f==='obs'?'obs_exposures':f==='lending'?'lending_products':'deposit_products'],_lfgCtx:()=>({res,P:{fees:[999]},ref:1}),_lfxPer:()=> 'month',_lfxQ:n=>'M'+n,_lfxSparkSvg:arr=>'<spark>'+arr.join(',')+'</spark>',_stProv:()=>null};
-vm.createContext(ctx);vm.runInContext(H.slice(H.indexOf('// Numeric inspection stays'),H.indexOf('function _lfxRoHtml(')),ctx);vm.runInContext(H.split('\n').find(l=>l.startsWith('function _numInput(')),ctx);
+vm.createContext(ctx);vm.runInContext(H.slice(H.indexOf('function loanUnusedReserveHtml('),H.indexOf('function _loanAmountEditor(')),ctx);vm.runInContext(H.slice(H.indexOf('// Numeric inspection stays'),H.indexOf('function _lfxRoHtml(')),ctx);vm.runInContext(H.split('\n').find(l=>l.startsWith('function _numInput(')),ctx);
 // r436: r423 (327bf1a) moved the summary-stat helper _feeStreamSummaryStats directly above _lfxLiveHtml; the slice now starts there so the renderer can call it.
 for(const [a,b] of [['function _stOwner(','function _feeStreamsSectionHtml('],['function _feeStreamQuantityKind(','function _feePctSemantics('],['function _explicitPreviewHtml(','function _explicitSchedulePreviewHtml('],['// r360: dependent streams display','_feeGlobal.addFeeCostPool='],['function _stCellHtml(','function refreshStreamFigures'],['function _feeStreamSummaryStats(','function refreshLfxLive(']])vm.runInContext(H.slice(H.indexOf(a),H.indexOf(b,H.indexOf(a))),ctx);
 const st=cfg.assumptions.obs_exposures[0].fee_streams,before=JSON.stringify(cfg);
 for(const [i,label,val] of [[0,'Resolved count',10],[1,'Resolved count',6],[2,'Resolved volume',138],[3,'Stream revenue',3.036],[4,'Contra-revenue',-.1932],[5,'Stream cost',.06],[6,'Net stream income',1.104]]){
  const out=ctx._feeStreamResolvedOutput(0,i);assert.equal(out.label,label);assert(Math.abs(out.values[0]-val)<1e-10);
  const compact=ctx._feeStreamResultBody(st[i].quantity_series_id);assert(compact.includes(label));assert(compact.includes(String(val)));
+ ctx.window._stTab=i>=3?'pricing':'activity';
  const chart=ctx._lfxLiveHtml('sro',0,i);assert(chart.includes(label));assert(!chart.includes('Product fees'),'a product aggregate must not masquerade as stream output');
  const meta=[{qid:st[i].quantity_series_id}];const cell=ctx._stCellHtml(meta,0,0);assert(cell.includes(out.format(out.values.at(-1))));
  if(i===3||i===4){assert(!compact.includes('M1 138<'));assert(!chart.includes('<spark>138,'));}

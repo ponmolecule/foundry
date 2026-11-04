@@ -45,13 +45,13 @@ for(const width of [2048,1440,1100]){
  await page.locator('.lnv-ri').nth(2).click();await page.waitForTimeout(60);
  assert(await page.locator('section.lnv-on').getByText('Interest accrues on',{exact:true}).isVisible());
  const body=page.locator('section.lnv-on .fxs-pane');
- await body.screenshot({path:'/workspace/scratch/370303911165/r445-pricing-'+width+'.png'});
+ await body.screenshot({path:require('path').join(require('os').tmpdir(),'r445-pricing-')+width+'.png'});
 }
 // The inspector receives the now-published engine provision, rather than manufacturing a client series.
 const series=await page.evaluate(()=>{const p=lastRes.products.find(p=>p.family==='lending'&&p.balanceMode==='funded_flow_level');return _resultPanelSeries(p,'cred','Allowance','lending');});
-assert.strictEqual(series.find(s=>s.name==='Provision / (release)').values.length,36);
+assert.strictEqual(series.find(s=>s.name==='Funded provision / (release)').values.length,36);
 await page.locator('.lnv-ri').nth(3).click();await page.locator('section.lnv-on .result-numbers-link').click();
-assert(await page.locator('#result-numbers-dialog').locator('tbody th').filter({hasText:'Provision / (release)'}).isVisible(),'provision available in the actual Numbers dialog');
+assert(await page.locator('#result-numbers-dialog').locator('tbody th').filter({hasText:'Funded provision / (release)'}).isVisible(),'provision available in the actual Numbers dialog');
 assert.deepStrictEqual(errors,[]);console.log('r445 product consistency: ok');
 }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

@@ -7,11 +7,11 @@ const end=html.indexOf('function _renderContentBody(){',start);
 const shared=html.slice(start,end);
 const input=html.slice(html.indexOf('function _seriesExplicitValues('),html.indexOf('function _feeParseExplicitValues('));
 (async()=>{
- const browser=await chromium.launch({headless:true});
+ const browser=await chromium.launch({executablePath:process.env.FOUNDRY_CHROMIUM_PATH,headless:true});
  try{
  const page=await browser.newPage({viewport:{width:900,height:600}});
  await page.setContent('<style>body{margin:0}textarea{width:400px;height:90px}</style><div id="content"></div>');
- await page.addScriptTag({content:`let currentTab='config',cfg={};let output='Before';let mode='open';
+ await page.addScriptTag({content:`let currentTab='config',cfg={},lastErrs=[],lastRunFailure=null;let output='Before';let mode='open';
  function esc(x){return String(x)}
  function editor(){return '<div style="height:900px"></div><div data-engine-preview="summary">'+output+'</div><div data-paste-surface="draft"><textarea id="draft" oninput="_seriesExplicitPasteInput(\\'draft\\')"></textarea><button id="draft_load" disabled>Load (replace)</button><button id="clear">Clear</button></div><input data-focus="ordinary" value="12345"><div style="height:1000px"></div>';}
  function _renderContentBody(){document.getElementById('content').innerHTML=editor();document.getElementById('draft_load').onclick=()=>renderContent();document.getElementById('clear').onclick=()=>renderContent();}

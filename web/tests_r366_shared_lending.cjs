@@ -6,7 +6,9 @@ vm.createContext(ctx);vm.runInContext(H.slice(H.indexOf('// Reusable shared assu
 for(const name of ['_faSeriesEnsure','faSeriesTrajectory','faSeriesValue']){const line=H.split('\n').find(l=>l.startsWith((name.startsWith('_')?'function ':'window.')+name+(name.startsWith('_')?'(':'=')));assert(line,name);vm.runInContext(line,ctx);}
 ctx._faSeriesExplicitIsOpen=()=>false;
 const a=H.indexOf('function _faSeriesEditor('),b=H.indexOf('// ===== r340:',a);vm.runInContext(H.slice(a,b),ctx);
-ctx.loanAmountMode(0,'shared');ctx.loanSharedCreate(0);let row=ctx.cfg.assumptions.balance_components_model.inputs[0],sid=row.id;
+ctx.loanAmountMode(0,'shared');ctx.loanSharedStart(0);
+vm.runInContext("_loanSharedDraft.get(cfg.assumptions.lending_products[0]).name='Reusable amount'",ctx);
+ctx.loanSharedCreate(0);let row=ctx.cfg.assumptions.balance_components_model.inputs[0],sid=row.id;
 assert.equal(ctx.cfg.assumptions.balance_components_model.enabled,false);assert.equal(row.spec.components.length,1);
 ctx.sharedComponentAdd(sid);assert.equal(row.spec.components.length,2);
 let path='assumptions.balance_components_model.inputs.0.spec.components.0.amount_spec';ctx.window.faSeriesValue(path,'value','6493634','dollars');assert.equal(row.spec.components[0].amount_spec.value,6493634);
