@@ -24,7 +24,7 @@ The first supported browser driver is the stable Workforce Count Series (total w
 
 Depreciation has two authoring choices:
 
-- **% of asset level** — entered Flat / Growth / Explicit depreciation-rate path multiplied by the resolved period-end asset level on the selected basis.
+- **% of asset level** (console label since r466: *One rate on total*) — entered Flat / Growth / Explicit depreciation-rate path multiplied by the resolved period-end asset level on the selected basis.
 - **Entered amount** — entered Flat / Growth / Explicit depreciation expense path.
 
 Both depreciation choices own an explicit natural period where applicable: Month / Quarter / Year. Explicit schedule cadence is a separate concept from the natural period. Foundry periodizes the authored amount/rate exactly once.

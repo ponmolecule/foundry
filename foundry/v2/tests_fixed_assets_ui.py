@@ -71,12 +71,12 @@ console.log(JSON.stringify({rows,mode:cfg.assumptions.fixed_assets.mode,n:cfg.as
        and 'Use generalized Formula / level' in html)
     ck("Formula / level UI exposes explicit gross/net basis, linked components and depreciation",
        'Level basis' in html and 'Gross PP&amp;E' in html and 'Net PP&amp;E target' in html
-       and '+ Add linked component' in html and 'Driver Series' in html and 'Multiplier' in html
-       and '% of asset level' in html and 'Entered amount' in html
+       and '+ Add linked component' in html and '>Driver</span>' in html and 'Multiplier' in html
+       and 'One rate on total' in html and 'Entered amount' in html
        and 'Opening accumulated depreciation' in html)
     ck("entered depreciation exposes Month / Quarter / Year schedules independently of model cadence",
        'function _flowSeriesCadenceOptions(){return ["year","quarter","month"]' in html
-       and "_faFlowSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.amount_spec'" in html
+       and "asp=FL+'.depreciation.amount_spec'" in html and "_faFlowSeriesEditor(asp," in html
        and '<option value="month" selected>Month</option>' in (out.get("flowEditor") or ""))
     linked=out.get("linked") or []
     ck("Formula / level Add linked component stores a stable Workforce Count Series link",
@@ -87,7 +87,7 @@ console.log(JSON.stringify({rows,mode:cfg.assumptions.fixed_assets.mode,n:cfg.as
        len(linked)==1 and linked[0].get("name")=="Fixed assets · Total workforce"
        and 'name:"Linked asset component"' not in html)
     ck("component rates and driver transforms are exposed",
-       'Rates by component' in html and 'Driver timing and grouping' in html
+       'Rate by component' in html and 'Add grouping' in html
        and 'Count before M1' in html and 'driver_divisor' in html
        and 'depreciation_rate_spec' in html)
     print(f"\n{p} passed, {f} failed")

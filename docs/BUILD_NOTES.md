@@ -1,3 +1,7 @@
+# r466 — Fixed assets Formula / level table
+
+See RELEASE_r466.md. One component table with per-row level and depreciation, M1 disposal check and roll-forward. Presentation only; no engine change.
+
 # r457 — Cumulative gross acquisition counts
 
 See RELEASE_r457.md. A live Account count source before attrition, with monthly-first costs and no automatic opt-in.

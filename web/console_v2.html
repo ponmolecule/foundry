@@ -4091,6 +4091,51 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 #card-cap .crow.fxs-cap-row>input,#card-cap .crow.fxs-cap-row>select{width:100%!important;min-width:0!important;height:30px;box-sizing:border-box}
 #card-cap .crow.fxs-cap-row>input:not(:first-child){text-align:right}
 #card-cap .fxs-cap-raise.crow>input{text-align:right}
+/* r466: fixed assets Formula / level table */
+#fixedassets-editor:has(.fxa-x){grid-column:1/-1}
+.fxa-x{container-type:inline-size;font-size:13px;color:#1F1F1E}
+.fxa-top{display:flex;gap:26px;flex-wrap:wrap;padding:2px 0 14px;border-bottom:1px solid #E3E1DC}
+.fxa-lbl{display:block;font:700 9.5px Inter,Arial,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#76736C;margin-bottom:6px}
+.fxa-seg{display:inline-flex;border:1px solid #CFCCC6;border-radius:3px;overflow:hidden}
+.fxa-x .fxa-seg button{width:auto!important;font:600 12px Inter,Arial,sans-serif;padding:6px 13px;border:0;background:#fff;color:#4A4945;cursor:pointer;border-radius:0;min-height:0;margin:0}
+.fxa-x .fxa-seg button+button{border-left:1px solid #CFCCC6}.fxa-x .fxa-seg button.on{background:#2C2C2C;color:#fff}.fxa-x .fxa-seg button:disabled{color:#B5B2AB;cursor:not-allowed}
+.fxa-step{display:flex;align-items:baseline;gap:8px;margin:18px 0 9px;flex-wrap:wrap}.fxa-step i{font-style:normal;width:18px;height:18px;border-radius:50%;background:#9A7330;color:#fff;font-size:11px;font-weight:700;display:inline-grid;place-items:center;flex:none;transform:translateY(-1px)}.fxa-step b{font-size:13px}.fxa-step span{color:#76736C;font-size:12px}
+.fxa-open{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}.fxa-o{display:inline-flex;flex-direction:column;gap:4px;margin:0}.fxa-o small{font:700 9.5px Inter,Arial,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#76736C}.fxa-o em{font-style:normal;font-weight:650;font-variant-numeric:tabular-nums;height:30px;display:flex;align-items:center}.fxa-op{color:#76736C;font-size:16px;height:30px;display:flex;align-items:center}
+.fxa-cell{display:inline-flex;align-items:center;gap:4px;border:1px solid #CFCCC6;border-radius:3px;height:30px;padding:0 3px 0 4px;background:#fff;white-space:nowrap;vertical-align:middle;max-width:100%;box-sizing:border-box}
+.fxa-cell.g{border-color:#C9A04E}.fxa-cell b{font-weight:500;padding:0 4px}
+.fxa-x .fxa-cell input{width:66px!important;min-width:0!important;max-width:none!important;flex:1 1 auto!important;border:0!important;height:26px!important;text-align:right;font-size:13px;padding:0 3px!important;background:transparent!important;box-shadow:none!important;margin:0!important;border-radius:0!important}
+.fxa-x .fxa-cell input[type=number]{width:52px!important}.fxa-x .fxa-cell input:focus{outline:none}.fxa-cell:focus-within{border-color:#9A7330;box-shadow:0 0 0 2px rgba(201,160,78,.25)}
+.fxa-cell u{text-decoration:none;color:#A3A09A;font-size:11px;padding-right:2px}
+.fxa-x .fxa-tag{width:auto!important;font:700 9px Inter,Arial,sans-serif;letter-spacing:.05em;color:#76736C;border:1px solid #E3E1DC;border-radius:3px;padding:3px 5px;background:#FAFAF8;cursor:pointer;min-height:0;margin:0;flex:none}
+.fxa-x .fxa-tag.g{color:#9A7330;border-color:#E7D7B4;background:#FBF6EA}
+.fxa-scroll{overflow-x:auto}
+.fxa-t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.fxa-t th{font:700 9.5px Inter,Arial,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#76736C;text-align:left;padding:8px 6px;border-bottom:1px solid #E3E1DC;vertical-align:bottom;white-space:nowrap}
+.fxa-t th.n,.fxa-t td.n{text-align:right}.fxa-t td{padding:8px 6px;border-bottom:1px solid #ECEBE7;vertical-align:middle}
+.fxa-t tr.on td{background:#FBF6EA}.fxa-t tr.on td:first-child{box-shadow:inset 3px 0 0 #C9A04E}
+.fxa-x input.fxa-name{width:100%!important;min-width:120px!important;max-width:240px!important;border:1px solid transparent!important;border-radius:3px;padding:5px 7px!important;font-size:13px;font-weight:600;background:transparent!important;color:#1F1F1E;height:30px;box-shadow:none!important;margin:0!important}
+.fxa-x input.fxa-name:hover,.fxa-x input.fxa-name:focus{border-color:#CFCCC6!important;background:#fff!important}
+.fxa-sub{display:block;font-size:11px;color:#76736C;margin-top:3px}.fxa-mut{color:#9C998F;font-size:12px}
+.fxa-how{color:#2A2A2A}
+.fxa-x .fxa-edit,.fxa-x .fxa-lnk,.fxa-x .fxa-done{width:auto!important;background:none;border:0;padding:0 0 0 6px;color:#9A7330;font:600 12px Inter,Arial,sans-serif;cursor:pointer;min-height:0;margin:0}
+.fxa-x .fxa-lnk{padding:0}.fxa-x .fxa-done{padding:4px 0 0}
+.fxa-x .fxa-rm{width:auto!important;background:none;border:0;color:#9C998F;font-size:16px;cursor:pointer;padding:0 4px;min-height:0;margin:0}.fxa-x .fxa-rm:hover{color:#B04A2E}
+.fxa-edr td{background:#FBF6EA!important;padding:4px 14px 14px!important}
+.fxa-grid{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px 12px;align-items:center;border-top:1px dashed #E2D6BC;padding-top:12px}
+.fxa-k{font-size:12px;color:#76736C}
+.fxa-grid select{height:30px;font-size:12.5px;max-width:320px;width:auto!important;min-width:0!important}
+.fxa-inl{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.fxa-inl label{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#4A4945;margin:0}
+.fxa-eq{grid-column:1/-1;font-size:12px;background:#fff;border:1px solid #EDE6D6;border-radius:4px;padding:8px 10px;color:#333}.fxa-eq b{color:#9A7330}
+.fxa-r-end{text-align:right}
+.fxa-ed{border-top:1px dashed #E2D6BC;padding-top:10px;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.fxa-t tr.fxa-tot td{border-bottom:0;border-top:1.5px solid #2C2C2C;font-weight:650;padding-top:10px}
+.fxa-x .fxa-add{width:auto!important;margin-top:9px;font:600 12px Inter,Arial,sans-serif;border:1px solid #CFCCC6;border-radius:3px;padding:5px 11px;background:#fff;color:#2A2A2A;cursor:pointer;min-height:0}
+.fxa-note{font-size:11.5px;color:#76736C;margin:8px 0 0}
+.fxa-chk:empty{display:none}.fxa-chk{margin-top:12px;background:#FBF1E6;border-left:3px solid #9C4A1A;padding:8px 12px;font-size:12px;color:#5A2E12;line-height:1.5}.fxa-chk b{color:#9C4A1A}
+.fxa-rf{display:grid;grid-template-columns:minmax(120px,170px) repeat(7,auto);justify-content:start;column-gap:12px;row-gap:7px;align-items:baseline;font-variant-numeric:tabular-nums}
+.fxa-l{color:#76736C;font-size:12px}.fxa-v{text-align:right;min-width:46px}.fxa-v.t{font-weight:700}.fxa-v small{display:block;font-size:10px;color:#9C998F;text-align:right}.fxa-o2{color:#9C998F}
+.fxa-rule{margin:14px 0 0;font-size:11.5px;color:#76736C;border-top:1px solid #E3E1DC;padding-top:10px;line-height:1.5}
+@container(max-width:640px){.fxa-t,.fxa-t tbody{display:block;width:100%}.fxa-t thead{display:none}.fxa-t tbody>tr.fxa-r,.fxa-t tbody>tr.fxa-tot{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 24px;border:1px solid #E3E1DC;border-radius:4px;padding:8px;margin-top:10px;gap:6px 8px}.fxa-t tr>td{border:0!important;min-width:0;text-align:left!important;padding:0!important}.fxa-t tr.fxa-r>td:first-child{grid-column:1/3}.fxa-t tr.fxa-r>td:nth-child(2){grid-column:1/-1}.fxa-t tr>td:last-child{grid-column:3;grid-row:1}.fxa-t tr.fxa-r>td:nth-child(3),.fxa-t tr.fxa-tot>td:nth-child(3){grid-column:1}.fxa-t tr.fxa-r>td:nth-child(5),.fxa-t tr.fxa-tot>td:nth-child(5){grid-column:2/4;grid-row:auto}.fxa-t tr.fxa-r>td:nth-child(4),.fxa-t tr.fxa-tot>td:nth-child(4){grid-column:1/-1;grid-row:4}.fxa-t tr.fxa-tot>td:first-child{grid-column:1/-1}.fxa-t tr.fxa-tot>td:nth-child(2),.fxa-t tr.fxa-tot>td:last-child,.fxa-t tr.fxa-tot>td:nth-child(4):empty{display:none}.fxa-t tr.fxa-tot>td:nth-child(4){grid-row:3}.fxa-t tr.on{background:#FBF6EA}.fxa-t tr.on td{background:transparent;box-shadow:none!important}.fxa-t td[data-label]::before{content:attr(data-label);display:block;font:700 9px Inter,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#76736C;margin-bottom:4px}.fxa-t tr.fxa-edr{display:block}.fxa-edr td{display:block;width:100%}.fxa-grid{grid-template-columns:minmax(0,1fr)}.fxa-rf{grid-template-columns:minmax(0,1fr) repeat(7,auto);column-gap:6px}}
 /* r449 */
 .dep-apc{min-width:0}.lfx-b>.dep-apc{grid-column:1/-1;padding:4px 22px 18px;border-top:1px solid #ECEAE5;margin-top:4px}
 .dep-apc .count-authoring{margin:0!important}.dep-apc-sub{font-size:12px;color:#76736C;font-weight:400}
@@ -17794,6 +17839,111 @@ window.opexToggle = function(){
   renderContent(); refresh();
 };
 
+/* r466: Fixed assets Formula / level as one component table: opening position, components (level + depreciation per row), roll-forward. UI only. */
+window.faPathEdit=function(p){window._faPathEditor=window._faPathEditor===p?null:p;renderContent();};
+window.faCompOpen=function(k){window._faCompOpen=window._faCompOpen===k?null:k;renderContent();};
+window.faGroupOpen=function(k){window._faGroupOpen=k;renderContent();};
+function _faRun(){const {res,stale}=_lfxRes();const f=res&&res.fixed_assets;if(!f||f.mode!=='formula_level'||!f.formula_level)return null;
+ const ppy=typeof PPY==='function'?PPY():12,n=Math.max(0,(f.gross||[]).length-1);if(!n)return null;
+ const ref=Math.max(1,Math.min(n,ppy===4?4:(ppy===1?1:12)));return {f,fl:f.formula_level,stale,ref,lab:ppy===4?'Q':(ppy===1?'Y':'M')};}
+function _faSum(a,k){let s=0;for(let t=0;t<k;t++)s+=+((a||[])[t])||0;return s;}
+function _faK(x,d){return x==null||!isFinite(x)?'—':_depF2(x,d==null?1:d);}
+function _faKx(k){return _depF2(k,Math.abs(k*10-Math.round(k*10))>1e-9?2:1);}
+function _faPer(v){return (v&&v.period&&v.period!=='model_period')?v.period:'year';}
+function _faLife(v){if(!v||(v.trajectory||'flat')!=='flat')return 'varies by period';const ann=(+v.value||0)*({year:1,quarter:4,month:12}[_faPer(v)]||1);return ann>1e-12?'≈ '+_depF2(1/ann,1)+'-year life':'no depreciation';}
+function _faCellHtml(sp,v,kind,label){v=v&&typeof v==='object'?v:{source:'entered',trajectory:'flat',value:0};const tr=v.trajectory||'flat',rate=kind==='rate',open=window._faPathEditor===sp;
+ const unit=rate?'% / '+({year:'yr',quarter:'qtr',month:'mo'}[_faPer(v)]||'yr'):(kind==='multiplier'?'$000s / head':'$000s');
+ const tag=`<button type="button" class="fxa-tag${tr!=='flat'?' g':''}" aria-label="Edit ${esc(label)} path" aria-expanded="${open}" title="Growth, schedule${rate?' or rate period':''}" onclick="faPathEdit('${sp}')">${_depTrLab(v)} ▾</button>`;
+ if(tr!=='flat')return `<span class="fxa-cell g"><b>varies</b><u>${unit}</u>${tag}</span>`;
+ const full=_numInput((+v.value||0)*(rate?100:0.001),15),show=rate?_depF2((+v.value||0)*100,2):_depF2((+v.value||0)/1000,kind==='multiplier'?2:1).replace(/,/g,'');
+ return `<span class="fxa-cell"><input type="text" inputmode="decimal" data-nofit aria-label="${esc(label)}" value="${show}" data-full="${full}" data-show="${show}" onfocus="this.value=this.dataset.full;this.select()" onblur="if(_depSame(this))this.value=this.dataset.show" onchange="if(_depSame(this))return;faSeriesValue('${sp}','value',this.value,'${kind}');setTimeout(()=>renderContent(),0)"><u>${unit}</u>${tag}</span>`;}
+function _faPathRow(sp,v,label,kind,natural,cols){if(window._faPathEditor!==sp)return '';
+ return `<tr class="fxa-edr"><td colspan="${cols}"><div class="fxa-ed">${_faSeriesEditor(sp,v||{source:'entered',trajectory:'flat',value:0,...(natural?{period:'year'}:{})},label,kind,natural)}<button type="button" class="fxa-done" onclick="faPathEdit('${sp}')">Done</button></div></td></tr>`;}
+function _faFormulaHtml(fl,comps,dep,drvOpts,basis,openingLevel){
+ const FL='assumptions.fixed_assets.formula_level',kind=dep.kind||'rate_of_level',byComp=kind==='component_rates'&&basis==='gross',R=_faRun();
+ const lab=R?R.lab:(typeof PPY==='function'&&PPY()===4?'Q':'M'),ref=R?R.ref:(lab==='Q'?4:12),rng=`${lab}1–${lab}${ref}`,live=R&&!R.stale;
+ const rcomps=(R&&R.fl.components)||[],rowRes=(c,i)=>{const id=String(c.component_id||'');return (id&&rcomps.find(x=>String(x.component_id||'')===id))||(rcomps.length===comps.length?rcomps[i]:null);};
+ const accum=+fl.opening_accumulated_depreciation||0,gO=basis==='gross'?openingLevel:openingLevel+accum,nO=basis==='gross'?Math.max(0,openingLevel-accum):openingLevel;
+ let h=`<div class="fxa-x" data-fa-formula>`;
+ // controls
+ const seg=(lbl,opts,cur,fn)=>`<div class="fxa-ctl"><span class="fxa-lbl" id="fa-l-${fn}">${lbl}</span><span class="fxa-seg" role="radiogroup" aria-labelledby="fa-l-${fn}">${opts.map(([v,l,dis,why])=>`<button type="button" role="radio" aria-checked="${v===cur}" class="${v===cur?'on':''}"${dis?` disabled title="${esc(why)}"`:''} onclick="${fn}('${v}')">${l}</button>`).join('')}</span></div>`;
+ h+=`<div class="fxa-top">`+seg('Level basis',[['gross','Gross PP&amp;E'],['net','Net PP&amp;E target',kind==='component_rates','Rate by component requires Gross PP&E']],basis,'faFormulaBasis')
+  +seg('Depreciation',[['component_rates','Rate by component',basis==='net','Rate by component requires Gross PP&E'],['rate_of_level','One rate on total'],['entered','Entered amount']],kind,'faFormulaDepKind')+`</div>`;
+ // 1 opening
+ const oIn=(val,aria,on)=>`<span class="fxa-cell"><input type="text" inputmode="decimal" aria-label="${aria}" value="${fmtComma(val/1000)}" onchange="${on};refresh();fmtField(this)"><u>$000s</u></span>`;
+ const openIn=oIn(openingLevel,'Opening '+(basis==='gross'?'gross':'net')+' fixed assets',"_faFormulaState(true).opening_level=_pf(this.value)*1000");
+ const accIn=oIn(accum,'Opening accumulated depreciation',"_faFormulaState(true).opening_accumulated_depreciation=_pf(this.value)*1000");
+ h+=`<div class="fxa-step"><i>1</i><b>Opening position</b><span>where the book starts, before ${lab}1</span></div><div class="fxa-open">`;
+ h+=basis==='gross'?`<label class="fxa-o"><small>Gross PP&amp;E</small>${openIn}</label><span class="fxa-op">−</span><label class="fxa-o"><small>Accumulated depreciation</small>${accIn}</label><span class="fxa-op">=</span><span class="fxa-o"><small>Net PP&amp;E</small><em data-engine-preview="fa-open-net">${_faK(nO/1000)}</em></span>`
+  :`<label class="fxa-o"><small>Net PP&amp;E</small>${openIn}</label><span class="fxa-op">+</span><label class="fxa-o"><small>Accumulated depreciation</small>${accIn}</label><span class="fxa-op">=</span><span class="fxa-o"><small>Gross PP&amp;E</small><em data-engine-preview="fa-open-gross">${_faK(gO/1000)}</em></span>`;
+ h+=`</div>`;
+ // 2 components
+ const cols=6;
+ h+=`<div class="fxa-step"><i>2</i><b>Components</b><span>what sets the ${basis==='gross'?'gross':'net'} level${byComp?', and how fast each part depreciates':''}</span></div>`;
+ h+=`<div class="fxa-scroll"><table class="fxa-t"><thead><tr><th>Component</th><th>Sets the level</th><th class="n">${basis==='gross'?'Level':'Net target'} · ${lab}${ref}</th><th class="n">${kind==='entered'?'Depreciation':'Depreciation rate'}</th><th class="n">Depreciation · ${rng}</th><th></th></tr></thead><tbody>`;
+ // Depreciation over the window is taken from the balance-sheet roll-forward (closing − opening accumulated + relief), so table and roll-forward foot exactly.
+ const relW=R?_faSum((R.fl.accumulated_depreciation_relief||[]).slice(1),ref):0,depTot=R?(+R.f.accumulated_depreciation[ref]||0)-(+R.f.accumulated_depreciation[0]||0)+relW:null;let depComp=0;
+ // base row
+ const bsp=FL+'.base_spec',brsp=FL+'.depreciation.base_rate_spec',bName=fl.base_name||'Base asset level';
+ const bLev=R?(+(R.fl.base||[])[ref-1]||0):null;
+ h+=`<tr class="fxa-r"><td data-label="Component"><input class="fxa-name" aria-label="Base component name" value="${esc(bName)}" onchange="_faFormulaState(true).base_name=this.value||'Base asset level';renderContent();refresh()"></td>`
+  +`<td data-label="Sets the level">${_faCellHtml(bsp,fl.base_spec,'money',bName+' level')}<span class="fxa-sub">entered level, not linked</span></td>`
+  +`<td class="n" data-label="Level · ${lab}${ref}" data-engine-preview="fa-lv-base">${live?_faK(bLev):'—'}</td>`
+  +`<td class="n" data-label="Depreciation rate">${byComp?_faCellHtml(brsp,dep.base_rate_spec,'rate',bName+' depreciation rate')+`<span class="fxa-sub">${_faLife(dep.base_rate_spec)}</span>`:'<span class="fxa-mut">on total</span>'}</td>`
+  +`<td class="n" data-label="Depreciation · ${rng}" data-engine-preview="fa-dp-base">${byComp&&live?'@BASEDEP@':'<span class="fxa-mut">—</span>'}</td><td></td></tr>`;
+ h+=_faPathRow(bsp,fl.base_spec,bName+' level','money',false,cols)+(byComp?_faPathRow(brsp,dep.base_rate_spec,bName+' depreciation rate','rate',true,cols):'');
+ comps.forEach((c,i)=>{const cp=`${FL}.components.${i}`,key=String(c.component_id||('i'+i)),open=window._faCompOpen===key,r=rowRes(c,i),nm=_faComponentDisplayName(c,i);
+  const link=((c.driver_spec||{}).link||{}),cur='workforce_count::'+String(link.series_id||''),o=drvOpts.find(x=>x.value===cur),dl=o?String(o.label).replace(/^Workforce headcount\s*·\s*/,''):'No driver selected';
+  const ms=c.multiplier_spec||{source:'entered',trajectory:'flat',value:0},mTxt=(ms.trajectory||'flat')==='flat'?'$'+_faKx((+ms.value||0)/1000)+'k per head':'a multiplier path';
+  const lag=+c.lag_months||0,div=c.driver_divisor==null?1:+c.driver_divisor,rnd=c.driver_rounding||'none',grouped=div!==1||rnd!=='none';
+  const sub=[lag?lag+'-month lag':'no lag',grouped?'groups of '+_numInput(div,8)+({floor:', rounded down',ceil:', rounded up',nearest:', rounded to nearest',none:''}[rnd]||''):'no grouping'].join(' · ');
+  const lv=r?(+(r.amount||[])[ref-1]||0):null,dp=r?_faSum(r.depreciation,ref)/1000:null;if(dp!=null)depComp+=dp;
+  const rsp=cp+'.depreciation_rate_spec';
+  h+=`<tr class="fxa-r${open?' on':''}"><td data-label="Component"><input class="fxa-name" aria-label="Component ${i+1} name" value="${esc(nm)}" onchange="_faFormulaState().components[${i}].name=this.value;refresh()"></td>`
+   +`<td data-label="Sets the level"><span class="fxa-how">${esc(dl)} × ${esc(mTxt)}</span><button type="button" class="fxa-edit" aria-expanded="${open}" aria-label="Edit ${esc(nm)} driver" onclick="faCompOpen('${esc(key)}')">${open?'Close':'Edit'}</button><span class="fxa-sub">${esc(sub)}</span></td>`
+   +`<td class="n" data-label="Level · ${lab}${ref}" data-engine-preview="fa-lv-${i}">${live&&r?_faK(lv):'—'}</td>`
+   +`<td class="n" data-label="Depreciation rate">${byComp?_faCellHtml(rsp,c.depreciation_rate_spec,'rate',nm+' depreciation rate')+`<span class="fxa-sub">${_faLife(c.depreciation_rate_spec)}</span>`:'<span class="fxa-mut">on total</span>'}</td>`
+   +`<td class="n" data-label="Depreciation · ${rng}" data-engine-preview="fa-dp-${i}">${byComp&&live&&r?_faK(dp):'<span class="fxa-mut">—</span>'}</td>`
+   +`<td class="n"><button type="button" class="fxa-rm" aria-label="Remove ${esc(nm)}" title="Remove component" onclick="faFormulaRemoveComponent(${i})">×</button></td></tr>`;
+  if(open){const msp=cp+'.multiplier_spec',showG=grouped||window._faGroupOpen===key;
+   const drv=r&&live?(+(r.driver||[])[ref-1]||0):null,mult=r&&live?(+(r.multiplier||[])[ref-1]||0):null;
+   h+=`<tr class="fxa-edr"><td colspan="${cols}"><div class="fxa-grid">`
+    +`<span class="fxa-k">Driver</span><div><select aria-label="${esc(nm)} driver series" onchange="faFormulaDriver(${i},this.value)">${drvOpts.length?drvOpts.map(x=>`<option value="${esc(x.value)}"${x.value===cur?' selected':''}>${esc(String(x.label).replace(/^Workforce headcount\s*·\s*/,'Workforce › '))}</option>`).join(''):'<option value="">No compatible level Series</option>'}</select>`
+    +(link.series_id?(globalThis._lsrcLive||(()=>''))('wf',link.series_id,dl,'workforce headcount, before the multiplier','count','fa-lsrc'):'')+`</div>`
+    +`<span class="fxa-k">Timing</span><div class="fxa-inl"><label>Lag <span class="fxa-cell"><input type="number" min="0" max="1200" step="1" aria-label="Lag (months)" value="${lag}" onchange="setPath('${cp}.lag_months',Number(this.value));renderContent();refresh()"><u>months</u></span></label>`
+    +`<label>Headcount before ${lab}1 <span class="fxa-cell"><input type="number" min="0" step="any" aria-label="Count before M1" value="${+c.initial_driver||0}" onchange="setPath('${cp}.initial_driver',Number(this.value));refresh()"><u>heads</u></span></label></div>`
+    +`<span class="fxa-k">Multiplier</span><div class="fxa-inl">${_faCellHtml(msp,ms,'multiplier',nm+' multiplier')}${showG?'':`<span class="fxa-mut">Group heads before multiplying? <button type="button" class="fxa-lnk" onclick="faGroupOpen('${esc(key)}')">Add grouping</button></span>`}</div>`
+    +(window._faPathEditor===msp?`<span></span><div class="fxa-ed">${_faSeriesEditor(msp,ms,'Multiplier','multiplier',false)}<button type="button" class="fxa-done" onclick="faPathEdit('${msp}')">Done</button></div>`:'')
+    +(showG?`<span class="fxa-k">Grouping</span><div class="fxa-inl"><label>Heads per group <span class="fxa-cell"><input type="number" min="0.000001" step="any" aria-label="Driver units per group" value="${div}" onchange="setPath('${cp}.driver_divisor',Number(this.value));renderContent();refresh()"></span></label><label>Round groups <select aria-label="Round groups" onchange="setPath('${cp}.driver_rounding',this.value);renderContent();refresh()">${[['none','No rounding'],['floor','Down'],['ceil','Up'],['nearest','Nearest (half up)']].map(([v,l])=>`<option value="${v}"${rnd===v?' selected':''}>${l}</option>`).join('')}</select></label></div>`:'')
+    +`<div class="fxa-eq" data-engine-preview="fa-eq-${i}">Level in ${({M:'month',Q:'quarter',Y:'year'})[lab]} t = ${esc(dl)} at <b>t${lag?' − '+lag+' mo':''}</b>${grouped?' ÷ '+_numInput(div,8)+(rnd!=='none'?', rounded':''):''} × <b>${esc(mTxt.replace(' per head',''))}</b>${drv!=null?` · ${lab}${ref} = ${_numInput(drv,8)} × $${_faKx(mult)}k = <b>${_faK(lv)}</b>`:''}</div>`
+    +`<span></span><div class="fxa-r-end"><button type="button" class="fxa-done" onclick="faCompOpen('${esc(key)}')">Done</button></div></div></td></tr>`;}
+  if(byComp)h+=_faPathRow(rsp,c.depreciation_rate_spec,nm+' depreciation rate','rate',true,cols);
+ });
+ // total row
+ const tLev=R?(+(basis==='gross'?R.f.gross:R.f.net)[ref]||0):null,rsp1=FL+'.depreciation.rate_spec',asp=FL+'.depreciation.amount_spec';
+ let tRate='';if(kind==='rate_of_level')tRate=_faCellHtml(rsp1,dep.rate_spec,'rate','Depreciation rate on total')+`<span class="fxa-sub">${_faLife(dep.rate_spec)}</span>`;
+ else if(kind==='entered')tRate=`<button type="button" class="fxa-tag g" aria-expanded="${window._faPathEditor===asp}" onclick="faPathEdit('${asp}')">ENTERED ▾</button>`;
+ h+=`<tr class="fxa-tot"><td>Total</td><td class="fxa-mut">${esc(bName)} + Σ components</td><td class="n" data-label="Level · ${lab}${ref}" data-engine-preview="fa-lv-tot">${live?_faK(tLev):'—'}</td><td class="n" data-label="${kind==='entered'?'Depreciation':'Depreciation rate'}">${tRate}</td><td class="n" data-label="Depreciation · ${rng}" data-engine-preview="fa-dp-tot">${live?_faK(depTot):'—'}</td><td></td></tr>`;
+ if(kind==='rate_of_level')h+=_faPathRow(rsp1,dep.rate_spec,'Depreciation rate','rate',true,cols);
+ if(kind==='entered'&&window._faPathEditor===asp)h+=`<tr class="fxa-edr"><td colspan="${cols}"><div class="fxa-ed">${_faFlowSeriesEditor(asp,dep.amount_spec||{source:'entered',trajectory:'flat',value:0,period:'year'},'Depreciation amount','money',true)}<button type="button" class="fxa-done" onclick="faPathEdit('${asp}')">Done</button></div></td></tr>`;
+ h+=`</tbody></table></div><button type="button" class="fxa-add" onclick="faFormulaAddComponent()">+ Add linked component</button>`;
+ const _bz=(dep.base_rate_spec||{}),baseDep=depTot==null?null:(((_bz.trajectory||'flat')==='flat'&&!(+_bz.value))?0:Math.max(0,depTot-depComp));h=h.replace('@BASEDEP@',_faK(baseDep));
+ if(byComp&&live&&baseDep!=null&&depComp>depTot+0.05)h+=`<p class="fxa-note">Depreciation is capped at net book value, so the total is below the sum of component rates.</p>`;
+ // check: gross level falls in the first period
+ let chk='';if(live&&basis==='gross'){const g0=+R.f.gross[0]||0,g1=+R.f.gross[1]||0;if(g0-g1>0.05)chk=`<b>Check · ${lab}1 level is ${_faK(g1)} against an opening book of ${_faK(g0)}.</b> The ${_faK(g0-g1)} gap is treated as a disposal in ${lab}1, with accumulated depreciation relieved. If the opening book is real, attribute it: put furniture and other non-headcount assets in ${esc(bName)}, and enter pre-launch heads in Headcount before ${lab}1.`;}
+ h+=`<div class="fxa-chk" role="status" data-engine-preview="fxa-chk">${chk}</div>`;
+ // 3 roll-forward
+ h+=`<div class="fxa-step"><i>3</i><b>Roll-forward · ${rng}</b><span>result of steps 1 and 2</span></div><div class="fxa-rf" data-engine-preview="fxa-rf">`;
+ if(live){const F=R.f,cx=(F.capex||[]).slice(1,ref+1),add=cx.reduce((s,v)=>s+Math.max(0,+v||0),0),dis=cx.reduce((s,v)=>s+Math.max(0,-(+v||0)),0),rel=relW;
+  const v=(x,s,t)=>`<span class="fxa-v${t?' t':''}">${_faK(x)}${s?`<small>${s}</small>`:''}</span>`,op=x=>`<span class="fxa-o2">${x}</span>`;
+  h+=`<span class="fxa-l">Gross PP&amp;E</span>${v(F.gross[0],'opening')}${op('+')}${v(add,'additions')}${op('−')}${v(dis,'disposals')}${op('=')}${v(F.gross[ref],lab+ref,1)}`
+   +`<span class="fxa-l">Accumulated depreciation</span>${v(F.accumulated_depreciation[0])}${op('+')}${v(depTot,'depreciation')}${op('−')}${v(rel,'relieved')}${op('=')}${v(F.accumulated_depreciation[ref],'',1)}`
+   +`<span class="fxa-l">Net PP&amp;E</span>${v(F.net[0])}<span></span><span></span><span></span><span></span>${op('=')}${v(F.net[ref],'',1)}`;}
+ else h+=`<span class="fxa-mut" style="grid-column:1/-1">${R&&R.stale?'The model has errors, so figures are hidden until it runs cleanly.':'Run the model to see the roll-forward.'}</span>`;
+ h+=`</div>`;
+ h+=basis==='gross'?`<p class="fxa-rule">Gross basis: depreciation reduces net PP&amp;E only and does not create replacement CAPEX. A fall in the authored gross level is a proportional disposal, with accumulated depreciation relieved. Depreciation is capped at net book value.</p>`
+  :`<p class="fxa-rule">Net basis: the authored level is a net PP&amp;E target. Depreciation is charged separately; gross PP&amp;E is net + accumulated depreciation, and implied CAPEX/(disposal) is Δnet + depreciation.</p>`;
+ return h+`</div>`;}
 function structuresSectionsHtml(){
   let h = '';
   const A = cfg.assumptions;
@@ -17927,39 +18077,7 @@ function structuresSectionsHtml(){
       } else if(_faFormula){
         const fl=_faFormulaState(true), comps=fl.components||[], dep=fl.depreciation||{kind:'rate_of_level'}, drvOpts=_faDriverOptions();
         const basis=(fl.level_basis==='net'?'net':'gross'), openingLevel=+(fl.opening_level!=null?fl.opening_level:fl.opening_net)||0;
-        _d += `<div class="nie-section-note" style="margin-bottom:7px"><b>Formula / level</b> directly determines a period-end fixed-asset stock. Choose whether that authored stock is Gross PP&amp;E or an intentional Net PP&amp;E target. Gross is the default and does not create replacement CAPEX merely because depreciation is recognized.</div>`;
-        _d += `<section class="capital-formula-group"><h4>Opening position</h4><div class="crow" style="align-items:center">Level basis<select style="width:150px" onchange="faFormulaBasis(this.value)"><option value="gross"${basis==='gross'?' selected':''}>Gross PP&amp;E</option><option value="net"${basis==='net'?' selected':''}>Net PP&amp;E target</option></select></div>`;
-        _d += `<div class="crow">Opening ${basis==='gross'?'gross ':'net '}fixed assets<input type="text" inputmode="decimal" style="width:86px" value="${fmtComma(openingLevel/1000)}" onchange="_faFormulaState(true).opening_level=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
-        _d += `<div class="crow">Opening accumulated depreciation<input type="text" inputmode="decimal" style="width:86px" value="${fmtComma((+fl.opening_accumulated_depreciation||0)/1000)}" onchange="_faFormulaState(true).opening_accumulated_depreciation=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
-        _d += `</section><section class="capital-formula-group"><h4>Balance derivation</h4><div class="crow">Base component name<input style="flex:1 1 150px" value="${esc(fl.base_name||'Base asset level')}" onchange="_faFormulaState(true).base_name=this.value||'Base asset level';renderContent();refresh()"></div>`;
-        _d += _faSeriesEditor('assumptions.fixed_assets.formula_level.base_spec',fl.base_spec||{source:'entered',trajectory:'flat',value:0},fl.base_name||'Base asset level','money',false);
-        _d += `<div class="cmut" style="margin:6px 0">Period-end ${basis==='gross'?'gross':'net'} fixed assets = base level + Σ(linked driver Series × multiplier). The base and each named linked component are published as stable Fixed Asset Series for downstream formulas.</div>`;
-        comps.forEach((c,i)=>{const link=((c.driver_spec||{}).link||{}), cur='workforce_count::'+String(link.series_id||''), path=`assumptions.fixed_assets.formula_level.components.${i}.multiplier_spec`;
-          _d += `<div class="sec-managed-sleeve" style="margin-top:8px"><div class="sec-managed-sleeve-head"><input class="sec-managed-sleeve-name" style="flex:1 1 auto;width:auto" value="${esc(_faComponentDisplayName(c,i))}" onchange="_faFormulaState().components[${i}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove fixed-asset level component" onclick="faFormulaRemoveComponent(${i});return false">×</a></div>`;
-          _d += `<div class="sec-managed-grid"><div class="sec-managed-field"><label>Driver Series</label><select onchange="faFormulaDriver(${i},this.value)">${drvOpts.length?drvOpts.map(o=>`<option value="${esc(o.value)}"${o.value===cur?' selected':''}>${esc(o.label)}</option>`).join(''):`<option value="">No compatible level Series</option>`}</select></div>`;
-          if(link.series_id)_d+=`</div>`+(globalThis._lsrcLive||(()=>''))('wf',link.series_id,((drvOpts.find(o=>o.value===cur)||{}).label||'Workforce headcount').replace(/^Workforce headcount\s*\u00b7\s*/,''),'workforce headcount, before the multiplier','count','fa-lsrc')+`<div class="sec-managed-grid">`;   // r355
-          {const cp=`assumptions.fixed_assets.formula_level.components.${i}`;
-          _d += `<details style="grid-column:1/-1"><summary>Driver timing and grouping · ${+c.lag_months||0} month lag · ${esc(c.driver_rounding||'none')}</summary><div class="sec-managed-grid" style="margin-top:8px">
-          <label>Lag (months)<input type="number" min="0" max="1200" step="1" value="${+c.lag_months||0}" onchange="setPath('${cp}.lag_months',Number(this.value));renderContent();refresh()"></label>
-          <label>Count before M1<input type="number" min="0" step="any" value="${+c.initial_driver||0}" onchange="setPath('${cp}.initial_driver',Number(this.value));refresh()"></label>
-          <label>Driver units per group<input type="number" min="0.000001" step="any" value="${c.driver_divisor==null?1:c.driver_divisor}" onchange="setPath('${cp}.driver_divisor',Number(this.value));refresh()"></label>
-          <label>Round groups<select onchange="setPath('${cp}.driver_rounding',this.value);renderContent();refresh()">${[['none','No rounding'],['floor','Down'],['ceil','Up'],['nearest','Nearest (half up)']].map(([v,l])=>`<option value="${v}"${(c.driver_rounding||'none')===v?' selected':''}>${l}</option>`).join('')}</select></label></div>
-          <p class="cmut">Use the lagged count, divide by units per group, round, then multiply. Count before M1 supplies months preceding the projection. Grouping is optional; leave units at 1 and rounding off for ordinary per-person costs.</p></details>`;}
-          _d += _faSeriesEditor(path,c.multiplier_spec||{source:'entered',trajectory:'flat',value:0},'Multiplier','multiplier',false);
-          _d += `<div class="cmut" style="grid-column:1/-1">Multiplier is a stock coefficient — for example $5.0k per driver unit — so it has no Month / Quarter / Year amount period.</div></div></div>`;
-        });
-        _d += `<div style="margin-top:7px"><button class="pillbtn" onclick="faFormulaAddComponent()">+ Add linked component</button></div>`;
-        _d += `</section><section class="capital-formula-group"><h4>Depreciation</h4>`;
-        _d += `<div class="crow" style="align-items:center">Source<select style="width:150px" onchange="faFormulaDepKind(this.value)"><option value="rate_of_level"${(dep.kind||'rate_of_level')==='rate_of_level'?' selected':''}>% of asset level</option><option value="entered"${dep.kind==='entered'?' selected':''}>Entered amount</option><option value="component_rates"${dep.kind==='component_rates'?' selected':''}>Rates by component</option></select></div>`;
-        if((dep.kind||'rate_of_level')==='rate_of_level') _d += _faSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.rate_spec',dep.rate_spec||{source:'entered',trajectory:'flat',value:0,period:'year'},'Depreciation rate','rate',true);
-        else if(dep.kind==='component_rates') {
-          _d += '<p class="cmut">Each component’s gross asset level × its depreciation rate. Rates are converted to the model period once. Total depreciation is capped at available net book value.</p>';
-          _d += _faSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.base_rate_spec',dep.base_rate_spec||{source:'entered',trajectory:'flat',value:0,period:'year'},fl.base_name||'Base asset level','rate',true);
-          comps.forEach((c,i)=>{_d += _faSeriesEditor(`assumptions.fixed_assets.formula_level.components.${i}.depreciation_rate_spec`,c.depreciation_rate_spec||{source:'entered',trajectory:'flat',value:0,period:'year'},_faComponentDisplayName(c,i),'rate',true);});
-        }
-        else _d += _faFlowSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.amount_spec',dep.amount_spec||{source:'entered',trajectory:'flat',value:0,period:'year'},'Depreciation amount','money',true);
-        _d += basis==='gross'?`<div class="cmut" style="margin-top:6px">The authored asset level is <b>gross PP&amp;E</b>. Depreciation increases accumulated depreciation and reduces net PP&amp;E; it does not manufacture replacement CAPEX. A lower authored gross level is treated as a proportional disposal of the existing pool, including accumulated-depreciation relief.</div>`:`<div class="cmut" style="margin-top:6px">The authored asset level is an intentional <b>net PP&amp;E target</b>. Depreciation hits NIE separately; Foundry reconciles gross PP&amp;E as net + accumulated depreciation and implied CAPEX/(disposal) as Δnet + depreciation.</div>`;
-        _d += '</section>';
+        _d += _faFormulaHtml(fl,comps,dep,drvOpts,basis,openingLevel);   // r466
       } else {
         _fax.forEach((x,i)=>{ const isp=Math.max(0,Math.min(NP(),+(x.in_service_period||0)));
           _d += `<div class="crow" style="gap:4px"><input style="flex:1 1 72px;min-width:60px" placeholder="Asset" value="${esc(x.name||'')}" onchange="cfg.assumptions.fixed_assets.assets[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" title="Cost, $000s" value="${fmtComma((x.cost||0)/1000)}" onchange="cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="text" inputmode="numeric" autocomplete="off" class="fa-isp" style="width:64px" maxlength="${String(NP()).length}" placeholder="0" title="${esc(_faIspTitle())}" aria-label="${esc(_faIspLabel())}" value="${isp}" data-saved="${isp}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onchange="faInService(${i},this)"><input type="number" min="0.1" step="0.5" style="width:42px" title="Useful life, years" value="${x.useful_life_years||5}" onchange="cfg.assumptions.fixed_assets.assets[${i}].useful_life_years=_pf(this.value);refresh()"><span class="cu">yrs</span><a href="#" class="cx" onclick="cfg.assumptions.fixed_assets.assets.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
