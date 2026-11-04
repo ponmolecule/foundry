@@ -3055,6 +3055,8 @@ main>#content{min-width:0}
 @container prd (max-width:600px){.deposit-section-grid,.deposit-pool-step,.prd-card[data-fam="deposit"] .flow-advanced-grid{grid-template-columns:minmax(0,1fr)}}
 /* r281: configuration hierarchy and proportionate balance-sheet authoring. */
 .cfg-stage .cfgcard{max-width:1280px}
+/* Capital uses the full stage width, including its graphite header. */
+.cfg-stage #card-cap{max-width:none;width:100%;box-sizing:border-box}
 .cfg-stage .cfgcard .cardhead{margin-bottom:20px}
 .cfg-stage .cfgcard .cmut{margin-top:8px;line-height:1.5}
 .cfg-stage .cfgcard .pillbtn,.cfg-stage .cfgcard .btn-plain{min-height:30px;padding:5px 10px;font-size:12px}
@@ -4092,6 +4094,7 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 #card-cap .crow.fxs-cap-row>input:not(:first-child){text-align:right}
 #card-cap .fxs-cap-raise.crow>input{text-align:right}
 /* r466: fixed assets Formula / level table */
+#fixedassets-editor:has(.fxa-x){grid-column:1/-1}
 .fxa-x{container-type:inline-size;font-size:13px;color:#1F1F1E}
 .fxa-top{display:flex;gap:26px;flex-wrap:wrap;padding:2px 0 14px;border-bottom:1px solid #E3E1DC}
 .fxa-lbl{display:block;font:700 9.5px Inter,Arial,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#76736C;margin-bottom:6px}
@@ -11326,7 +11329,7 @@ window.sbAdd = function(){
   const b={name: "FHLB advance", amount: 8_000_000, rate_ann: 0.04, term_q: 8};
   if(PPY()===12 || PPY()===1) b.period=1; else b.quarter=1;
   (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []).push(b);
-  renderGlobals(); refresh();
+  renderGlobals(); renderContent(); refresh();
 };
 window.raiseAdd = function(){
   const r={amount:10_000_000};
