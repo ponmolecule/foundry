@@ -4094,7 +4094,11 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 #card-cap .crow.fxs-cap-row>input:not(:first-child){text-align:right}
 #card-cap .fxs-cap-raise.crow>input{text-align:right}
 /* r466: fixed assets Formula / level table */
-#fixedassets-editor:has(.fxa-x){grid-column:1/-1}
+/* Capital: left column is 60% of its former half-width; right receives the rest.
+   Explicit placement keeps CAPEX under borrowings, independent of expense height. */
+.cfg-stage #card-cap .ccols.tacct{grid-template-columns:minmax(0,3fr) minmax(0,7fr)}
+.cfg-stage #card-cap #fixedassets-editor{grid-column:2;grid-row:2}
+@container stage (max-width:860px){.cfg-stage #card-cap .ccols.tacct{grid-template-columns:minmax(0,1fr)}.cfg-stage #card-cap #fixedassets-editor{grid-column:auto;grid-row:auto}}
 .fxa-x{container-type:inline-size;font-size:13px;color:#1F1F1E}
 .fxa-top{display:flex;gap:26px;flex-wrap:wrap;padding:2px 0 14px;border-bottom:1px solid #E3E1DC}
 .fxa-lbl{display:block;font:700 9.5px Inter,Arial,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#76736C;margin-bottom:6px}
