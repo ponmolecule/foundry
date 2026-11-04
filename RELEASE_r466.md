@@ -15,4 +15,12 @@ Flat cells keep full precision: a rate shown as 33.33 stores 1/3 unless the valu
 
 Finding for the engine owner (not changed here): in the run payload, `fixed_assets.formula_level.components[].depreciation` is in dollars while `amount`, `multiplier`, `base` and the top-level fixed-asset arrays are in $000s (parity.py scales the others). The console converts it.
 
-Validation: web/tests_r466_fixed_assets_ui.cjs (11 rendered checks: engine reconciliation, footing, check text, precision, path editors, component editor, method buttons, names, removal, preview keys). tests_fixed_assets_ui.py string checks updated to the new labels. Full suite on the release commit.
+Validation: web/tests_r466_fixed_assets_ui.cjs (11 rendered checks: engine reconciliation, footing, check text, precision, path editors, component editor, method buttons, names, removal, preview keys). tests_fixed_assets_ui.py string checks updated to the new labels. Embedded reference coverage regenerated (tools/reference_scan.py --write).
+
+Full suite on 08d8db7: 297 modules, 15 failing. Every one of the 15 also fails on GPT's r465 (b43e285) unchanged, with the same error, and all passed at r450, so they were introduced between r451 and r465. One of them (tests_r394_reference, stale embedded coverage) is fixed in this release; tests_r394_reference, tests_fixed_assets_ui and tests_r466 pass on the final commit. The 14 still open, for GPT:
+
+- tests_cac_shapeshifter: "Component inclusion IDs must be unique" raised by component_switches.py on the audit config.
+- tests_series_architecture: "config validation fails closed on broken links and duplicate stable IDs".
+- tests_growth_ui (11 checks) and tests_r350_flow_lending_ui (py and cjs): renderer harness errors.
+- tests_r360_stream_outputs (py and cjs): "loanUnusedReserveHtml is not defined" in the harness.
+- tests_account_activity, tests_authoring_stability ("lastErrs is not defined"), tests_authoring_state, tests_r366_shared_lending, tests_r368_result_numbers, tests_r419_expense_numbers ("_calculatedInputs is not defined"), tests_r445_product_consistency.
