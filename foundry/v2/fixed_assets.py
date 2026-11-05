@@ -295,16 +295,27 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
         if not isinstance(raw, Mapping):
             raise ValueError(f"fixed_assets.formula_level.components[{i}] must be an object")
         comp = dict(raw)
-        dspec = comp.get("driver_spec")
-        ns = normalize_series_spec(dspec, default_value=0.0)
-        if ns["source"] not in {"link", "entered"}:
-            raise ValueError(f"fixed_assets.formula_level.components[{i}].driver_spec must be an entered or linked Series")
-        if _source_ppy and _source_ppy != 12 and (ns.get("link") or {}).get("kind") == "workforce_role_count":
-            drivers = _monthly_workforce_driver(ns, assumptions or {}, n, _source_ppy, growth_context)
-        else:
-            drivers = resolve_series_spec(ns, assumptions or {}, n, ppy,
-                                          context=growth_context, default_value=0.0)
-        raw_drivers = [float(v or 0) for v in drivers]
+        def quantity(spec):
+            normalized = normalize_series_spec(spec, default_value=0.0)
+            if normalized["source"] not in {"link", "entered"}:
+                raise ValueError("Fixed-asset quantities require an entered or linked Series")
+            if _source_ppy and _source_ppy != 12 and (normalized.get("link") or {}).get("kind") == "workforce_role_count":
+                values = _monthly_workforce_driver(normalized, assumptions or {}, n, _source_ppy, growth_context)
+            else:
+                values = resolve_series_spec(normalized, assumptions or {}, n, ppy,
+                                             context=growth_context, default_value=0.0)
+            return normalized, [float(v or 0) for v in values]
+        ns, raw_drivers = quantity(comp.get("driver_spec"))
+        terms = comp.get("driver_terms", [])
+        if not isinstance(terms, list) or len(terms) > 31:
+            raise ValueError("Fixed-asset quantity supports at most 32 sources")
+        for term in terms:
+            if not isinstance(term, Mapping) or type(term.get("sign")) not in (int, float) or term.get("sign") not in (-1, 1):
+                raise ValueError("Fixed-asset quantity terms require Add or Subtract")
+            _, vals = quantity(term.get("driver_spec"))
+            raw_drivers = [x + term["sign"] * y for x, y in zip(raw_drivers, vals)]
+        if terms and any(not math.isfinite(v) or v < 0 for v in raw_drivers):
+            raise ValueError("Combined fixed-asset quantity must be finite and nonnegative")
         lag = comp.get("lag_months", 0)
         divisor = float(comp.get("driver_divisor", 1))
         initial = float(comp.get("initial_driver", 0))

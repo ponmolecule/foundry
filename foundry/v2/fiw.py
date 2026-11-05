@@ -426,6 +426,16 @@ def _fixed_asset_formula_level_sheet(ws, formula_level):
         row(cr + ".driver_spec.link.kind", section, "Driver kind", link.get("kind"), "stable Series kind", True)
         row(cr + ".driver_spec.link.series_id", section, "Driver Series ID", link.get("series_id"), "stable Series ID", True)
         row(cr + ".driver_spec.link.aggregation", section, "Driver aggregation", link.get("aggregation", "end"), "end / average", True)
+        for j, term in enumerate(comp.get("driver_terms") or []):
+            tr = cr + f".driver_terms.{j}"
+            row(tr + ".sign", section, "Quantity operation", term.get("sign"), "+1 Add / -1 Subtract")
+            spec = term.get("driver_spec") or {}
+            if spec.get("source") == "entered":
+                series_rows(tr + ".driver_spec", section, "Quantity", spec, "count")
+            else:
+                for key in ("kind", "series_id", "aggregation"):
+                    row(tr + ".driver_spec.link." + key, section, "Quantity source " + key,
+                        (spec.get("link") or {}).get(key), "linked Series", True)
         for field, label, default, unit in (
             ("lag_months", "Driver lag", 0, "months"),
             ("initial_driver", "Count before M1", 0, "count"),
