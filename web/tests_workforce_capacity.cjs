@@ -11,6 +11,9 @@ assert.equal(role.capacity_count.capacity_spec.value,1);assert.equal(role.capaci
 assert.equal(role.hire_period,2);assert.deepEqual(role.count_spec.values,[3,5]);
 role.capacity_count.series_id='customer-1';let view=ctx._workforceCapacityEditor(0,role);
 assert(view.includes('Renamed acquisition'));assert(view.includes('before attrition'));assert(view.includes('after attrition'));
+assert(view.includes('Customer-capacity staffing rounding'));assert(view.includes('value="none" selected'));
+const beforeRounding=JSON.stringify(role);ctx._workforceCapacityEditor(0,role);assert.equal(JSON.stringify(role),beforeRounding);
+role.capacity_count.rounding='up';const roundedView=ctx._workforceCapacityEditor(0,role);assert(roundedView.includes('value="up" selected'));assert(roundedView.includes('after applying the minimum'));
 assert(view.includes('Customers per FTE'));assert(view.includes('Minimum FTE while positive'));assert(!view.includes('Account adoption'));
 role.capacity_count.series_id='removed';assert(ctx._workforceCapacityEditor(0,role).includes('Missing source'));
 ctx.window.nieWorkforceCountSource(0,'entered');assert(!role.capacity_count);assert.deepEqual(role.count_spec.values,[3,5]);

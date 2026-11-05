@@ -60,6 +60,9 @@ def workforce_capacity_monthly(role, months, *, assumptions=None, growth_context
     from .cac_feeder import cac_customer_count_catalog, cac_auc_rollforward
     from .series import normalize_series_spec, resolve_entered_series
     cfg = (role or {}).get("capacity_count") or {}
+    rounding = cfg.get("rounding", "none")
+    if rounding not in {"none", "up"}:
+        raise ValueError("workforce capacity rounding must be none or up")
     sid = str(cfg.get("series_id") or "").strip()
     measure = str(cfg.get("measure") or "")
     if measure not in {"active_customers", "cumulative_acquisitions"}:
@@ -101,7 +104,8 @@ def workforce_capacity_monthly(role, months, *, assumptions=None, growth_context
                 raise ValueError("workforce capacity inputs must be finite")
             if value < 0 or capacity <= 0 or minimum < 0:
                 raise ValueError("workforce capacity requires source >= 0, capacity > 0 and minimum >= 0")
-            counts.append(max(value / capacity, minimum) if value > 0 else 0.0)
+            count = max(value / capacity, minimum) if value > 0 else 0.0
+            counts.append(float(math.ceil(count)) if rounding == "up" else count)
         return {"source": source, "capacity": paths["capacity_spec"],
                 "minimum": paths["minimum_spec"], "counts": counts,
                 "series_id": sid, "measure": measure}
