@@ -20,7 +20,7 @@ class EngineRepairs(unittest.TestCase):
                 r=raw['formula_level']['components'][0]
                 p=public['formula_level']['components'][0]
                 for key in ('amount','multiplier','depreciation'):
-                    self.assertEqual(p[key],[round(x/1000,2) for x in r[key]])
+                    self.assertEqual(p[key],[(x/1000 if key=='depreciation' else round(x/1000,2)) for x in r[key]])
                 for key in ('raw_driver','driver'):
                     self.assertEqual(p[key],r[key])
                 self.assertEqual(raw,before)

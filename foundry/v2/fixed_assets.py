@@ -297,8 +297,8 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
         comp = dict(raw)
         dspec = comp.get("driver_spec")
         ns = normalize_series_spec(dspec, default_value=0.0)
-        if ns["source"] != "link":
-            raise ValueError(f"fixed_assets.formula_level.components[{i}].driver_spec must be a linked Series")
+        if ns["source"] not in {"link", "entered"}:
+            raise ValueError(f"fixed_assets.formula_level.components[{i}].driver_spec must be an entered or linked Series")
         if _source_ppy and _source_ppy != 12 and (ns.get("link") or {}).get("kind") == "workforce_role_count":
             drivers = _monthly_workforce_driver(ns, assumptions or {}, n, _source_ppy, growth_context)
         else:

@@ -59,7 +59,7 @@ def _conv_fixed_assets(fa):
             if isinstance(cc.get("amount"), list):
                 cc["amount"] = [_k(x) for x in cc["amount"]]
             if isinstance(cc.get("depreciation"), list):
-                cc["depreciation"] = [_k(x) for x in cc["depreciation"]]
+                cc["depreciation"] = [x / 1000.0 for x in cc["depreciation"]]
             comps.append(cc)
         if "components" in ff:
             ff["components"] = comps

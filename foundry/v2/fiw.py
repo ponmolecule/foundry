@@ -420,7 +420,9 @@ def _fixed_asset_formula_level_sheet(ws, formula_level):
         row(cr + ".name", section, "Component name", comp.get("name"), "text")
         row(cr + ".component_id", section, "Component ID", comp.get("component_id"), "stable ID", True)
         link = dict((comp.get("driver_spec") or {}).get("link") or {})
-        row(cr + ".driver_spec.source", section, "Driver source", "link", "fact — linked Series", True)
+        row(cr + ".driver_spec.source", section, "Driver source", (comp.get("driver_spec") or {}).get("source", "link"), "Series source", True)
+        if (comp.get("driver_spec") or {}).get("source") == "entered":
+            series_rows(cr + ".driver_spec", section, "Quantity", comp["driver_spec"], "count")
         row(cr + ".driver_spec.link.kind", section, "Driver kind", link.get("kind"), "stable Series kind", True)
         row(cr + ".driver_spec.link.series_id", section, "Driver Series ID", link.get("series_id"), "stable Series ID", True)
         row(cr + ".driver_spec.link.aggregation", section, "Driver aggregation", link.get("aggregation", "end"), "end / average", True)
