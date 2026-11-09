@@ -2351,6 +2351,21 @@ table.prd-cmp td.num{text-align:right;font-variant-numeric:tabular-nums}
 .explicit-preview-strip{display:inline-grid;grid-auto-flow:column;grid-auto-columns:minmax(60px,auto);border:1px solid var(--k-line2);border-radius:3px;overflow:hidden;background:#FFFFFF;vertical-align:middle;margin-left:4px}
 .eps-c{display:flex;flex-direction:column;align-items:flex-end;padding:3px 8px;border-right:1px solid var(--k-line)}
 .eps-c:last-child{border-right:0}
+/* r475: schedule previews keep numbers whole */
+.explicit-preview{container-type:inline-size}
+.explicit-preview-strip{grid-auto-columns:max-content;max-width:100%;overflow-x:auto;overflow-y:hidden}
+.eps-c{min-width:56px;box-sizing:border-box}.eps-c i,.eps-c b{white-space:nowrap}
+.eps-c.eps-gap{min-width:0;justify-content:center;color:var(--k-tx3)}
+@container (max-width:560px){.explicit-preview .eps-h3,.explicit-preview .eps-t3{display:none}}
+@container (max-width:380px){.explicit-preview .eps-h2,.explicit-preview .eps-t2{display:none}}
+.explicit-preview-value,.cfgwrap .explicit-preview-value{white-space:nowrap;overflow-wrap:normal;word-break:normal;user-select:text}
+.explicit-preview-cell{min-width:0}
+.explicit-preview-grid{overflow:auto}
+.explicit-preview-copy{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--k-tx3,#76736C)}
+.explicit-preview-copy .eps-copy{width:auto!important;min-height:0;margin:0;font:600 11.5px Inter,Arial,sans-serif;padding:3px 9px;border:1px solid var(--k-line2,#CFCCC6);border-radius:3px;background:var(--k-surface,#fff);color:var(--k-tx1,#2A2A2A);cursor:pointer}
+.explicit-preview-copy .eps-copy:disabled{color:#9A7330;cursor:default}
+#content #card-sec .fk-panel .fk-ser{min-width:0;max-width:100%}#content #card-sec .fk-panel .fk-spark{max-width:min(300px,100%);min-width:0;flex:0 1 auto}#content #card-sec .fk-panel .fk-spark em{min-width:0}
+@media(max-width:900px){#content #card-sec .fk-panel .fk-term-b .fk-r,#content #card-sec .fk-panel .fk-sec .fk-term-b .fk-r{grid-template-columns:minmax(0,1fr)}}
 .eps-c i{font-style:normal;font-size:10.5px;font-weight:600;color:var(--k-tx3)}
 .eps-c b{font-size:12px;font-weight:500;color:var(--k-tx1);font-variant-numeric:tabular-nums}
 .eps-gap{justify-content:center;align-items:center;color:var(--k-tx4);min-width:24px}
@@ -7680,12 +7695,20 @@ function _explicitPreviewHtml(vals,fmt,cadence,labels){
   const n=vals.length, item=(i)=>esc(lab(i))+' '+esc(f(vals[i]));
   const compact=n<=6?Array.from({length:n},(_,i)=>item(i)):[item(0),item(1),item(2),'…',item(n-3),item(n-2),item(n-1)];
   const _si=n<=6?Array.from({length:n},(_,i)=>i):[0,1,2,-1,n-3,n-2,n-1], _pn=(typeof _prdNum==='function')?_prdNum:(v=>v);
-  const strip='<span class="explicit-preview-strip">'+_si.map(i=>i<0?'<span class="eps-c eps-gap">\u2026</span>':'<span class="eps-c"><i>'+esc(lab(i))+'</i><b>'+esc(_pn(f(vals[i])))+'</b></span>').join('')+'</span>';
+  // r475: strip cells size to their content and never wrap; the full value is on hover. Position classes let narrow containers drop inner cells.
+  const _pos=n<=6?_si.map(()=>''):['eps-h1','eps-h2','eps-h3','','eps-t3','eps-t2','eps-t1'];
+  const strip='<span class="explicit-preview-strip">'+_si.map((i,k)=>i<0?'<span class="eps-c eps-gap" aria-hidden="true">\u2026</span>':'<span class="eps-c '+_pos[k]+'" title="'+esc(lab(i)+': '+f(vals[i]))+'"><i>'+esc(lab(i))+'</i><b>'+esc(_pn(f(vals[i])))+'</b></span>').join('')+'</span>';
   const head=(typeof _sparkHtml==='function'?_sparkHtml(vals):'')+'<span class="explicit-preview-count">'+n+' loaded</span><span class="explicit-preview-compact">'+compact.join(' · ')+'</span>'+strip;
   if(n<=6)return '<span class="explicit-preview explicit-preview-static">'+head+'</span>';
-  const cells=vals.map((v,i)=>'<span class="explicit-preview-cell"><span class="explicit-preview-period">'+esc(lab(i))+'</span><span class="explicit-preview-value">'+esc(f(v))+'</span></span>').join('');
-  return '<details class="explicit-preview"><summary>'+head+'<span class="explicit-preview-toggle"><span class="when-closed">View all</span><span class="when-open">Collapse</span></span></summary><div class="explicit-preview-grid">'+cells+'</div></details>';
+  // r475: every grid column is wide enough for the longest full-precision value, so numbers never wrap.
+  let _w=4;const txt=vals.map(v=>String(f(v)));txt.forEach((t,i)=>{_w=Math.max(_w,t.length,String(lab(i)).length);});
+  const cells=vals.map((v,i)=>'<span class="explicit-preview-cell"><span class="explicit-preview-period">'+esc(lab(i))+'</span><span class="explicit-preview-value">'+esc(txt[i])+'</span></span>').join('');
+  const copy=txt.map(t=>t.replace(/,/g,'')).join('\n');
+  return '<details class="explicit-preview"><summary>'+head+'<span class="explicit-preview-toggle"><span class="when-closed">View all</span><span class="when-open">Collapse</span></span></summary><div class="explicit-preview-grid" style="grid-template-columns:repeat(auto-fill,minmax(calc('+_w+'ch + 24px),1fr))">'+cells+'</div><div class="explicit-preview-copy"><button type="button" class="eps-copy" data-copy="'+esc(copy)+'" onclick="_epsCopy(this)">Copy values</button><span>'+n+' values at full precision, one per line, no thousands separators.</span></div></details>';
 }
+window._epsCopy=function(btn){const t=btn.getAttribute('data-copy')||'';const done=ok=>{const o=btn.textContent;btn.textContent=ok?'Copied':'Copy failed';btn.disabled=true;setTimeout(()=>{btn.textContent=o;btn.disabled=false;},1400);};
+ const fallback=()=>{try{const a=document.createElement('textarea');a.value=t;a.setAttribute('readonly','');a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();const ok=document.execCommand('copy');a.remove();done(ok);}catch(e){done(false);}};
+ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(()=>done(true),fallback);else fallback();};
 function _explicitSchedulePreviewHtml(schedule,scale,cadence,fmt){
   const rows=Object.keys(schedule||{}).map(k=>[+k,+schedule[k]]).filter(x=>Number.isFinite(x[0])&&Number.isFinite(x[1])).sort((a,b)=>a[0]-b[0]);
   const c=cadence||'year', sc=(scale==null?1:+scale), vals=rows.map(x=>x[1]*sc), labels=rows.map(x=>(c==='month'?'M':c==='quarter'?'Q':'Y')+Math.max(1,x[0]));
@@ -11600,7 +11623,7 @@ function _fkSeries(path,spec,kind,naturalPeriod){
  let drawer='';
  if(tr==="explicit"){
   const cad=spec.cadence||_nativeFlowPeriod(),vals=spec.values||[],summary=_seriesPasteSummary(vals,v=>_faSeriesFmt(v,kind)),open=_faSeriesExplicitIsOpen(path);
-  const _f=v=>_faSeriesFmt(v,kind),_ss=vals.length?`${vals.length} ${cad==='month'?'mo':cad==='quarter'?'qtr':cad==='year'?'yr':'pts'} \u00b7 ${_f(vals[0])} \u2192 ${_f(vals[vals.length-1])}`:'No values yet';h+=`<span class="fk-spark" title="${esc(summary)}">${vals.length&&typeof _sparkHtml==='function'?_sparkHtml(vals):''}<em>${esc(_ss)} ${esc(unit)}</em></span>`;
+  const _f=v=>_faSeriesFmt(v,kind),_ss=vals.length?`${vals.length} ${cad==='month'?'mo':cad==='quarter'?'qtr':cad==='year'?'yr':'pts'} \u00b7 ${_prdNum(_f(vals[0]))} \u2192 ${_prdNum(_f(vals[vals.length-1]))}`:'No values yet';h+=`<span class="fk-spark" title="${esc(summary)}">${vals.length&&typeof _sparkHtml==='function'?_sparkHtml(vals):''}<em>${esc(_ss)} ${esc(unit)}</em></span>`;
   h+='<span class="fk-per">Schedule</span>'+_fkSel(_seriesCadenceOptions().map(x=>[x,x[0].toUpperCase()+x.slice(1)]),cad,`faSeriesCadence('${path}',this.value)`,{w:'fk-xs',aria:'Schedule cadence'});
   if(_seriesResolutionUseful(cad))h+=_fkSel([["step","Step"],["smooth","Smooth"]],spec.resolution||'step',`faSeriesResolution('${path}',this.value)`,{w:'fk-xs',aria:'Between values'});
   if(!open)h+=`<button type="button" class="fk-link" onclick="faSeriesExplicitOpen('${path}')">Edit</button>`;
