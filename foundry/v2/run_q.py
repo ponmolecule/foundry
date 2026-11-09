@@ -1191,15 +1191,22 @@ def run_v2(cfg):
     po = cfg.get("pre_opening") or {}
     _fa_out = base.get("fixed_assets") or {}
     _preopen_capex = float(_fa_out.get("preopening_capex") or 0.0) * 1000.0
-    if po.get("expenses") or po.get("min_day1_capital") or _preopen_capex:
-        burn = sum(float(e.get("total", 0.0)) for e in (po.get("expenses") or []))
+    if po.get("expenses") or po.get("incomes") or po.get("min_day1_capital") or _preopen_capex:
+        from .preopening import totals as preopening_totals
+        _po_totals = preopening_totals(cfg)
+        burn = _po_totals["expenses"]
+        income = _po_totals["incomes"]
         capital0 = cfg["target_state"]["initial_capital"]
         min_d1 = float(po.get("min_day1_capital") or 0.0)
-        cushion = capital0 - burn
-        cash_after_uses = capital0 - burn - _preopen_capex
+        cushion = capital0 + income - burn
+        cash_after_uses = capital0 + income - burn - _preopen_capex
         results["pre_open"] = {
             "expenses": [{"category": e.get("category"), "total": float(e.get("total", 0.0))}
                           for e in (po.get("expenses") or [])],
+            "incomes": [{"category": e.get("category"), "total": float(e.get("total", 0.0))} for e in (po.get("incomes") or [])],
+            "income_total": income,
+            "net_income": income - burn,
+            "net_cash_uses_total": burn + _preopen_capex - income,
             "burn_total": burn,
             "preopening_capex": _preopen_capex,
             "cash_uses_total": burn + _preopen_capex,
@@ -1210,7 +1217,7 @@ def run_v2(cfg):
             "sufficient": cushion >= min_d1,
             "flag": ("SUFFICIENT" if cushion >= min_d1
                        else "INSUFFICIENT — REVIEW CAPITAL PLAN"),
-            "convention": ("organizational costs are expensed into the opening retained deficit; "
+            "convention": ("pre-opening income less expenses enters opening retained earnings; "
                              "pre-opening CAPEX is capitalized into fixed assets and consumes cash "
                              "without reducing opening equity"),
         }

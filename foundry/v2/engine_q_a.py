@@ -1163,7 +1163,9 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     # pre-opening burn (Patrick I.9 convention, quarterly-converted at import):
     # organizational costs are EXPENSED into the opening deficit, not capitalized
     _po = cfg.get("pre_opening") or {}
-    _burn = sum(float(e.get("total", 0.0)) for e in (_po.get("expenses") or []))
+    from .preopening import totals as preopening_totals
+    _po_totals = preopening_totals(cfg)
+    _burn = -_po_totals["net_income"]
     day_one -= _burn
     net0 = gross[0] - alll_t[0]
     equity0 = capital + day_one

@@ -11373,6 +11373,14 @@ window.secAdd = function(kind){
   window._cfgSectionOpen=window._cfgSectionOpen||{}; window._cfgSectionOpen.secaoci=true;
   renderGlobals(); renderContent(); refresh();
 };
+function _preopeningIncomeHtml(){
+ const rows=(cfg.pre_opening||{}).incomes||[];
+ let h='<div class="csub" style="margin-top:18px">Pre-opening income</div><div class="cmut">Earned before opening. Increases opening retained earnings and available funding; excluded from forecast income. Enter totals in $000s.</div>';
+ rows.forEach((e,i)=>{h+=`<div class="crow"><input style="flex:1 1 160px" aria-label="Pre-opening income category" value="${esc(e.category||'')}" placeholder="Income category" onchange="cfg.pre_opening.incomes[${i}].category=this.value;refresh()"><input type="text" inputmode="decimal" style="width:150px" aria-label="Pre-opening income total" value="${fmtComma((e.total||0)/1000)}" onchange="cfg.pre_opening.incomes[${i}].total=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><button class="btn-plain" aria-label="Remove pre-opening income" onclick="poIncomeRemove(${i})">×</button></div>`;});
+ return h+'<button class="cadd" onclick="poIncomeAdd()">+ Add income</button>';
+}
+window.poIncomeAdd=function(){cfg.pre_opening=cfg.pre_opening||{};(cfg.pre_opening.incomes=cfg.pre_opening.incomes||[]).push({category:'',total:0});renderContent();refresh();};
+window.poIncomeRemove=function(i){const rows=(cfg.pre_opening||{}).incomes||[];if(i<0||i>=rows.length)return;rows.splice(i,1);renderContent();refresh();};
 window.poAdd = function(){
   window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.preopening=true;
   cfg.pre_opening = cfg.pre_opening || {};
@@ -13248,8 +13256,10 @@ function renderExaminer(){
     h += `<div class="memo">${esc(PO.convention)}.</div>`;
     h += '<table class="ovt"><tr><th>Category</th><th style="text-align:right">Total ($000s)</th></tr>'
       + PO.expenses.map(e=>`<tr><td>${esc(e.category)}</td><td style="font-family:var(--mono);text-align:right">${(e.total/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</td></tr>`).join("")
-      + `<tr><td><b>Total burn</b></td><td style="font-family:var(--mono);text-align:right"><b>${(PO.burn_total/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</b></td></tr></table>`;
-    h += `<div class="memo">Capital cushion (raise \u2212 burn): <span style="font-family:var(--mono)">${(PO.cushion/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</span> vs <span style="font-family:var(--mono)">${(PO.min_day1_capital/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</span> minimum Day-1 requirement \u2014 <b style="color:${PO.sufficient?'#506B55':'#985747'}">${esc(PO.flag)}</b></div>`;
+      + (PO.incomes||[]).map(e=>`<tr><td>Income · ${esc(e.category)}</td><td style="text-align:right">${fmtComma(e.total/1000)}</td></tr>`).join('')
+      + `<tr><td>Net pre-opening income (loss)</td><td style="text-align:right">${fmtComma((PO.net_income==null?-PO.burn_total:PO.net_income)/1000)}</td></tr>`
+      + `<tr><td><b>Total expenses</b></td><td style="font-family:var(--mono);text-align:right"><b>${(PO.burn_total/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</b></td></tr></table>`;
+    h += `<div class="memo">Capital cushion (capital + income − expenses): <span style="font-family:var(--mono)">${(PO.cushion/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</span> vs <span style="font-family:var(--mono)">${(PO.min_day1_capital/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</span> minimum Day-1 requirement \u2014 <b style="color:${PO.sufficient?'#506B55':'#985747'}">${esc(PO.flag)}</b></div>`;
   }
   if(V31 && lastRes && lastRes.call_report){
     const CR = lastRes.call_report;
@@ -18009,7 +18019,7 @@ function structuresSectionsHtml(){
   // Module strip reflects the active authoring path. Most modules derive from authored presence;
   // Operating Expense also records the explicit Simple/Detailed mode so a zero-valued Simple path can still be active.
   const lamps = [
-    ["Pre-opening", !!(cfg.pre_opening && ((cfg.pre_opening.expenses||[]).length || cfg.pre_opening.min_day1_capital))],
+    ["Pre-opening", !!(cfg.pre_opening && ((cfg.pre_opening.expenses||[]).length || (cfg.pre_opening.incomes||[]).length || cfg.pre_opening.min_day1_capital))],
     ["Staged raises", !!(A.capital_raises||[]).length],
     ["Scheduled borrowings", !!(A.scheduled_borrowings||[]).length],
     ["Securities books", _secAociCounts(A).simple>0 || _secAociCounts(A).managed>0],
@@ -18025,7 +18035,7 @@ function structuresSectionsHtml(){
   const _secCounts = _secAociCounts(A), secN = _secCounts.simple + _secCounts.sleeves;
   // r199: module navigator. One row per module: select to open it in the stage; the switch activates or clears it.
   const _cfgPl=(n,w,ws)=>n+" "+(n===1?w:(ws||w+"s"));
-  const _opexModeNav=_operatingExpenseMode(A), _ndNav=A.nie_detail||{}, _cacNav=Object.keys(A.cac_feeds||{}).length, _poNav=(((cfg.pre_opening||{}).expenses)||[]).length;
+  const _opexModeNav=_operatingExpenseMode(A), _ndNav=A.nie_detail||{}, _cacNav=Object.keys(A.cac_feeds||{}).length, _poNav=(((cfg.pre_opening||{}).expenses)||[]).length+(((cfg.pre_opening||{}).incomes)||[]).length;
   const _cfgSum={
     cap:[(A.capital_raises||[]).length?_cfgPl((A.capital_raises||[]).length,"raise"):"",(A.scheduled_borrowings||[]).length?_cfgPl((A.scheduled_borrowings||[]).length,"borrowing"):"",_poNav?_cfgPl(_poNav,"pre-opening item"):""].filter(Boolean).join(" \u00b7 ")||"No capital actions",
     secaoci:[_secCounts.simple?_cfgPl(_secCounts.simple,"book"):"",_secCounts.managed?_cfgPl(_secCounts.managed,"managed portfolio"):"",A.aoci_sensitivity_annual?"AOCI":""].filter(Boolean).join(" \u00b7 ")||"No designated books",
@@ -18118,6 +18128,7 @@ function structuresSectionsHtml(){
       }
       _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added · expensed before opening</div>`;
     }
+    _p += _preopeningIncomeHtml();
     const _fa=A.fixed_assets||{mode:"simple",assets:[]}, _faSchedule=_fa.mode==="schedule", _faFormula=_fa.mode==="formula_level", _faLegacy=!_faSchedule&&!_faFormula, _fax=_fa.assets||[];
     const _faFl=_fa.formula_level||{}, _faComponents=_faFl.components||[];
     const _faHasContent=_faSchedule?_fax.length>0:(_faFormula?!!((+(_faFl.opening_level!=null?_faFl.opening_level:_faFl.opening_net)||0)||_faComponents.length||(_faFl.base_spec&&(+_faFl.base_spec.value||+_faFl.base_spec.base||(_faFl.base_spec.values||[]).some(v=>+v)))||_faFl.depreciation):!!(+cfg.assumptions.premises_equipment||+cfg.assumptions.premises_depreciation_annual||+cfg.assumptions.intangibles));

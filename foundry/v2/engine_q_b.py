@@ -201,7 +201,9 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
     gl0 = sum(p["_beg"][0] for p in lend)
     alll = gl0 * floor_pct
     _po = cfg.get("pre_opening") or {}
-    _burn = sum(float(e.get("total", 0.0)) for e in (_po.get("expenses") or []))
+    from .preopening import totals as preopening_totals
+    _po_totals = preopening_totals(cfg)
+    _burn = -_po_totals["net_income"]
     re = -_burn                      # organizational costs: opening deficit in RE
     equity = capital + re
     _aoci_sens = float(a.get("aoci_sensitivity_annual") or 0.0)

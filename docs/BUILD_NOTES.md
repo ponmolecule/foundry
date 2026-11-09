@@ -2187,3 +2187,6 @@ Responsive total interest income and total noninterest expense links in Other As
 
 ## r477
 Other Liabilities gains total interest expense and total NIE statement links, current-period/QTD observation and joint funding convergence. Entered schedules remain available. See RELEASE_r477.md.
+
+## r478
+2026-11-09 14:47:10 CST America/Chicago. Named pre-opening income, opening earnings/funding integration, sufficiency summary and editable FIW/audit support. See RELEASE_r478.md.

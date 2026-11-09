@@ -1922,6 +1922,19 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         for key in ('direct_removal','funding_plug_effect','capital_tax_interaction_residual','total_net_income_change'):
             if key in bridge: ws.append([key]+bridge[key])
         ws.column_dimensions['A'].width=45;ws.column_dimensions['B'].width=40
+    if (cfg.get('pre_opening') or {}).get('incomes'):
+        from .preopening import totals as preopening_totals
+        pot = preopening_totals(cfg)
+        ps = wb.create_sheet('Pre-opening')
+        ps.append(['Pre-opening reconciliation', 'Amounts in raw dollars'])
+        ps.append(['Treatment', 'Category', 'Dollars'])
+        for kind in ('incomes', 'expenses'):
+            for item in (cfg.get('pre_opening') or {}).get(kind) or []:
+                ps.append([kind, item.get('category'), item.get('total')])
+        for label, value in [('Total income', pot['incomes']), ('Total expenses', pot['expenses']), ('Net income into opening retained earnings', pot['net_income'])]:
+            ps.append(['Total', label, value])
+        ps.column_dimensions['A'].width=30;ps.column_dimensions['B'].width=52;ps.column_dimensions['C'].width=24
+        for rr in ps.iter_rows(min_row=3,min_col=3,max_col=3): rr[0].number_format='#,##0.000000'
     idx = wb.create_sheet("Index")
     hr = _sheet_title(idx, "Foundry Calculation Audit Workbook",
                       "Native-cadence reconciliation output. Designed for model comparison and debugging; not a filing exhibit.", 8)

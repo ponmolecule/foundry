@@ -736,6 +736,11 @@ def validate_config_v2(cfg):
         t = e.get("total")
         if not isinstance(t, (int, float)) or t < 0:
             errs.append(f"pre_opening.expenses[{i}].total must be a non-negative dollar amount")
+    try:
+        from .preopening import totals as preopening_totals
+        preopening_totals(cfg)
+    except (TypeError, ValueError) as exc:
+        errs.append(str(exc))
     if po.get("min_day1_capital") is not None:
         m = po["min_day1_capital"]
         if not isinstance(m, (int, float)) or m < 0:

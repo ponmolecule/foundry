@@ -913,6 +913,9 @@ def build_fiw(cfg, include_capability_map=False):
     po = (cfg.get("pre_opening") or {}).get("expenses")
     if po:
         _array_sheet(wb.create_sheet("ASSM_PREOPEN"), "pre_opening.expenses", po, PREOPEN_FIELDS)
+    poi = (cfg.get("pre_opening") or {}).get("incomes")
+    if poi:
+        _array_sheet(wb.create_sheet("ASSM_PREOPEN_INCOME"), "pre_opening.incomes", poi, PREOPEN_FIELDS)
     _fa = a.get("fixed_assets") or {}
     if _fa.get("mode") == "schedule" and (_fa.get("assets") or []):
         _array_sheet(wb.create_sheet("ASSM_FIXED_ASSETS"), "fixed_assets.assets",
@@ -1041,6 +1044,9 @@ def _settings_sheet(wb, cfg):
             f"{b.get('term_q')}q bullet at {b.get('rate_ann')}", "")
     if not (a.get("scheduled_borrowings") or []): row("(none)", "")
     sec("Pre-opening expenses")
+    sec("Pre-opening income")
+    for e in (cfg.get("pre_opening") or {}).get("incomes") or []:
+        row(e.get("category"), e.get("total"), "$ (increases opening retained earnings)")
     _po_ex = (cfg.get("pre_opening") or {}).get("expenses") or []
     for e in _po_ex:
         row(e.get("category") or e.get("label") or "expense",
@@ -1238,6 +1244,7 @@ def _capability_map_sheet(wb, cfg):
             add("Core bank", f"Managed yield source — {_sl.get('yield_source','entered')}", _sl.get("name") or "security", "ASSM_SEC_MANAGED")
     add("Core bank", "Scheduled borrowings", f"{len(a.get('scheduled_borrowings') or [])} borrowing(s)", "ASSM_BORROWINGS")
     add("Core bank", "Staged capital raises", f"{len(a.get('capital_raises') or [])} raise(s)", "CONTROL / ASSM_RAISES")
+    add("Core bank", "Pre-opening income", f"{len((cfg.get('pre_opening') or {}).get('incomes') or [])} row(s)", "ASSM_PREOPEN_INCOME")
     add("Core bank", "Pre-opening expenses", f"{len((cfg.get('pre_opening') or {}).get('expenses') or [])} row(s)", "ASSM_PREOPEN")
     for _kind in ("fixed", "float"):
         _ps=[p.get("name") for p in (a.get("lending_products") or []) if p.get("rate_type")==_kind]
@@ -1730,6 +1737,7 @@ def diff_import(data, current_cfg):
         "ASSM_BORROWINGS": ("scheduled_borrowings", 3),
         "ASSM_RAISES": ("capital_raises", 3),
         "ASSM_PREOPEN": ("pre_opening.expenses", 3),
+        "ASSM_PREOPEN_INCOME": ("pre_opening.incomes", 3),
         "ASSM_FIXED_ASSETS": ("fixed_assets.assets", 3),
         "ASSM_FIXED_ASSETS_LEVEL": ("fixed_assets.formula_level", 3),
         "ASSM_OTHER_LIAB": ("other_liabilities_model", 3),
