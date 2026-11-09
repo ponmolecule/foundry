@@ -1,3 +1,7 @@
+# r475 — Schedule previews keep numbers whole
+
+See RELEASE_r475.md. Grid columns sized to the longest full-precision value, no wrapping; responsive compact strip; Copy values; narrow formula-term rows stack. Presentation only; no engine change.
+
 # r466 — Fixed assets Formula / level table
 
 See RELEASE_r466.md. One component table with per-row level and depreciation, M1 disposal check and roll-forward. Presentation only; no engine change.

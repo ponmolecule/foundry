@@ -11612,6 +11612,7 @@ function _fkAdd(label,onclick,o){o=o||{};return `<button type="button" class="fk
 function _fkX(onclick,aria){return `<button type="button" class="fk-x" aria-label="${esc(aria||'Remove')}" title="${esc(aria||'Remove')}" onclick="${onclick}">×</button>`;}
 function _fkInfo(text){return text?`<span class="fk-i" tabindex="0" title="${esc(text)}" aria-label="${esc(text)}">i</span>`:'';}
 // Series: same handlers and storage as _faSeriesEditor; laid out as one line plus an optional drawer.
+function _fkRnd(x){return typeof _prdNum==='function'?_prdNum(x):x;}   // r475: display rounding for the summary chip
 function _fkSeries(path,spec,kind,naturalPeriod){
  spec=spec&&typeof spec==="object"?spec:{source:"entered",trajectory:"flat",value:0};
  const tr=spec.trajectory||"flat",id="fasp_"+path.replace(/[^a-zA-Z0-9]/g,"_");
@@ -11623,7 +11624,7 @@ function _fkSeries(path,spec,kind,naturalPeriod){
  let drawer='';
  if(tr==="explicit"){
   const cad=spec.cadence||_nativeFlowPeriod(),vals=spec.values||[],summary=_seriesPasteSummary(vals,v=>_faSeriesFmt(v,kind)),open=_faSeriesExplicitIsOpen(path);
-  const _f=v=>_faSeriesFmt(v,kind),_ss=vals.length?`${vals.length} ${cad==='month'?'mo':cad==='quarter'?'qtr':cad==='year'?'yr':'pts'} \u00b7 ${_prdNum(_f(vals[0]))} \u2192 ${_prdNum(_f(vals[vals.length-1]))}`:'No values yet';h+=`<span class="fk-spark" title="${esc(summary)}">${vals.length&&typeof _sparkHtml==='function'?_sparkHtml(vals):''}<em>${esc(_ss)} ${esc(unit)}</em></span>`;
+  const _f=v=>_faSeriesFmt(v,kind),_ss=vals.length?`${vals.length} ${cad==='month'?'mo':cad==='quarter'?'qtr':cad==='year'?'yr':'pts'} \u00b7 ${_fkRnd(_f(vals[0]))} \u2192 ${_fkRnd(_f(vals[vals.length-1]))}`:'No values yet';h+=`<span class="fk-spark" title="${esc(summary)}">${vals.length&&typeof _sparkHtml==='function'?_sparkHtml(vals):''}<em>${esc(_ss)} ${esc(unit)}</em></span>`;
   h+='<span class="fk-per">Schedule</span>'+_fkSel(_seriesCadenceOptions().map(x=>[x,x[0].toUpperCase()+x.slice(1)]),cad,`faSeriesCadence('${path}',this.value)`,{w:'fk-xs',aria:'Schedule cadence'});
   if(_seriesResolutionUseful(cad))h+=_fkSel([["step","Step"],["smooth","Smooth"]],spec.resolution||'step',`faSeriesResolution('${path}',this.value)`,{w:'fk-xs',aria:'Between values'});
   if(!open)h+=`<button type="button" class="fk-link" onclick="faSeriesExplicitOpen('${path}')">Edit</button>`;
