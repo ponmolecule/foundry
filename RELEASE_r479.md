@@ -1,0 +1,13 @@
+# r479 — General balance sources for asset and liability formulas
+
+Built 2026-11-09T15:25:57-06:00 (America/Chicago), on r478 d56dab33.
+
+Other Assets and Other Liabilities now expose the shared balance catalog through Linked series × Multiplier. All lending products, all deposit products, total on-book deposits, and deposit-pool retained, swept and available balances are eligible on the same footing. Stable source_catalog_id values bind products, not names or positions. No product name, OREO rule or multiplier is hard-coded.
+
+The Balance measure control offers the catalog's supported current period end, beginning of period and average of beginning/end observations. Pool available balances support ending only. Existing catalog semantics are preserved: lending on-book balances are before allowance; fair-value products include their existing carrying-value adjustments. Monetary source values remain dollars internally and scale to $000s once in public output. Stock multipliers are dimensionless; they do not use flow QTD accumulation or day conversion.
+
+Runtime balances are the existing engine catalog observations, after product/pool allocation and before funding/expense evaluation. Both engine profiles supply them to both balance consumers. Missing/removed sources and unsupported measures fail explicitly. Source labels, selected measure and resolved operands appear in calculation audit traces. Entered schedules and all prior links remain available, without configuration migration.
+
+For the current reconciliation, add an Other Assets component named OREO; choose the CRE product's On-book balance source, Current period end, Flat multiplier 0.0014. No changes to pre-existing opening/base balances are required. At quarter end this follows the same source relationship as the spreadsheet; monthly values follow monthly product balances rather than holding a future quarter end. Results may differ where Foundry lending methodology differs from the source. This is an additional non-earning asset, not a transfer/reclassification out of loans or a new expense posting.
+
+Validation: 35 Python tests covering generic source/measure eligibility, monthly/quarterly engines, both profiles, asset/liability consumers, missing sources and invalid measures, stable binding after rename/reorder, FIW round trips, prior responsive links, pre-opening income, funding/tax and securities regressions, and catalog/pool regressions. Node tests verify every product/pool option, measure controls and guards, both consumer renderers and inline syntax. Browser visual testing remains unavailable due Chromium launch restrictions.

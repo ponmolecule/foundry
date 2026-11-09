@@ -2190,3 +2190,6 @@ Other Liabilities gains total interest expense and total NIE statement links, cu
 
 ## r478
 2026-11-09 14:47:10 CST America/Chicago. Named pre-opening income, opening earnings/funding integration, sufficiency summary and editable FIW/audit support. See RELEASE_r478.md.
+
+## r479
+2026-11-09T15:25:57-06:00 America/Chicago. Shared catalog balances in Other Assets and Other Liabilities; stable product/pool links and catalog-supported balance measures. See RELEASE_r479.md.

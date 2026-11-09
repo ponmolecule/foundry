@@ -25,7 +25,7 @@ from typing import Any, Mapping
 import math
 
 
-_ALLOWED_LINK_KINDS = {"workforce_role_count", "fixed_asset_level", "operating_expense_flow", "bank_statement_flow"}
+_ALLOWED_LINK_KINDS = {"workforce_role_count", "fixed_asset_level", "operating_expense_flow", "bank_statement_flow", "catalog_balance"}
 
 
 def _f(v, default=0.0):
@@ -114,6 +114,11 @@ def _component_terms(component: Mapping[str, Any], index: int) -> list[dict]:
 
 
 def _driver_metadata(assumptions: Mapping[str, Any], kind: str, series_id: str) -> tuple[str, str]:
+    if kind == 'catalog_balance':
+        from .source_catalog import balance_catalog
+        row = next((x for x in balance_catalog(assumptions) if x['series_id'] == series_id), None)
+        if row is None: raise ValueError('Linked balance source is unavailable')
+        return row['label'], '$'
     if kind == "operating_expense_flow":
         from .expense_sources import catalog
         hit = next((x for x in catalog(assumptions) if x['series_id'] == series_id), None)
@@ -215,6 +220,11 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
             if not sid:
                 raise ValueError(
                     f"other_liabilities_model.components[{i}].terms[{j}] linked Series requires series_id")
+            if kind == 'catalog_balance':
+                from .source_catalog import balance_catalog
+                row = next((x for x in balance_catalog(a) if x['series_id'] == sid), None)
+                if row is None or link.get('measure', 'period_end') not in row['measures']:
+                    raise ValueError('Linked balance source or measure is unavailable')
             legacy_fixed_net = term.get("legacy_driver_kind") == "fixed_asset_net"
             if kind == 'bank_statement_flow':
                 labels = {'total_interest_expense': 'Bank · Total interest expense',
@@ -257,6 +267,7 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
                 days = _resolve_entered(term['days_spec'], n, ppy, growth_context=growth_context)
                 mult = days_multiplier(mult, days, term.get('year_days',360), ppy)
             resolved_terms.append({
+                "balance_measure": link.get("measure", "period_end"),
                 "observation": link.get("observation", "period"),
                 "expense_indices": selected, "days": days,
                 "year_days": term.get('year_days',360) if days is not None else None,
@@ -297,7 +308,7 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
 
 
 def other_liability_period(prepared: Mapping[str, Any] | None, period_index: int,
-                           *, workforce_count=None, fixed_asset_net=None, expense_amounts=None, statement_flows=None, flow_history=None, **_ignored) -> dict:
+                           *, workforce_count=None, fixed_asset_net=None, expense_amounts=None, statement_flows=None, flow_history=None, catalog_balances=None, **_ignored) -> dict:
     """Resolve one modeled period using engine-native Workforce counts where required."""
     if prepared is None:
         raise ValueError("generalized other-liability model is not active")
@@ -315,7 +326,13 @@ def other_liability_period(prepared: Mapping[str, Any] | None, period_index: int
         for t in c.get("terms") or []:
             kind = str(t.get("driver_kind") or "")
             sid = str(t.get("series_id") or "")
-            if kind == 'bank_statement_flow':
+            if kind == 'catalog_balance':
+                observations = (catalog_balances or {}).get(sid)
+                measure = t.get('balance_measure', 'period_end')
+                if not isinstance(observations, Mapping) or measure not in observations:
+                    raise ValueError('Runtime linked balance source or measure is unavailable')
+                driver = float(observations[measure])
+            elif kind == 'bank_statement_flow':
                 if sid not in (statement_flows or {}):
                     raise ValueError('Other Liabilities statement flow is unavailable')
                 driver = float(statement_flows[sid])
@@ -400,6 +417,7 @@ def other_liability_audit_payload(prepared: Mapping[str, Any] | None, total,
                 "term_id": tid, "driver_kind": t.get("driver_kind"),
                 "series_id": t.get("series_id") or "", "driver_name": t.get("driver_name"),
                 "driver_unit": t.get("driver_unit"),
+                "balance_measure": t.get("balance_measure", "period_end"),
                 "observation": t.get("observation", "period"),
                 "driver": [float(x.get("driver") or 0.0) for x in tr],
                 "multiplier": [float(x.get("multiplier") or 0.0) for x in tr],

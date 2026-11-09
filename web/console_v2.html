@@ -11672,6 +11672,7 @@ function _oaEditorHtmlFk(){
    r+=(terms.length>1?_fkX(`oaRemoveTerm(${i},${j})`,'Remove term'):_fkX(`oaRemoveTerm(${i},${j})`,'Remove term'))+`</div><div class="fk-term-b">`;
    if(!entered)r+=(globalThis._lsrcLive||(()=>''))('oat',i+'.'+j,((opts.find(o=>o.value===_oaDriverValue(t))||{}).label)||'Linked series','driver before the multiplier',count?'count':'money','fk-lsrc');   // r355
    if(entered)r+=_fkSeriesRow('Asset level',b+'driver_spec',t.driver_spec,'money',false);
+   r+=_otherBalanceMeasureHtml('asset',i,j,t);
    if(flow)r+=_fkRow('Observe flow',_fkSel([['period','Current period total'],['quarter_to_date','Quarter to date total']],link.observation||'period',`oaObservation(${i},${j},this.value)`,{w:'fk-wl',aria:'Flow observation'})+_fkInfo('Quarter to date sums modeled flows since the start of the quarter. At quarter end it is the full quarterly total; earlier months use the elapsed months. It does not use future months.'));
    if(flow)r+=_fkRow('Flow to balance',_fkSeg([['multiple','Multiplier'],['days','Days outstanding']],t.days_spec?'days':'multiple',null,`oaDays(${i},${j},'%v'==='days')`));
    if(t.days_spec){r+=_fkSeriesRow('Days outstanding',b+'days_spec',t.days_spec,'days',false);
@@ -11806,6 +11807,7 @@ function _olComponentCardFk(c,i){
   r+=_fkX(`olRemoveTerm(${i},${j})`,'Remove term')+`</div><div class="fk-term-b">`;
   if(!entered)r+=(globalThis._lsrcLive||(()=>''))('olt',i+'.'+j,((opts.find(o=>o.value===dv)||{}).label)||'Linked series','driver before the multiplier',isW?'count':'money','fk-lsrc');   // r355
   if(entered)r+=_fkSeriesRow('Liability level',dp,t.driver_spec,'money',false);
+  r+=_otherBalanceMeasureHtml('liability',i,j,t);
   if(link.kind==='bank_statement_flow')r+=_fkRow('Observe flow',_fkSel([['period','Current period total'],['quarter_to_date','Quarter to date total']],link.observation||'period',`olObservation(${i},${j},this.value)`,{w:'fk-wl',aria:'Liability flow observation'})+_fkInfo('Quarter to date accumulates elapsed modeled months and resets each quarter. It equals the full quarter total at quarter end. Use entered quarterly schedules for a held balance throughout the quarter.'));
   if(link.kind==='operating_expense_flow'){
    const base=`assumptions.other_liabilities_model.components.${i}.terms.${j}.`;
@@ -12026,6 +12028,19 @@ function olSettlementHtml(c,i){const t=c.settlement||{},opts=settlementSourceOpt
  (t.sources||[]).forEach((r,j)=>{h+=`<div class="settlement-source-row"><label>Eligible revenue source<select data-nofit style="max-width:100%" onchange="olSettlementSource(${i},${j},this.value)"><option value="">Select a source</option>${!opts.some(x=>x.series_id===r.series_id)&&r.series_id?`<option selected value="${esc(r.series_id)}">Missing source</option>`:''}${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===r.series_id?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label><label>Measure<select data-nofit onchange="setPath('${path}.settlement.sources.${j}.measure',this.value);refresh()">${[['reported_fee_income','Reported fee income'],['fee_product_cost','Direct stream cost'],['net_fee_income','Fee income less direct cost']].map(([v,l])=>`<option value="${v}"${r.measure===v?' selected':''}>${l}</option>`).join('')}</select></label><button class="cx" aria-label="Remove selected revenue source" onclick="olSettlementRemoveSource(${i},${j})">×</button></div>`;});
  h+=`<button class="btn-plain" onclick="olSettlementAddSource(${i})">+ Select revenue source</button>${olSettlementHoldingHtml(t,i)}<p class="cmut">Each weight multiplies revenue from its labeled period. Opening revenue is signed history, separate from the opening liability. Revenue is observed, not posted again.</p></details>`;return h;
 }
+function _otherBalanceOptions(){
+ _ensureLinkableSeriesIds();const a=cfg.assumptions||{},rows=[{series_id:'bank.deposits',label:'Deposits › Total on-book balance',measures:['period_end','period_begin','period_average']}];
+ for(const [family,key]of [['Deposit','deposit_products'],['Lending','lending_products']])for(const p of a[key]||[])rows.push({series_id:family.toLowerCase()+'.'+p.source_catalog_id+'.balance',label:family+' › '+(p.name||family)+' › On-book balance',measures:['period_end','period_begin','period_average']});
+ for(const p of a.deposit_retention_pools||[])for(const [key,label]of [['retainedBalance','Retained on-book balance'],['sweptBalance','Swept out (off-book)'],['availableBalance','Available program balance']])rows.push({series_id:'deposit_pool.'+p.id+'.'+key,label:'Deposit pool › '+(p.name||p.id)+' › '+label,measures:key==='availableBalance'?['period_end']:['period_end','period_begin','period_average']});
+ const published=typeof sourceCatalogRows==='undefined'?[]:sourceCatalogRows;
+ return rows.map(row=>{const live=published.find(x=>x.driver==='catalog_quantity'&&x.series_id===row.series_id);return {value:'catalog_balance::'+row.series_id,kind:'catalog_balance',series_id:row.series_id,label:live?.label||row.label,measures:live?.measures||row.measures,unit:'money_stock'};});
+}
+function _otherBalanceMeasureHtml(kind,i,j,t){
+ const link=t.driver_spec?.link||{};if(link.kind!=='catalog_balance')return '';
+ const option=_otherBalanceOptions().find(x=>x.series_id===link.series_id),allowed=option?.measures||['period_end'];
+ return _fkRow('Balance measure',_fkSel([['period_end','Current period end'],['period_begin','Beginning of period'],['period_average','Average of beginning and end']].filter(x=>allowed.includes(x[0])),link.measure||'period_end',`otherBalanceMeasure('${kind}',${i},${j},this.value)`,{w:'fk-wl',aria:'Linked balance measure'}));
+}
+window.otherBalanceMeasure=function(kind,i,j,v){const t=(kind==='asset'?_oaEnsureTerms(i):_olEnsureTerms(i))[j];if(!t||t.driver_spec?.link?.kind!=='catalog_balance')return;const o=_otherBalanceOptions().find(x=>x.series_id===t.driver_spec.link.series_id);if(!o?.measures.includes(v))return;t.driver_spec.link.measure=v;renderContent();refresh();};
 function _olDriverOptions(){
   _ensureLinkableSeriesIds(); const out=[
     ...[['total_interest_expense','Bank · Total interest expense'],['total_noninterest_expense','Bank · Total noninterest expense']].map(([series_id,label])=>({value:'bank_statement_flow::'+series_id,kind:'bank_statement_flow',series_id,label,unit:'money_flow'}))];
@@ -12042,7 +12057,7 @@ function _olDriverOptions(){
     out.push({value:"fixed_asset_level::"+_FA_ACCUM_SID,kind:"fixed_asset_level",series_id:_FA_ACCUM_SID,label:"Fixed assets · Accumulated depreciation",unit:"money"});
     out.push({value:"fixed_asset_level::"+_FA_NET_SID,kind:"fixed_asset_level",series_id:_FA_NET_SID,label:"Fixed assets · Net total",unit:"money"});
   }
-  return out;
+  return out.concat(_otherBalanceOptions());
 }
 function _olLegacyTermView(c){const d=(c&&c.driver)||{};if(d.kind==="workforce_count")return {term_id:"legacy",driver_spec:{source:"link",link:{kind:"workforce_role_count",series_id:String(d.series_id||""),aggregation:"end"}},multiplier_spec:c.multiplier_spec||{source:"entered",trajectory:"flat",value:0},_legacy:true};if(d.kind==="fixed_asset_net")return {term_id:"legacy",driver_spec:{source:"link",link:{kind:"fixed_asset_level",series_id:_FA_NET_SID,aggregation:"end"}},multiplier_spec:c.multiplier_spec||{source:"entered",trajectory:"flat",value:1},_legacy:true};return null;}
 function _olTermsView(c){if(Array.isArray((c||{}).terms))return c.terms;const t=_olLegacyTermView(c);return t?[t]:[];}

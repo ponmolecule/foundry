@@ -63,6 +63,12 @@ def prepare_other_assets(a,n_periods,ppy,*,growth_context=None):
                         raise ValueError('Other Assets flow observation must be period or quarter_to_date')
                     if link.get('observation') == 'quarter_to_date' and ppy not in {4, 12}:
                         raise ValueError('Quarter-to-date Other Assets requires monthly or quarterly periods')
+                elif kind=='catalog_balance':
+                    from .source_catalog import balance_catalog
+                    row=next((x for x in balance_catalog(a) if x['series_id']==sid),None)
+                    if row is None or link.get('measure','period_end') not in row['measures']:
+                        raise ValueError('Other Assets balance source or measure is unavailable')
+                    name,unit=row['label'],'$'
                 elif kind in {'workforce_role_count','fixed_asset_level'}:
                     name,unit=_driver_metadata(a,kind,sid)
                     if kind=='fixed_asset_level':driver=list(resolve_series_spec(ns,a,n,ppy,context=growth_context))
@@ -81,7 +87,8 @@ def prepare_other_assets(a,n_periods,ppy,*,growth_context=None):
             terms.append({'term_id':tid,'driver_kind':kind,'series_id':sid,'driver_name':name,
                           'driver_unit':unit,'driver':driver,'multiplier':mult,
                           'days':days,'year_days':year_days,'authored_multiplier':authored,
-                          'observation':(ns.get('link') or {}).get('observation','period')})
+                          'observation':(ns.get('link') or {}).get('observation','period'),
+                          'balance_measure':(ns.get('link') or {}).get('measure','period_end')})
         rows.append({'component_id':cid,'name':str(c.get('name') or 'Asset component'),'terms':terms})
     return {'opening_balance':opening,'base':base,'components':rows,'periods_per_year':ppy}
 

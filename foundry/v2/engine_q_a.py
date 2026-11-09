@@ -1797,7 +1797,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                     "total_interest_income": [is_["loanInt"][k] + is_["secInt"][k] + is_["cashInt"][k] for k in range(1, q)],
                     "total_noninterest_expense": [is_["overhead"][k] + is_["prodOpex"][k] + is_["feeOpex"][k] for k in range(1, q)]}
                 _oar = other_asset_period(_oa_prepared, q - 1, workforce_count=_wf_count_map_q,
-                    fixed_asset_net=prem_t[q], income_flows=_oa_flows, flow_history=_oa_history)
+                    fixed_asset_net=prem_t[q], income_flows=_oa_flows, flow_history=_oa_history, catalog_balances=_catalog_balances_q)
                 _oa_change = abs(_oa_t[q] - _oar["total"])
                 _oa_t[q] = _oar["total"]
                 non_earn_t[q] = prem_t[q] + a["intangibles"] + _oa_t[q]
@@ -1806,6 +1806,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 _olr = other_liability_period(_ol_prepared, q - 1,
                     workforce_count=_wf_count_map_q, fixed_asset_net=prem_t[q],
                     expense_amounts=expense_period_amounts(_nie_d, q - 1, _gross_linked_values if _nie_d else []),
+                    catalog_balances=_catalog_balances_q,
                     statement_flows={"total_interest_expense": dep_exp + borr_exp,
                                      "total_noninterest_expense": nie},
                     flow_history={

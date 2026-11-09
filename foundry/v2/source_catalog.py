@@ -12,7 +12,7 @@ def balance_catalog(a):
     def add(sid, label, family, key, index=None, pool=None, unit='money_stock'):
         out.append(dict(series_id=sid, label=label, family=family, unit=unit,
                         temporal='stock', measures=['period_end','period_begin','period_average'],
-                        consumers=['opex_formula'], driver='catalog_quantity',
+                        consumers=['opex_formula','other_asset_balance','other_liability_balance'], driver='catalog_quantity',
                         key=key, index=index, pool=pool))
     add('bank.deposits', 'Deposits › Total on-book balance', 'Deposit', 'deposit_total')
     for fam, collection in [('Deposit','deposit_products'),('Lending','lending_products')]:
