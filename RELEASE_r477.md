@@ -1,0 +1,13 @@
+# r477 — Statement linked Other Liabilities
+
+Built on r476 (6cca08ac); preserves r475 schedule preview fixes and r476 Other Assets links.
+
+Other Liabilities → Formula / level → Add liability component → Linked series now offers Bank · Total interest expense and Bank · Total noninterest expense. These sources represent total statement flows, rather than the narrower Operating expense categories source. Expense includes deposit and borrowing interest; total NIE includes workforce, other operating expense, depreciation, product operating expense and fee operating costs, excluding credit provisions and income tax.
+
+For Interest payable select Total interest expense, Observe flow = Quarter to date total, multiplier Flat 0.25. For Accounts payable select Total noninterest expense, Observe flow = Quarter to date total, multiplier Flat 0.50. Use dimensionless multipliers without dollar scaling. Base liability level is zero when named components replace it; retain separately authored opening balances. Existing unfunded commitments reserve and tax liability postings remain automatic and are not added as duplicate components.
+
+Current period total is the default. QTD accumulates elapsed monthly flows, resets next quarter, and equals the full quarter total at each quarter end. In quarterly runs the observations coincide. QTD requires monthly or quarterly cadence. New statement sources use multipliers; Days payable remains available on existing recognized category expense sources only. Entered level schedules remain available: source Balance Sheet I137:AB137 for interest payable and I138:AB138 for accounts payable, divide dollars by 1,000 once, Quarter cadence, Hold/Step, multiplier 1. No saved configuration is migrated.
+
+Profile A solves liability stocks jointly with funding, interest, income, equity, taxes and responsive assets, and checks liability convergence before publishing. Only committed previous period flows enter QTD history. Profile B observes its beginning-balance interest convention. Audit operands and workbook units identify current-period versus QTD observations. New liability-only sources do not appear in Other Assets.
+
+Validation: 26 Python tests covering responsive assets/liabilities, existing balance components, managed securities and taxes; JavaScript handler/source/syntax checks for r477, r476 and r474. New tests check monthly QTD reset, both profiles, statement equations, borrowing feedback, simultaneous asset/liability links, response to rate changes, FIW round trip, missing history/sources and nonfinite inputs. Browser visual testing remains unavailable because Chromium launch is denied by the environment.

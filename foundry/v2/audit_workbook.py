@@ -1622,6 +1622,8 @@ def _other_liability_rows(cfg, results, n):
                 dfmt, mfmt = _RAW_NUM_FMT, _RAW_MONEY_FMT
             else:
                 driver_units, mult_units = ("$000s · selected revenue flow" if kind=="settlement_revenue" else ("$000s · entered liability level" if kind=="entered_level" else ("$000s · recognized expense flow" if kind=="operating_expense_flow" else "$000s · linked Fixed Asset Series"))), "dimensionless signed multiple"
+                if kind == 'bank_statement_flow':
+                    driver_units = '$000s · ' + ('quarter-to-date flow' if term.get('observation') == 'quarter_to_date' else 'current-period flow')
                 driver_vals = [None] + money(drv)
                 mult_vals = [None] + [float(x or 0.0) for x in mul]
                 dfmt, mfmt = _RAW_MONEY_FMT, _RAW_NUM_FMT

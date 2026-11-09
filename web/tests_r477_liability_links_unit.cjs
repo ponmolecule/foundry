@@ -1,0 +1,13 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync('web/console_v2.html','utf8');
+const t={driver_spec:{source:'link',link:{kind:'bank_statement_flow',series_id:'total_interest_expense'}}};
+const s={window:{},_olEnsureTerms:()=>[t],renderContent:()=>{},refresh:()=>{}};vm.createContext(s);
+vm.runInContext(html.slice(html.indexOf('window.olObservation='),html.indexOf('window.olDriver=')),s);
+s.window.olObservation(0,0,'quarter_to_date');assert.equal(t.driver_spec.link.observation,'quarter_to_date');
+s.window.olObservation(0,0,'future');assert.equal(t.driver_spec.link.observation,'quarter_to_date');
+s.window.olObservation(0,0,'period');assert.equal(t.driver_spec.link.observation,'period');
+t.driver_spec.link.kind='workforce_role_count';s.window.olObservation(0,0,'quarter_to_date');assert.equal(t.driver_spec.link.observation,'period');
+assert(html.includes("['total_interest_expense','Bank · Total interest expense']"));assert(html.includes("['total_noninterest_expense','Bank · Total noninterest expense']"));assert(html.includes("aria:'Liability flow observation'"));
+assert(html.includes("_olDriverOptions().filter(o=>o.kind!=='bank_statement_flow')"));
+for(const m of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(m[1].trim())new vm.Script(m[1]);
+console.log('PASS r477 source options, observation handlers and guards, asset-source isolation, inline syntax');

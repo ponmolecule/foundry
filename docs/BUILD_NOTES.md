@@ -2184,3 +2184,6 @@ Precision fix for r449 cells (built on r449). _depCell inputs carry data-full (1
 
 ## r476
 Responsive total interest income and total noninterest expense links in Other Assets, with explicit current-period/QTD observations and joint funding convergence. See RELEASE_r476.md.
+
+## r477
+Other Liabilities gains total interest expense and total NIE statement links, current-period/QTD observation and joint funding convergence. Entered schedules remain available. See RELEASE_r477.md.

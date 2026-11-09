@@ -25,7 +25,7 @@ from typing import Any, Mapping
 import math
 
 
-_ALLOWED_LINK_KINDS = {"workforce_role_count", "fixed_asset_level", "operating_expense_flow"}
+_ALLOWED_LINK_KINDS = {"workforce_role_count", "fixed_asset_level", "operating_expense_flow", "bank_statement_flow"}
 
 
 def _f(v, default=0.0):
@@ -216,7 +216,17 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
                 raise ValueError(
                     f"other_liabilities_model.components[{i}].terms[{j}] linked Series requires series_id")
             legacy_fixed_net = term.get("legacy_driver_kind") == "fixed_asset_net"
-            if legacy_fixed_net:
+            if kind == 'bank_statement_flow':
+                labels = {'total_interest_expense': 'Bank · Total interest expense',
+                          'total_noninterest_expense': 'Bank · Total noninterest expense'}
+                if sid not in labels: raise ValueError('Other Liabilities statement source is unavailable')
+                observation = link.get('observation', 'period')
+                if observation not in {'period', 'quarter_to_date'}:
+                    raise ValueError('Other Liabilities observation must be period or quarter_to_date')
+                if observation == 'quarter_to_date' and ppy not in {4, 12}:
+                    raise ValueError('Quarter-to-date liabilities require monthly or quarterly periods')
+                name, unit = labels[sid], '$'
+            elif legacy_fixed_net:
                 # r127 allowed aggregate net fixed assets regardless of Fixed Asset authoring mode.
                 # Preserve that historical runtime link exactly; new authoring uses published
                 # Fixed Asset Formula / level Series instead.
@@ -247,6 +257,7 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
                 days = _resolve_entered(term['days_spec'], n, ppy, growth_context=growth_context)
                 mult = days_multiplier(mult, days, term.get('year_days',360), ppy)
             resolved_terms.append({
+                "observation": link.get("observation", "period"),
                 "expense_indices": selected, "days": days,
                 "year_days": term.get('year_days',360) if days is not None else None,
                 "authored_multiplier": authored_mult,
@@ -282,11 +293,11 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
         raise ValueError("other_liabilities_model component_id values must be unique")
     if len(term_ids) != len(set(term_ids)):
         raise ValueError("other_liabilities_model term_id values must be unique")
-    return {"opening_balance": max(0.0, opening)+sum(r.get("opening_balance",0) for r in rows if r.get("settlement")), "base": base, "components": rows}
+    return {"opening_balance": max(0.0, opening)+sum(r.get("opening_balance",0) for r in rows if r.get("settlement")), "base": base, "components": rows, "periods_per_year": ppy}
 
 
 def other_liability_period(prepared: Mapping[str, Any] | None, period_index: int,
-                           *, workforce_count=None, fixed_asset_net=None, expense_amounts=None, **_ignored) -> dict:
+                           *, workforce_count=None, fixed_asset_net=None, expense_amounts=None, statement_flows=None, flow_history=None, **_ignored) -> dict:
     """Resolve one modeled period using engine-native Workforce counts where required."""
     if prepared is None:
         raise ValueError("generalized other-liability model is not active")
@@ -304,7 +315,18 @@ def other_liability_period(prepared: Mapping[str, Any] | None, period_index: int
         for t in c.get("terms") or []:
             kind = str(t.get("driver_kind") or "")
             sid = str(t.get("series_id") or "")
-            if kind == "operating_expense_flow":
+            if kind == 'bank_statement_flow':
+                if sid not in (statement_flows or {}):
+                    raise ValueError('Other Liabilities statement flow is unavailable')
+                driver = float(statement_flows[sid])
+                if t.get('observation') == 'quarter_to_date':
+                    width = prepared['periods_per_year'] // 4
+                    start = (i // width) * width
+                    history = (flow_history or {}).get(sid, [])
+                    if start < i and len(history) < i:
+                        raise ValueError('Other Liabilities quarter-to-date history is unavailable')
+                    driver += sum(float(x) for x in history[start:i])
+            elif kind == "operating_expense_flow":
                 if not isinstance(expense_amounts, Mapping):
                     raise ValueError('Runtime recognized expenses are unavailable for other liabilities')
                 selected = t['expense_indices']
@@ -329,6 +351,8 @@ def other_liability_period(prepared: Mapping[str, Any] | None, period_index: int
                 raise IndexError("other-liability multiplier period index out of range")
             mult = float(mvals[i] or 0.0)
             amount = driver * mult
+            if not all(math.isfinite(x) for x in (driver, mult, amount)):
+                raise ValueError("Other Liabilities resolved operands must be finite")
             component_amount += amount
             terms.append({
                 "term_id": t.get("term_id"), "driver_kind": kind,
@@ -376,6 +400,7 @@ def other_liability_audit_payload(prepared: Mapping[str, Any] | None, total,
                 "term_id": tid, "driver_kind": t.get("driver_kind"),
                 "series_id": t.get("series_id") or "", "driver_name": t.get("driver_name"),
                 "driver_unit": t.get("driver_unit"),
+                "observation": t.get("observation", "period"),
                 "driver": [float(x.get("driver") or 0.0) for x in tr],
                 "multiplier": [float(x.get("multiplier") or 0.0) for x in tr],
                 "amount": [float(x.get("amount") or 0.0) for x in tr],

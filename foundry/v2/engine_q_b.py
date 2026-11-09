@@ -375,7 +375,8 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
         if _ol_prepared is not None:
             _olr = other_liability_period(
                 _ol_prepared, qi, workforce_count=_wf_count_map_q, fixed_asset_net=_prem_t[qi + 1],
-                expense_amounts=expense_period_amounts(_nie_d, qi, _gross_linked_values if _nie_d else []))
+                expense_amounts=expense_period_amounts(_nie_d, qi, _gross_linked_values if _nie_d else []),
+                statement_flows={"total_interest_expense": int_dep + int_borrow, "total_noninterest_expense": opex_prod + _ovh_b})
             _other_liab_q = float(_olr["total"] or 0.0)
             _ol_period_rows.append(_olr)
         else:
