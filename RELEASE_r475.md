@@ -13,3 +13,12 @@ Entered schedules (for example an Interest-bearing balance term or an income bal
 The shared preview (`_explicitPreviewHtml`) is used by every entered schedule in the console, so the same fix applies to fee, lending, deposit and workforce schedules.
 
 Validation: web/tests_r475_schedule_preview.cjs (6 rendered checks: no wrapping or clipping in the grid at 1440 and 900px, strip cells unclipped with full-value tooltips, chip rounding, copy content and clipboard write, responsive strip at 700/480/320px containers, quarterly schedules).
+
+Full suite on 4163bfe (309 files) plus reruns of every differing file on the final commit. Nothing r475 touches fails. Four failures are inherited unchanged from r474 (they fail on r474 itself with the same error):
+
+- tests_config_layout: "Add comes before Paste for roles, categories, fixed assets and pre-opening expenses".
+- tests_r448_product_sidebar.cjs: "drag widens list".
+- tests_r466_fixed_assets_ui.cjs: "editor spans the row" (the Formula / level editor no longer spans the full row in r474).
+- tests_r474_factor_cadence.cjs: launches Chromium from a hard-coded /usr/bin/chromium instead of FOUNDRY_CHROMIUM_PATH / the Playwright default, so it cannot start outside that machine.
+
+Found and fixed during the run: the summary-chip rounding referenced a helper the form-kit harness does not load (now guarded), and two CSS selectors were declared twice at top level (T57a in tests_protocol; folded into the original rules).
