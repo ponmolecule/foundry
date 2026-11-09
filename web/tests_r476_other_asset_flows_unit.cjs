@@ -1,0 +1,12 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync('web/console_v2.html','utf8');
+const t={driver_spec:{source:'link',link:{kind:'bank_income_flow',series_id:'total_interest_income'}},days_spec:{value:25},year_days:360};
+const s={window:{},_oaEnsureTerms:()=>[t],renderContent:()=>{},refresh:()=>{}};vm.createContext(s);
+vm.runInContext(html.slice(html.indexOf('window.oaObservation='),html.indexOf('window.oaDriver=')),s);
+s.window.oaObservation(0,0,'quarter_to_date');assert.equal(t.driver_spec.link.observation,'quarter_to_date');assert(!t.days_spec);assert(!t.year_days);
+s.window.oaObservation(0,0,'invalid');assert.equal(t.driver_spec.link.observation,'quarter_to_date');
+s.window.oaObservation(0,0,'period');assert.equal(t.driver_spec.link.observation,'period');
+assert(html.includes('["total_interest_income","Bank · Total interest income"]'));assert(html.includes('["total_noninterest_expense","Bank · Total noninterest expense"]'));
+assert.equal((html.match(/aria:'Flow observation'|aria-label="Flow observation"/g)||[]).length,2);
+for(const m of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))if(m[1].trim())new vm.Script(m[1]);
+console.log('PASS r476 source options, observation changes, invalid-input guard, days reset, both editors, full script syntax');

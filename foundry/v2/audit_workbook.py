@@ -1653,7 +1653,7 @@ def _other_asset_rows(cfg, results, n):
          money([ol.get("opening_balance", 0.0)]) + [None] * max(0, n), _RAW_MONEY_FMT),
         ("Other assets", "Entered base asset level", "other_assets:base", "$000s · period end",
          [None] + money(ol.get("base") or []), _RAW_MONEY_FMT),
-        ("Other assets", "Total modeled other liabilities", "other_assets:total", "$000s · period end",
+        ("Other assets", "Total modeled other assets", "other_assets:total", "$000s · period end",
          money(([ol.get("opening_balance", 0.0)] + list(ol.get("total") or [])) if len(ol.get("total") or []) == n else (ol.get("total") or [])), _RAW_MONEY_FMT),
     ]
     for i, comp in enumerate(ol.get("components") or []):
@@ -1682,6 +1682,8 @@ def _other_asset_rows(cfg, results, n):
                 dfmt, mfmt = _RAW_NUM_FMT, _RAW_MONEY_FMT
             else:
                 driver_units, mult_units = "$000s · linked monetary Series", "dimensionless signed multiple"
+                if kind == "bank_income_flow":
+                    driver_units = "$000s · " + ("quarter-to-date flow" if term.get("observation") == "quarter_to_date" else "current-period flow")
                 driver_vals = [None] + money(drv)
                 mult_vals = [None] + [float(x or 0.0) for x in mul]
                 dfmt, mfmt = _RAW_MONEY_FMT, _RAW_NUM_FMT

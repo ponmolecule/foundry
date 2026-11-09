@@ -10,7 +10,9 @@ import math
 from .other_liabilities import (_resolve_entered, _driver_metadata,
                                other_liability_period, other_liability_audit_payload)
 
-_FLOW_SOURCES = {'fees': 'Bank · Total fee income'}
+_FLOW_SOURCES = {'fees': 'Bank · Total fee income',
+                 'total_interest_income': 'Bank · Total interest income',
+                 'total_noninterest_expense': 'Bank · Total noninterest expense'}
 
 
 def other_asset_mode(a):
@@ -57,6 +59,10 @@ def prepare_other_assets(a,n_periods,ppy,*,growth_context=None):
                 if kind=='bank_income_flow':
                     if sid not in _FLOW_SOURCES:raise ValueError('Other Assets income source is unavailable or self-dependent')
                     name,unit=_FLOW_SOURCES[sid],'$'
+                    if link.get('observation', 'period') not in {'period', 'quarter_to_date'}:
+                        raise ValueError('Other Assets flow observation must be period or quarter_to_date')
+                    if link.get('observation') == 'quarter_to_date' and ppy not in {4, 12}:
+                        raise ValueError('Quarter-to-date Other Assets requires monthly or quarterly periods')
                 elif kind in {'workforce_role_count','fixed_asset_level'}:
                     name,unit=_driver_metadata(a,kind,sid)
                     if kind=='fixed_asset_level':driver=list(resolve_series_spec(ns,a,n,ppy,context=growth_context))
@@ -66,18 +72,21 @@ def prepare_other_assets(a,n_periods,ppy,*,growth_context=None):
             mult=list(authored);days=None;year_days=None
             if t.get('days_spec') is not None:
                 if kind!='bank_income_flow':raise ValueError('Days outstanding requires a monetary income flow')
+                if (ns.get('link') or {}).get('observation') == 'quarter_to_date':
+                    raise ValueError('Days outstanding requires current-period flow observation')
                 days=entered(t['days_spec']);year_days=float(t.get('year_days',360))
                 if not math.isfinite(year_days) or year_days<=0 or any(x<0 for x in days):raise ValueError('Days outstanding must be non-negative and annual day basis positive')
                 from .flow_balance import days_multiplier
                 mult=days_multiplier(authored, days, year_days, ppy)
             terms.append({'term_id':tid,'driver_kind':kind,'series_id':sid,'driver_name':name,
                           'driver_unit':unit,'driver':driver,'multiplier':mult,
-                          'days':days,'year_days':year_days,'authored_multiplier':authored})
+                          'days':days,'year_days':year_days,'authored_multiplier':authored,
+                          'observation':(ns.get('link') or {}).get('observation','period')})
         rows.append({'component_id':cid,'name':str(c.get('name') or 'Asset component'),'terms':terms})
-    return {'opening_balance':opening,'base':base,'components':rows}
+    return {'opening_balance':opening,'base':base,'components':rows,'periods_per_year':ppy}
 
 
-def other_asset_period(prepared,i,*,income_flows=None,**kwargs):
+def other_asset_period(prepared,i,*,income_flows=None,flow_history=None,**kwargs):
     # Resolve deterministic flow operands now, before the funding / interest solver.
     p={**prepared,'components':[]}
     for c in prepared['components']:
@@ -86,7 +95,15 @@ def other_asset_period(prepared,i,*,income_flows=None,**kwargs):
             if t['driver_kind']=='bank_income_flow':
                 sid=t['series_id']
                 if sid not in (income_flows or {}):raise ValueError('Other Assets income source is unavailable')
-                terms.append({**t,'driver':[float(income_flows[sid])]*len(prepared['base'])})
+                value = float(income_flows[sid])
+                if t.get('observation') == 'quarter_to_date':
+                    width = prepared['periods_per_year'] // 4
+                    start = (i // width) * width
+                    history = (flow_history or {}).get(sid, [])
+                    if start < i and len(history) < i:
+                        raise ValueError('Other Assets quarter-to-date flow history is unavailable')
+                    value += sum(float(x) for x in history[start:i])
+                terms.append({**t,'driver':[value]*len(prepared['base'])})
             else:terms.append(t)
         p['components'].append({**c,'terms':terms})
     out=other_liability_period(p,i,**kwargs)
@@ -98,6 +115,7 @@ def other_asset_audit_payload(prepared,total,period_rows):
     out=other_liability_audit_payload(prepared,total,period_rows)
     for pc,c in zip(prepared['components'],out['components']):
         for pt,t in zip(pc['terms'],c['terms']):
+            t['observation'] = pt.get('observation', 'period')
             if pt.get('days') is not None:
                 t.update(days=list(pt['days']),year_days=pt['year_days'],authored_multiplier=list(pt['authored_multiplier']))
     return out

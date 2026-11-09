@@ -2181,3 +2181,6 @@ Balance per customer on the field system (built on r448). depositLocalAmountHtml
 
 ## r450
 Precision fix for r449 cells (built on r449). _depCell inputs carry data-full (15 significant digits) and data-show; focus shows and selects the full value; _depSame skips onchange when the number is unchanged and restores the short display on blur. Tests: tests_r449_deposit_amount_ui (repro), tests_r389_authoring (strict).
+
+## r476
+Responsive total interest income and total noninterest expense links in Other Assets, with explicit current-period/QTD observations and joint funding convergence. See RELEASE_r476.md.

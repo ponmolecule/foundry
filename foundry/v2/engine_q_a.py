@@ -1654,12 +1654,6 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
         else:
             _other_liab_q = float(other_liab or 0.0)
 
-        if _oa_prepared is not None:
-            _oar = other_asset_period(_oa_prepared, q - 1, workforce_count=_wf_count_map_q, fixed_asset_net=prem_t[q], income_flows={"fees": fees})
-            _oa_period_rows.append(_oar)
-            _oa_t[q] = _oar["total"]
-            non_earn_t[q] = prem_t[q] + a["intangibles"] + _oa_t[q]
-
         # Fee-stream operating costs (e.g. payment-rail network fees or an explicit
         # operating-cost % of fee revenue) remain a separate NIE line. Gross fee income
         # is not rewritten; the management-only net fee income driver above observes
@@ -1797,6 +1791,21 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 workforce_comp = _comp_q
                 other_opex = overhead - workforce_comp - depreciation_expense
                 nie = prod_ox + fee_opex + overhead
+            # Responsive asset stocks and funding/interest converge together. Only
+            # committed prior flows enter QTD; solver guesses never enter history.
+            _oa_change = 0.0
+            if _oa_prepared is not None:
+                _oa_flows = {"fees": fees, "total_interest_income": loan_int + sec_int + cash_int,
+                             "total_noninterest_expense": nie}
+                _oa_history = {
+                    "fees": list(is_["fees"][1:q]),
+                    "total_interest_income": [is_["loanInt"][k] + is_["secInt"][k] + is_["cashInt"][k] for k in range(1, q)],
+                    "total_noninterest_expense": [is_["overhead"][k] + is_["prodOpex"][k] + is_["feeOpex"][k] for k in range(1, q)]}
+                _oar = other_asset_period(_oa_prepared, q - 1, workforce_count=_wf_count_map_q,
+                    fixed_asset_net=prem_t[q], income_flows=_oa_flows, flow_history=_oa_history)
+                _oa_change = abs(_oa_t[q] - _oar["total"])
+                _oa_t[q] = _oar["total"]
+                non_earn_t[q] = prem_t[q] + a["intangibles"] + _oa_t[q]
             pretax = nii + fees + fv_pnl + gos + srv - nie - prov + _other_income_total[q - 1]
             ebtda = pretax + depreciation_expense + msr_amort
             _tax_row = _tax_ledger.evaluate(q, pretax)
@@ -1804,7 +1813,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
             _tax_assets_new = _tax_row["dtaNet"] + (_tax_row["taxReceivable"] if _external_tax else 0.)
             _tax_liab_new = _tax_row["taxPayable"] + _tax_row["deferredLiability"] if _external_tax else 0.
             new_ni = pretax - tax
-            _solver_converged = (abs(new_ni - ni) < 1e-4 and abs(aoci_q - _aoci_q_guess) < 1e-4
+            _solver_converged = (_oa_change < 1e-4 and abs(new_ni - ni) < 1e-4 and abs(aoci_q - _aoci_q_guess) < 1e-4
                                  and abs(_tax_assets_new - _tax_assets_iter) < 1e-4 and abs(_tax_liab_new-_tax_liab_iter)<1e-4)
             ni = new_ni
             _tax_assets_iter = _tax_assets_new
@@ -1814,6 +1823,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 break
         if not _solver_converged:
             raise ValueError(f"Period {q}: income/equity/tax-asset solve did not converge; no financial results published")
+        if _oa_prepared is not None:
+            _oa_period_rows.append(_oar)
         if _bcm:
             _bcm.commit(_bc_final)
             if any(x.get('cap_at_available_cash') for x in _bcm.components):

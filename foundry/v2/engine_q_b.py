@@ -382,7 +382,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
             _other_liab_q = float(other_liab or 0.0)
         _oa_q = float(a["other_assets"])
         if _oa_prepared is not None:
-            _oar = other_asset_period(_oa_prepared, qi, workforce_count=_wf_count_map_q, fixed_asset_net=_prem_t[qi + 1], income_flows={"fees": fees})
+            _oar = other_asset_period(_oa_prepared, qi, workforce_count=_wf_count_map_q, fixed_asset_net=_prem_t[qi + 1], income_flows={"fees": fees, "total_interest_income": int_loans + int_sec_prod + int_sweep + int_cash, "total_noninterest_expense": opex_prod + _ovh_b})
             _oa_q = _oar["total"]
             _oa_period_rows.append(_oar)
         _oa_t.append(_oa_q)
