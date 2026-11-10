@@ -1,3 +1,7 @@
+# r480 — Pasted schedules must match the horizon
+
+See RELEASE_r480.md. Every series paste requires exactly the horizon's count at its cadence; mismatches are refused with nothing loaded. Saved mismatched schedules are flagged; cadence changes no longer pad. Console only; no engine change.
+
 # r475 — Schedule previews keep numbers whole
 
 See RELEASE_r475.md. Grid columns sized to the longest full-precision value, no wrapping; responsive compact strip; Copy values; narrow formula-term rows stack. Presentation only; no engine change.
