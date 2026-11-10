@@ -22,7 +22,7 @@ def function(name):
 
 
 js = "\n".join(function(name) for name in (
-    "_seriesExplicitValues", "_feeParseExplicitValues", "loanFundedSchedule",
+    "_seriesExplicitValues", "_feeParseExplicitValues", "_seriesPasteCad", "_seriesPasteLengthOk", "loanFundedSchedule",
     "loanFundedScheduleClear", "loanFundedPasteClose", "loanFlowSchedule",
 ))
 js += "\n" + r"""
@@ -56,7 +56,9 @@ assert.equal(_loanFlowDraft['funded:0'],false);
 assert.equal(fp.schedule['36'],36000);
 loanFundedSchedule(0,'1\t2');
 assert.equal(fp.schedule['36'],36000);
-assert.equal(alerts.length,1);
+// r480: a mismatched paste is refused through the status line, not an alert.
+assert.match(status,/^2 values pasted\. A 36-month horizon needs exactly 36\. Nothing was loaded/);
+assert.equal(alerts.length,0);
 loanFundedScheduleClear(0);
 assert.equal(Object.keys(fp.schedule).length,0);
 assert.equal(fp.trajectory,'explicit_schedule');

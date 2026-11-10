@@ -247,7 +247,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     # and the source catalog (catalogSources). Extract the real code; only absent shell/runtime hooks get
     # no-op fallbacks, and only when the harness does not define its own (a local declaration wins).
     _JS_GLOBALS=("globalThis.window=globalThis; for(const [k,v] of Object.entries({renderContent(){},refresh(){},_ensureLinkableSeriesIds(){},"  # r436
-                 "fmtComma(x){return String(x);},_seriesId:(()=>{let n=0;return p=>p+'-'+(++n);})()})) if(!(k in globalThis)) globalThis[k]=v;\n"  # r436
+                 "fmtComma(x){return String(x);},appStatus(k,m){globalThis.__status=[k,m];},NP(){return (globalThis.cfg&&cfg.assumptions&&+cfg.assumptions.n_periods)||36;},PPY(){return (globalThis.cfg&&cfg.assumptions&&+cfg.assumptions.periods_per_year)||12;},_seriesId:(()=>{let n=0;return p=>p+'-'+(++n);})()})) if(!(k in globalThis)) globalThis[k]=v;\n"  # r436
                  +html[html.index("function _stOwner("):html.index("function _productFormulaActionsHtml(")])  # r436: r232 stream handlers resolve owners via _stOwner (in the fieldsFor slice)
     def _sl(a,b): i=html.index(a); return html[i:html.index(b,i)]  # r436
     _FEE_ENV=(_sl("/* Whole-forecast component inclusion.","const _swRenderContent=")+"\n"
@@ -257,7 +257,8 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
               +_sl("// r219: driver provenance.","// r221: customer-acquisition intra-period path")  # r436: _stSrcChip etc.
               +_sl("// r228: one renderer for a stream","// r233: Setup for loans and deposits")  # r436: _stCellHtml etc.
               +_sl("/* r433: field system for product authoring","\nrenderTabs();")+"\n"  # r436: r433-r435 field system
-              +_sl("function _numInput(","\n")+"\n"+_sl("function _resultNumbersLink(","\n")+"\n")  # r436: r358 stream result preview formatters
+              +_sl("function _numInput(","\n")+"\n"+_sl("function _resultNumbersLink(","\n")+"\n"
+              +_sl("// r480: a pasted schedule must match","function _resizeSeriesValues(")+"\n")  # r480: schedule length guard  # r436: r358 stream result preview formatters
     fjs=_JS_GLOBALS+_FEE_ENV+html[fa:fb]  # r436: was html[fa:fb]
     fp=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
         "function esc(x){return String(x==null?'':x);}\n"
@@ -334,7 +335,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         + hjs + fjs +
         "\nconst st={name:'API',basis:'transaction',driver:{source:'stream_ref',ref:'Enabled Partners',trajectory:'derived',params:{coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{per_unit:.002,rate_path:{value:.002,trajectory:'explicit_schedule',period:'month',resolution:'step',schedule:{'1':.002,'2':.0018}}}},cost:{kind:'pct_of_revenue_opex',params:{pct:.00025,factor_path:{value:.00025,trajectory:'explicit_schedule',period:'month',resolution:'step',schedule:{'1':.00025,'2':.0002}},multiplier_path:{value:1.0,trajectory:'flat',period:'year',resolution:'step'}}}};"
         " const p={name:'API Product',_fee_product:true,fee_streams:[st]}; cfg.assumptions.obs_exposures=[p];"
-        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeSetTransactionRateSchedule(0,0,'0.20%, 0.18, 0.17'); _feeSetCostFactorSchedule(0,0,'0.025%, 0.020, 0.015');"
+        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeSetTransactionRateSchedule(0,0,(a=>a.concat(Array(Math.max(0,_seriesSourcePeriods('month')-a.length)).fill(a[a.length-1])).join(','))(['0.20%','0.18','0.17'])); _feeSetCostFactorSchedule(0,0,(a=>a.concat(Array(Math.max(0,_seriesSourcePeriods('month')-a.length)).fill(a[a.length-1])).join(','))(['0.025%','0.020','0.015']));  /* r480: a schedule paste must cover the 36-month horizon */"
         # r436: r346 (8c47b4ba3) renamed the cost trajectory label 'Operating cost rate path' -> 'Cost path'
         " console.log(JSON.stringify({rateUI:out.includes('Pricing basis')&&out.includes('Pricing path')&&out.includes('Fee rate schedule (%) by month'),costUI:out.includes('<label>Cost path</label>')&&out.includes('Cost rate schedule (% of gross fee revenue) by month'),multUI:out.includes('Cost multiplier path'),rate:st.rate.params.rate_path.schedule,cost:st.cost.params.factor_path.schedule}));")
     ppr=subprocess.run(["node", "-"], input=pricing_path_js, text=True,capture_output=True); ppj={}
@@ -352,7 +353,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "\nconst st={name:'Platform revenue',basis:'flat',driver:{source:'constant',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{flat_amount:{value:100000,period:'month',trajectory:'flat'}}},cost:{kind:'none',params:{}}};"
         " const p={name:'Platform',_fee_product:true,fee_streams:[st]}; cfg.assumptions.obs_exposures=[p];"
         " _feeCostFactorSetKind(0,0,'periodic_amount_opex'); const oneSelect=st.cost.kind==='periodic_amount_opex'; const cfp=_feeEnsureCostFactor(0,0);cfp.value=10000;cfp.period='month'; _feeFlatAmountTrajectory(0,0,'explicit_schedule'); _feeCostFactorTrajectory(0,0,'explicit_schedule'); const seeded=st.rate.params.flat_amount.schedule['1']===100000&&st.cost.params.factor_path.schedule['1']===10000;"
-        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeSetCostFactorSchedule(0,0,'12.5, 14'); const stored=JSON.parse(JSON.stringify(st.cost.params.factor_path.schedule)); _feeClearFlatAmountSchedule(0,0); _feeClearCostFactorSchedule(0,0);"
+        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeSetCostFactorSchedule(0,0,(a=>a.concat(Array(Math.max(0,_seriesSourcePeriods('month')-a.length)).fill(a[a.length-1])).join(','))(['12.5','14'])); const stored=JSON.parse(JSON.stringify(st.cost.params.factor_path.schedule)); _feeClearFlatAmountSchedule(0,0); _feeClearCostFactorSchedule(0,0);"
         " console.log(JSON.stringify({periodic:out.includes('Product cost — periodic amount'),noTx:!out.includes('Cost per unit (tx)')&&!out.includes('Operating cost (% of throughput)'),label:out.includes('Product cost schedule ($000s) by month'),noMultiplier:!out.includes('Cost multiplier path'),oneSelect,seeded,cleared:st.rate.params.flat_amount.trajectory==='flat'&&st.cost.params.factor_path.trajectory==='flat',stored}));")
     fcr=subprocess.run(["node", "-"], input=flat_cost_js, text=True,capture_output=True); fcj={}
     if fcr.returncode==0 and fcr.stdout.strip():
@@ -368,7 +369,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         + hjs + fjs +
         "\nconst st={name:'FedWire Total Transactions',basis:'transaction',driver:{source:'stream_ref',ref:'Active Users',trajectory:'derived',params:{coefficient:{kind:'multiple',value:.133333333333,period:'month',trajectory:'flat'}}},rate:{behavior:'flat',params:{pricing_basis:'per_unit',per_unit:0}},cost:{kind:'per_unit',params:{cost_per_unit:5}}};"
         " const p={name:'FedWire',_fee_product:true,fee_streams:[{name:'Active Users',basis:'transaction',driver:{source:'constant',trajectory:'flat',params:{base:111}},rate:{behavior:'flat',params:{per_unit:0}},cost:{kind:'none',params:{}}},st]}; cfg.assumptions.obs_exposures=[p];"
-        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeTransactionRateValue(0,1,'5'); const saved=st.rate.params.rate_path.value; _feeSetTransactionRateSchedule(0,1,'5,5.25'); const sched=st.rate.params.rate_path.schedule;"
+        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeTransactionRateValue(0,1,'5'); const saved=st.rate.params.rate_path.value; _feeSetTransactionRateSchedule(0,1,(a=>a.concat(Array(Math.max(0,_seriesSourcePeriods(st.rate.params.rate_path.period||'year')-a.length)).fill(a[a.length-1])).join(','))(['5','5.25'])); const sched=st.rate.params.rate_path.schedule;"
         " console.log(JSON.stringify({basis:out.includes('Pricing basis')&&out.includes('Per unit ($ / transaction)'),field:out.includes('Fee ($ / transaction)'),saved,sched}));")
     pur=subprocess.run(["node", "-"], input=per_unit_pricing_js, text=True,capture_output=True); puj={}
     if pur.returncode==0 and pur.stdout.strip():
@@ -594,7 +595,8 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     # Execute the exact transaction-coefficient paste workflow that regressed in r33.
     paste_js=(
         "const cfg={assumptions:{obs_exposures:[{fee_streams:[{driver:{params:{coefficient:{kind:'multiple',schedule:{}}}}}]}]}};\n"
-        "let rendered=0,refreshed=0; function renderContent(){rendered++;} function refresh(){refreshed++;}\n"
+        "let rendered=0,refreshed=0; function renderContent(){rendered++;} function refresh(){refreshed++;} function PPY(){return 12;} function NP(){return 84;} function appStatus(){}\n"
+        + html[html.index("// r480: a pasted schedule must match"):html.index("function _resizeSeriesValues(")] + "\n"
         "const ta={value:'',classList:{toggle(){}},dispatchEvent(e){this.events=(this.events||[]).concat(e.type);}}, btn={disabled:true,classList:{toggle(k,v){this.ready=v;}}};\n"  # r436: 97d100ee9 Clear now also empties the paste draft and dispatches 'input'
         "const document={getElementById:(id)=>id.endsWith('_load')?btn:ta};\n"
         + hjs +
@@ -619,7 +621,8 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "{driver:{params:{coefficient:{kind:'multiple',schedule:{}}}}},"
         "{rate:{behavior:'flat',params:{flat_amount:{value:150000,period:'year',trajectory:'explicit_schedule',schedule:{}}}}}"
         "]}]}};\n"
-        "let rendered=0,refreshed=0; function renderContent(){rendered++;} function refresh(){refreshed++;} function PPY(){return 12;}\n"
+        "let rendered=0,refreshed=0; function renderContent(){rendered++;} function refresh(){refreshed++;} function PPY(){return 12;} function NP(){return 84;} function appStatus(){}\n"
+        + html[html.index("// r480: a pasted schedule must match"):html.index("function _resizeSeriesValues(")] + "\n"
         "const els={}; function mk(id){const b={disabled:true,classList:{ready:false,toggle(k,v){this.ready=v;}}}; const t={value:'',classList:{toggle(){}}}; els[id]=t; els[id+'_load']=b; return [t,b];}\n"
         "const [settle,settleBtn]=mk('feeCoeffPaste_0_0'); const [escrow,escrowBtn]=mk('feeFlatAmountPaste_0_1'); const document={getElementById:(id)=>els[id]||null};\n"
         "function _pf(x){return +(String(x).replace(/,/g,''))||0;}\n"

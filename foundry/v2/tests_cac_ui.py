@@ -41,6 +41,9 @@ function NP(){return cfg.assumptions.n_periods;} function PPY(){return cfg.assum
 function _seriesSourcePeriods(cadence){const f={year:1,quarter:4,month:12}[cadence]||PPY();return Math.max(1,Math.ceil(NP()*f/PPY()));}
 function _seriesCadenceOptions(){const p=PPY();return p===12?["year","quarter","month"]:(p===4?["year","quarter"]:["year"]);}
 function _seriesPeriodLabel(cadence,i){return (cadence==="month"?"M":cadence==="quarter"?"Q":"Y")+(i+1);}
+function _seriesPasteCad(c){return ['month','quarter','year'].includes(c)?c:({12:'month',4:'quarter',1:'year'}[PPY()]||'month');}
+function _seriesPasteLengthOk(n,cadence){const cad=_seriesPasteCad(cadence),need=_seriesSourcePeriods(cad);if(n===need)return true;appStatus('err',n+' values pasted');return false;}
+function _seedSeriesIfEmpty(sp,fill){sp.values=sp.values||[];if(!sp.values.length)_resizeSeriesValues(sp,fill);}
 function _resizeSeriesValues(sp,fill){sp.values=sp.values||[];const n=_seriesSourcePeriods(sp.cadence||"year");while(sp.values.length<n)sp.values.push(sp.values.length?sp.values[sp.values.length-1]:fill);if(sp.values.length>n)sp.values=sp.values.slice(0,n);}
 function renderContent(){} function refresh(){} function appStatus(){} function _pf(x){let n=parseFloat(String(x).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
 function fmtComma(x){return String(x)} function esc(x){return String(x)} function _seriesId(p){return p+'-test'} function PLAB(full){return full?'month':'M'} function _qGrowthToPeriod(x){return x}
@@ -54,12 +57,12 @@ fd.channels.forEach(ch=>_cacMeta(ch.method).forEach(m=>_cacEnsureSpec(ch,m.k)));
 const seeded={m0:Object.keys(fd.channels[0].driver_specs).sort(),m1:Object.keys(fd.channels[1].driver_specs).sort()};
 window.cacDriverTrajectory('growth',0,'pool','explicit');
 const poolDefaultClosed=_cacExplicitIsClosed('growth',0,'pool');
-window.cacSchedulePaste('growth',0,'pool','1,000\t2,500\t3,000','number');
+window.cacSchedulePaste('growth',0,'pool','1,000\t2,500\t3,000\t3,500\t4,000\t4,500\t5,000','number');
 const poolLoaded=[...fd.channels[0].driver_specs.pool.values];
 window.cacExplicitClose('growth',0,'pool'); const poolClosed=_cacExplicitIsClosed('growth',0,'pool');
 window.cacExplicitOpen('growth',0,'pool'); const poolOpen=!_cacExplicitIsClosed('growth',0,'pool');
 window.cacScheduleClear('growth',0,'pool'); const poolCleared=[...fd.channels[0].driver_specs.pool.values];
-window.cacSchedulePaste('growth',0,'pool','1,000\t2,500\t3,000','number');
+window.cacSchedulePaste('growth',0,'pool','1,000\t2,500\t3,000\t3,500\t4,000\t4,500\t5,000','number');
 const unitProbe={pool:_cacStored('2,500','number'),spend:_cacStored('1,250','k'),cac:_cacStored('1,250','price'),auc:_cacStored('500','k')};
 fd.channels[1].driver_specs.spend={series_id:'cac-spend-period-probe',owner_module:'customer_acquisition',source:'entered',mode:'flat',value:10000,period:'month'};
 window.cacDriverTrajectory('growth',1,'spend','explicit');
@@ -85,7 +88,7 @@ const fteLink=fd.channels[0].driver_specs.ftes;
 const ftePreview=_cacLinkedSourcePreview('growth',0,_cacMeta(fd.channels[0].method).find(x=>x.k==='ftes'),fteLink);
 const multiplierDefault=fd.channels[0].driver_specs.productivity_multiplier.value;
 window.cacDriverTrajectory('growth',0,'productivity_multiplier','explicit');
-window.cacSchedulePaste('growth',0,'productivity_multiplier','0,50,100','pct');
+window.cacSchedulePaste('growth',0,'productivity_multiplier','0,50,100,100,100,100,100','pct');
 const multiplierValues=[...fd.channels[0].driver_specs.productivity_multiplier.values];
 const multiplierFteLink=fd.channels[0].driver_specs.ftes.link.series_id;
 const firstChannel=fd.channels[0],secondChannel=fd.channels[1];_cacEnsureDerivedIds(firstChannel);_cacEnsureDerivedIds(secondChannel);const firstSeries=firstChannel.derived_series_ids.new_customers;
@@ -120,15 +123,15 @@ console.log(JSON.stringify({acquisitionLink,acquisitionPreview,selfChannelDisabl
         except Exception: pass
     sd=bj.get("seeded") or {}
     ck("Pool links consume stable acquisition-channel outputs, disable self and show live ownership", (bj.get("acquisitionLink") or {}).get("kind")=="acquisition_channel_new_customers" and (bj.get("acquisitionLink") or {}).get("aggregation")=="sum" and bj.get("selfChannelDisabled") is True and "live monthly new-customer flow" in bj.get("acquisitionPreview", ""), str({k:bj.get(k) for k in ["acquisitionLink","selfChannelDisabled","acquisitionPreview"]}))
-    ck("Productivity multiplier defaults to 100%, loads percentage schedules and preserves workforce link", bj.get("multiplierDefault")==1 and bj.get("multiplierValues")==[0,.5,1] and bj.get("multiplierFteLink")=="wf-rm")
+    ck("Productivity multiplier defaults to 100%, loads percentage schedules and preserves workforce link", bj.get("multiplierDefault")==1 and bj.get("multiplierValues")==[0,.5,1,1,1,1,1] and bj.get("multiplierFteLink")=="wf-rm")
     ck("driver dials are equation-driven, not hard-coded to channel names",
        br.returncode==0 and sd.get("m0")==["avg_auc_per_customer","conversion_rate","pool"]
        and sd.get("m1")==["avg_auc_per_customer","cac","effectiveness_multiplier","spend"], br.stderr.strip())
     ck("CAC Explicit paste editors are closed by default", bj.get("poolDefaultClosed") is True)
     ck("explicit CAC values load through a pastebox instead of one cell per period",
-       bj.get("poolLoaded")==[1000,2500,3000] and (bj.get("pool") or {}).get("values")==[1000,2500,3000])
+       bj.get("poolLoaded")==[1000,2500,3000,3500,4000,4500,5000] and (bj.get("pool") or {}).get("values")==[1000,2500,3000,3500,4000,4500,5000])
     ck("CAC Explicit Close is UI-only and can be reopened without changing schedule values",
-       bj.get("poolClosed") is True and bj.get("poolOpen") is True and bj.get("poolLoaded")==[1000,2500,3000])
+       bj.get("poolClosed") is True and bj.get("poolOpen") is True and bj.get("poolLoaded")==[1000,2500,3000,3500,4000,4500,5000])
     ck("CAC Explicit Clear removes the loaded schedule without changing trajectory mode",
        bj.get("poolCleared")==[] and (bj.get("pool") or {}).get("mode")=="explicit")
     sl=(bj.get("spendLink") or {}).get("link") or {}

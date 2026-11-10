@@ -20,9 +20,11 @@ const go=async k=>{await (await page.$$('.lnv-ri'))[k].click();await settle();};
 // 1. Grid cells store exactly what paste stores, for every unit kind.
 const eq=await page.evaluate(()=>{const out=[];const P='assumptions.lending_products.0._fxs_probe';
  const base={rate:[0.065,0.0675,0.07,0.071],money:[1250000,1300000,1400000],count:[12,14,15.5],dollars:[1500000,1550000],multiplier:[2500,2600],days:[30,45],multiple:[1.1,1.2]};
- for(const [kind,vals] of Object.entries(base)){
+ const need=_seriesSourcePeriods('year');  // r480: a paste must match the horizon, so the probe vectors are fitted to it
+ for(let [kind,vals] of Object.entries(base)){
+  vals=vals.slice(0,need);while(vals.length<need)vals.push(vals[vals.length-1]);
   const sc=kind==='rate'?100:(['multiple','count','dollars','days'].includes(kind)?1:0.001);
-  for(const k of [2,vals.length+2]){
+  for(const k of [2,need]){
    setPath(P,{source:'entered',trajectory:'explicit',cadence:'year',resolution:'step',extend:'hold',values:vals.slice()});
    fxsFaSet(P,k,'7.25',kind);const viaGrid=JSON.parse(JSON.stringify(getPath(P).values));
    const shown=vals.map(v=>v*sc);while(shown.length<k-1)shown.push(shown[shown.length-1]);shown[k-1]=7.25;

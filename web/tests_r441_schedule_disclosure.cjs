@@ -27,12 +27,14 @@ await G.locator('[data-fxs-collapse]').click();
 assert.strictEqual(await G.locator('input.fxs-cell').first().isVisible(),true);
 assert.strictEqual(await page.evaluate(()=>JSON.stringify(cfg)),original);
 await G.locator('button',{hasText:'Paste values'}).click();
-await G.locator('textarea').fill('30\t40');
+// r480: a paste must cover the horizon, so the draft is the full schedule (30, 40, then 40 held by the author).
+const _sp0=await spec(),_need=await page.evaluate(c=>_seriesSourcePeriods(c||_nativeFlowPeriod()),_sp0.cadence);const DRAFT=['30','40'].concat(Array(Math.max(0,_need-2)).fill('40')).join('\t');
+await G.locator('textarea').fill(DRAFT);
 await G.locator('[data-fxs-paste-close]').click();
 assert.strictEqual(await G.locator('.paste-surface-closed-note').count(),0);
 assert.strictEqual(await G.locator('textarea').isVisible(),false);
 await G.locator('button',{hasText:'Paste values'}).click();
-assert.strictEqual(await G.locator('textarea').inputValue(),'30\t40','draft survives close');
+assert.strictEqual(await G.locator('textarea').inputValue(),DRAFT,'draft survives close');
 await G.locator('button',{hasText:'Load (replace)'}).click();await settle();
 assert.deepStrictEqual((await spec()).values.slice(0,2),[.3,.4]);
 await G.locator('[data-fxs-collapse]').click();await G.locator('[data-fxs-collapse]').click();

@@ -18,8 +18,10 @@ The pasted text stays in the box so it can be corrected. This applies to all 27 
 
 The model still runs on a flagged schedule with the engine's existing rule for that path (hold the last value for cadence series, zero for periodized flows), so behaviour of existing models does not change; the gap is now visible.
 
-**Cadence changes.** Changing a schedule's cadence (e.g. Month to Quarter) no longer pads or cuts its values with the last value. An empty schedule is still seeded; an entered one keeps its values and is flagged until it is re-pasted at the new cadence.
+**Cadence changes.** Changing a schedule's cadence (e.g. Month to Quarter) no longer pads or cuts its values with the last value. An empty schedule is still seeded; an entered one keeps its values and is flagged until it is re-pasted at the new cadence. This reverses the r474 "cadence sizing" rule, under which switching a 60-month factor schedule to Year kept M1–M5 as Y1–Y5 without notice.
 
 Schedules saved before r480 that were padded at paste time cannot be told apart from fully entered ones; they hold 60 values and are not flagged.
 
 Validation: web/tests_r480_schedule_length.cjs (10 checks: every paste handler calls the guard; 59, 61 and 60 values on a 60-month horizon; quarterly and yearly counts; saved short and long schedules flagged on chip, count, note and grid; cadence change keeps values; workforce count, opex category paths).
+
+Tests updated for the new rule (inputs only; what they check is unchanged): tests_cac_ui, tests_cost_recovery, tests_funded_flow_ui_paste and tests_growth_ui now paste full-horizon schedules and load the guard helpers into their harnesses; tests_r435_space fits its grid-vs-paste probe vectors to the horizon; tests_r441_schedule_disclosure and tests_r461_spend_links paste full-horizon drafts; tests_r367_lending_yield and tests_r430_series_clear load or stub the guard; tests_r474_factor_cadence_unit now expects a cadence change to keep entered values; tests_r340_form_kit.cjs and tests_r475_schedule_preview use the horizon their schedules are built for.

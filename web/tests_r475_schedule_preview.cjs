@@ -11,7 +11,7 @@ const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.me
 await page.route('**/*',r=>r.fulfill({status:200,json:{}}));await page.goto('http://foundry.test');await page.setContent(html);
 const VALS=[];{let x=547174.65167;for(let t=0;t<60;t++){VALS.push(Math.round(x*1e5)/1e5*1000);x=x*(t<2?1.49:1.021)+[0.12345,0.98761,0.5][t%3];}}
 // In situ: Interest-bearing balances, term source entered as a 60-month schedule.
-const load=(w,cad)=>page.evaluate(([f,vals,cad])=>{cfg=normalizeCfg(f);lastRes=null;lastErrs=[];refresh=()=>{};scheduleAutosave=()=>{};window._cfgModule='sec';window._fsxOpen={s2:true};renderTabs();setTab('config');
+const load=(w,cad)=>page.evaluate(([f,vals,cad])=>{cfg=normalizeCfg(f);cfg.assumptions.n_periods=60;lastRes=null;lastErrs=[];refresh=()=>{};scheduleAutosave=()=>{};window._cfgModule='sec';window._fsxOpen={s2:true};renderTabs();setTab('config');
  bcAdd();const m=cfg.assumptions.balance_components_model,i=m.components.length-1,c=m.components[i];c.treatment='earning_asset';
  c.terms[0].source_spec={source:'entered',trajectory:'explicit',cadence:cad,values:cad==='quarter'?vals.slice(0,20):vals,extend:'hold',resolution:'step'};
  window._faSeriesExplicitOpen['assumptions.balance_components_model.components.'+i+'.terms.0.source_spec']=true;renderContent();fsxGo('s2');

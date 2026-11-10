@@ -19,7 +19,7 @@ const cfg={assumptions:{periods_per_year:12,other_assets:0,other_liabilities:0,
   {component_id:'settle',kind:'settlement',name:'Settlement',opening_balance:0,settlement:{period:'month',sign:1,weights:[1,.5],opening_history:[-5000],sources:[{series_id:'source',measure:'reported_fee_income'}]}},
   {component_id:'lc',name:'Accrued comp',terms:[{term_id:'t3',driver_spec:flat(1e6),multiplier_spec:flat(1)}]}]}}};
 const ctx={cfg,window:{},console,esc:s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'),fmtComma:x=>String(x),_pf:x=>Number(String(x).replace(/,/g,'')),PLAB:()=> 'mo',PPY:()=>12,
- _numInput:x=>String(x),_nativeFlowPeriod:()=> 'month',_seriesPasteSummary:v=>v.length+' loaded',_faSeriesFmt:v=>String(v),_faSeriesExplicitIsOpen:p=>/other_assets_model\.components\.0/.test(p),
+ _numInput:x=>String(x),_nativeFlowPeriod:()=> 'month',_seriesSourcePeriods:()=>36,_seriesPasteSummary:v=>v.length+' loaded',_faSeriesFmt:v=>String(v),_faSeriesExplicitIsOpen:p=>/other_assets_model\.components\.0/.test(p),
  _sparkHtml:()=> '<svg></svg>',_seriesCadenceOptions:()=>['month','quarter','year'],_seriesResolutionUseful:()=>true,_explicitPreviewHtml:()=> '<div class="explicit-preview"></div>',
  growthSpecInline:(p)=>`<input onchange="setGrowthField('${p}','rate',1,0)">`,sourceCatalogRows:[],_ibFeeQuantityOptions:()=>[],_feeCustomerCountOptions:()=>[],
  _seriesId:()=> 'id',_ensureLinkableSeriesIds(){},_faComponentDisplayName:(c)=>c.name,_FA_BASE_SID:'b',_FA_GROSS_SID:'g',_FA_ACCUM_SID:'a',_FA_NET_SID:'n',
