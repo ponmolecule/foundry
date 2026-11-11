@@ -55,4 +55,5 @@ Audit workbook, Loan Rollforward sheet: four new rows per linked product. Balanc
 - web/tests_r485_linked_deposit_source.cjs: method cards (radio roles, Selected badge, focus ring, arrow focus without switching, Enter selects); four controls and formula; stable ID across rename and reorder; pool members excluded; stale ID flagged; non-destructive source switch; deletion warning.
 - Existing loan-production tests pass: r369, r372, r395, r418 (Python); r369, r370, r371, r392, r395 (console). r459 fails the same way on r484 and r485 (baseline).
 - r482 (17), r483 (7) and r484 (14) schedule checks pass.
+- Reference coverage regenerated (tools/reference_scan.py --write); the Selected badge uses the 3px radius rule.
 - Differential run of all 12 fixture configs, r484 vs r485: identical, including config_hash and run_hash.
