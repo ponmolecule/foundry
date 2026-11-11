@@ -163,7 +163,8 @@ def nie_category_series(c, Q, ppy=4, growth_context=None):
         sched = list(c.get("schedule") or [])
         # r482: every model period must be entered; blanks and a short schedule fail closed.
         from .series import check_explicit_values
-        check_explicit_values(sched, Q, {12: "month", 4: "quarter", 1: "year"}.get(int(ppy), "period"))
+        check_explicit_values(sched, Q, {12: "month", 4: "quarter", 1: "year"}.get(int(ppy), "period"),
+                              record=c.get("schedule"))
         return [float(sched[i]) for i in range(Q)]
     if traj in ("linear", "growth"):
         if c.get("growth_spec"):
@@ -473,20 +474,23 @@ def _fee_schedule_value(schedule, idx, default, period=None):
     label = ({"month": "M", "quarter": "Q", "year": "Y"}.get(str(period or "").lower(), "period ")) + str(i)
     if raw is None or isinstance(raw, bool):
         from .series import record_schedule_failure
-        record_schedule_failure(sched, period)
         have = sum(1 for k in (sched if isinstance(sched, dict) else {}) if str(k).isdigit())
-        raise ValueError(f"explicit {period or 'natural-period'} schedule has no value for {label}"
-                         f" ({have} value{'s' if have != 1 else ''} entered)")
+        msg = (f"explicit {period or 'natural-period'} schedule has no value for {label}"
+               f" ({have} value{'s' if have != 1 else ''} entered)")
+        record_schedule_failure(sched, period, msg)
+        raise ValueError(msg)
     try:
         v = float(raw)
     except (TypeError, ValueError):
         from .series import record_schedule_failure
-        record_schedule_failure(sched, period)
-        raise ValueError(f"explicit {period or 'natural-period'} schedule has a non-numeric value at {label}")
+        msg = f"explicit {period or 'natural-period'} schedule has a non-numeric value at {label}"
+        record_schedule_failure(sched, period, msg)
+        raise ValueError(msg)
     if v != v or v in (float("inf"), float("-inf")):
         from .series import record_schedule_failure
-        record_schedule_failure(sched, period)
-        raise ValueError(f"explicit {period or 'natural-period'} schedule has a non-finite value at {label}")
+        msg = f"explicit {period or 'natural-period'} schedule has a non-finite value at {label}"
+        record_schedule_failure(sched, period, msg)
+        raise ValueError(msg)
     return v
 
 

@@ -79,6 +79,10 @@ def validate_config_v2(cfg):
     from .series import collecting_schedule_failures, stop_collecting_schedule_failures
     failures, token = collecting_schedule_failures()
     try:
+        if token is not None:
+            # r484: outermost call tags every saved schedule with its path (on a private copy).
+            from .schedule_completeness import tagged_config
+            return _validate_config_v2(tagged_config(cfg))
         return _validate_config_v2(cfg)
     except ConfigErrorV2 as e:
         from .schedule_completeness import relabel

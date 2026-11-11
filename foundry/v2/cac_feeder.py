@@ -108,7 +108,7 @@ def _explicit_source_values(spec, months, *, engine_ppy=12):
     # r482: the schedule must cover the horizon at its authored cadence; no hold or zero-fill.
     from .series import check_explicit_values
     if not spec.get("_legacy_zero_tail"):
-        check_explicit_values(vals, -(-int(months) // width), cad)
+        check_explicit_values(vals, -(-int(months) // width), cad, record=spec.get("values"))
     out = []
     for mi in range(int(months)):
         idx = mi // width

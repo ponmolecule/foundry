@@ -3,7 +3,7 @@
 1. A smooth schedule that supplies a point beyond the horizon still interpolates the final
    modeled interval toward it, exactly as before r482. Without such a point the final
    interval stays at its own value (also as before).
-2. A schedule error names the schedule that actually failed (by content), never another
+2. A schedule error names the schedule that actually failed (by content in r483, by saved path since r484), never another
    schedule that merely misses the same period.
 """
 import copy, json, sys

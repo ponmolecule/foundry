@@ -1,14 +1,15 @@
-"""r482: name the component behind an incomplete explicit schedule.
+"""r482/r484: name the component behind an incomplete explicit schedule.
 
 Blocking is done by the strict resolvers (series.py, periodic_flows.py, income_modules.py,
 cost_recovery.py, cac_feeder.py, balance_components.py): only schedules the model actually
 uses are resolved, so a dormant schedule kept for a non-destructive mode switch never blocks
 a run. Those resolvers know the cadence and period but not where the schedule lives.
 
-``schedule_errors`` walks the saved assumptions and describes every explicit schedule that
-does not cover the horizon, with component and field. ``relabel`` replaces a resolver message
-with the walker's description of the matching schedule(s), keyed on cadence, first missing or
-blank period, and kind. The walker never blocks on its own.
+r484: before validation or a run, ``tag_schedules`` marks every saved explicit schedule with
+its path (series.ScheduleList / ScheduleDict). A resolver that fails records the tag of the
+schedule it was given together with its error text. ``relabel`` names exactly those paths, so
+a dormant schedule is never named even when its content is identical to the failing one. A
+failure without a tag leaves the engine message unchanged. The walker never blocks.
 """
 from __future__ import annotations
 
@@ -80,9 +81,7 @@ def _label(a: dict, path: list) -> str:
     return where + (f" · {fld}" if fld else "")
 
 
-def _check_list(vals, need, cad, out, label, fps=None, raw_cad=None):
-    _start = len(out)
-    _orig = vals
+def _check_list(vals, need, cad, out, label):
     vals = list(vals or [])
     blanks = [i + 1 for i, v in enumerate(vals[:need]) if not _num(v)]
     if blanks:
@@ -91,21 +90,9 @@ def _check_list(vals, need, cad, out, label, fps=None, raw_cad=None):
     elif len(vals) < need:
         out.append(f"{label}: {cad} schedule has {len(vals)} of {need} {cad} values, "
                    f"{_rng(cad, len(vals) + 1, need)} missing")
-    _tag(out, _start, fps, _orig, cad, raw_cad)
 
 
-def _tag(out, start, fps, values, cad, raw_cad):
-    """Remember which schedule (by content) each new message describes."""
-    if fps is None or len(out) == start:
-        return
-    from .series import schedule_fingerprint
-    keys = {schedule_fingerprint(values, c) for c in {cad, raw_cad} if c}
-    for i in range(start, len(out)):
-        fps.append((keys, out[i]))
-
-
-def _check_map(sched, need, cad, out, label, fps=None, raw_cad=None):
-    _start = len(out)
+def _check_map(sched, need, cad, out, label):
     sched = sched if isinstance(sched, dict) else {}
     get = lambda i: sched.get(str(i), sched.get(i))
     blanks = [i for i in range(1, need + 1) if (str(i) in sched or i in sched) and not _num(get(i))]
@@ -121,7 +108,6 @@ def _check_map(sched, need, cad, out, label, fps=None, raw_cad=None):
             runs.append(_rng(cad, start, prev)); start = prev = m
         out.append(f"{label}: {cad} schedule has {need - len(missing)} of {need} {cad} values, "
                    f"{', '.join(runs[:4])}{' …' if len(runs) > 4 else ''} missing")
-    _tag(out, _start, fps, sched, cad, raw_cad)
 
 
 def _inactive(a: dict, path: list) -> bool:
@@ -143,16 +129,21 @@ def _inactive(a: dict, path: list) -> bool:
     return False
 
 
-def schedule_errors(a: dict, fps=None) -> list[str]:
+def _schedules(a: dict, include_inactive: bool = False):
+    """Yield (path, parent, key, container, kind, cadence, need) for every saved explicit schedule.
+
+    ``path`` is a tuple into the assumptions; ``parent[key]`` is the container. Dormant schedules
+    (inactive modes, switched-off scenario items, ``_`` keys) are skipped unless asked for.
+    """
     a = a or {}
     try:
         n, ppy = int(a.get("n_periods") or 12), int(a.get("periods_per_year") or 4)   # engine defaults
     except (TypeError, ValueError):
-        return []
+        return
     if n <= 0 or ppy not in (1, 4, 12):
-        return []
+        return
     model = _MODEL[ppy]
-    out: list[str] = []
+    found: list = []
 
     def walk(o, path):
         if isinstance(o, list):
@@ -161,70 +152,120 @@ def schedule_errors(a: dict, fps=None) -> list[str]:
             return
         if not isinstance(o, dict):
             return
-        if path and _inactive(a, path):
-            return
-        if o.get("_scenario_off"):
+        if not include_inactive and path and (_inactive(a, path) or o.get("_scenario_off")):
             return
         traj = str(o.get("trajectory") or "").strip().lower()
         if traj == "explicit" and o.get("source", "entered") == "entered" and isinstance(o.get("values"), list):
             raw = str(o.get("cadence") or o.get("period") or "year").strip().lower()
             cad = model if raw == "model_period" else raw
             if cad in _FREQ:
-                _check_list(o["values"], _need(cad, n, ppy), cad, out, _label(a, path), fps, raw)
+                found.append((tuple(path + ["values"]), o, "values", "list", cad, _need(cad, n, ppy), path))
             return
         if traj == "explicit" and isinstance(o.get("schedule"), list):          # legacy opex list
-            _check_list(o["schedule"], n, model, out, _label(a, path), fps); return
+            found.append((tuple(path + ["schedule"]), o, "schedule", "list", model, n, path)); return
         if traj == "explicit_schedule" and isinstance(o.get("schedule"), dict) and "day1" not in o:   # managed-notional lumps are an event list
             raw = str(o.get("period") or "model_period").strip().lower()
             cad = model if raw == "model_period" else raw
             if cad in _FREQ:
-                _check_map(o["schedule"], _need(cad, n, ppy), cad, out, _label(a, path), fps, raw)
+                found.append((tuple(path + ["schedule"]), o, "schedule", "map", cad, _need(cad, n, ppy), path))
             return
         if isinstance(o.get("level_schedule"), dict):
             ls = o["level_schedule"]
             cad = str(ls.get("period") or "").strip().lower()
             if cad in _FREQ and isinstance(ls.get("schedule"), dict):
-                _check_map(ls["schedule"], _need(cad, n, ppy), cad, out, _label(a, path + ["level_schedule"]), fps)
+                found.append((tuple(path + ["level_schedule", "schedule"]), ls, "schedule", "map", cad,
+                              _need(cad, n, ppy), path + ["level_schedule"]))
         if str(o.get("behavior") or "") == "scheduled" and isinstance((o.get("params") or {}).get("schedule"), dict):
-            _check_map(o["params"]["schedule"], n, model, out, _label(a, path + ["rate schedule"]), fps)
-        for k, v in o.items():
+            found.append((tuple(path + ["params", "schedule"]), o["params"], "schedule", "map", model, n,
+                          path + ["rate schedule"]))
+        for k, v in list(o.items()):
             if isinstance(k, str) and k.startswith("_"):
                 continue
             walk(v, path + [k])
 
-    for k, v in a.items():
+    for k, v in list(a.items()):
         if isinstance(k, str) and k.startswith("_"):
             continue
         walk(v, [k])
+    for path, parent, key, kind, cad, need, label_path in found:
+        yield path, parent, key, parent[key], kind, cad, need, label_path
+
+
+def _describe(a, kind, container, cad, need, label_path) -> list[str]:
+    out: list[str] = []
+    (_check_list if kind == "list" else _check_map)(container, need, cad, out, _label(a, label_path))
+    return out
+
+
+def schedule_errors(a: dict) -> list[str]:
+    """Describe every active explicit schedule that does not cover the horizon (never blocks)."""
+    out: list[str] = []
+    for _p, _par, _k, cont, kind, cad, need, lp in _schedules(a):
+        out.extend(_describe(a, kind, cont, cad, need, lp))
+    return out
+
+
+def tag_schedules(a: dict) -> dict:
+    """Mark every saved explicit schedule (active or dormant) in ``a`` with its path, in place.
+
+    Pass a private copy. Tagged containers compare, hash and serialise like plain lists/dicts.
+    """
+    from .series import tag_schedule
+    for path, parent, key, cont, _kind, _cad, _need_, _lp in list(_schedules(a, include_inactive=True)):
+        if isinstance(cont, (list, dict)):
+            parent[key] = tag_schedule(cont, path)
+    return a
+
+
+def tagged_config(cfg):
+    """A deep copy of ``cfg`` whose assumptions carry schedule path tags (r484)."""
+    from copy import deepcopy
+    if not isinstance(cfg, dict) or not isinstance(cfg.get("assumptions"), dict):
+        return cfg
+    out = deepcopy(cfg)
+    try:
+        tag_schedules(out["assumptions"])
+    except Exception:
+        return deepcopy(cfg)
     return out
 
 
 def relabel(a: dict, message: str, failures=None) -> str:
     """Replace resolver schedule errors with the component-named description of the schedule
-    that actually failed. ``failures`` are the content fingerprints the resolvers recorded
-    (series.record_schedule_failure). Only a saved schedule with identical content is named,
-    so another schedule missing the same period is never implicated. If a failure cannot be
-    attributed, the message is returned unchanged.
+    that actually failed.
+
+    ``failures`` are (path tag, error text) pairs the resolvers recorded
+    (series.record_schedule_failure). Each schedule error in ``message`` is attributed only to
+    the resolver records with that exact text, and only by their saved path. Content is never
+    compared, so a dormant schedule identical to the failing one is never named. If any error
+    cannot be attributed to a tagged path, the message is returned unchanged.
     """
     if "schedule" not in str(message) or not failures:
         return message
-    fps: list = []
     try:
-        schedule_errors(a, fps)
+        index = {p: (kind, cont, cad, need, lp)
+                 for p, _par, _k, cont, kind, cad, need, lp in _schedules(a, include_inactive=True)}
     except Exception:
         return message
-    named = []
-    for f in dict.fromkeys(failures):
-        hits = [m for keys, m in fps if f in keys]
-        if not hits:
+    out, extra = [], []
+    for part in str(message).split("; "):
+        if not _RES.search(part):
+            # A resolver alternative ("expected exactly one ...") adds nothing once the failing
+            # schedule is named.
+            (extra if part.strip().startswith("expected exactly one") else out).append(part)
+            continue
+        recs = [(tag, txt) for tag, txt in failures if txt and txt in part]
+        if not recs or any(tag is None or tuple(tag) not in index for tag, _ in recs):
             return message
-        for m in hits:
-            if m not in named:
-                named.append(m)
-    kept = [p for p in str(message).split("; ") if not _RES.search(p) and not p.strip().startswith("expected exactly one")]
-    return "; ".join(named + kept)
+        for tag, txt in dict.fromkeys(recs):
+            kind, cont, cad, need, lp = index[tuple(tag)]
+            desc = _describe(a, kind, cont, cad, need, lp) or [f"{_label(a, lp)}: {txt}"]
+            for d in desc:
+                if d not in out:
+                    out.append(d)
+    return "; ".join(out)
 
 
 import re as _re
 
-_RES = _re.compile(r"explicit (month|quarter|year|natural-period) schedule (?:has \d+ of \d+ \w+ values, ([MQY])(\d+)|has no value for ([MQY])(\d+)|has a (?:blank or non-numeric|non-numeric|non-finite) value at ([MQY])(\d+))")
+_RES = _re.compile(r"explicit (month|quarter|year|natural-period) schedule (?:has \d+ of \d+ \w+ values, ([MQY])(\d+)|has no value for ([MQY])(\d+)|has a (?:blank or non-numeric|non-numeric|non-finite) value at ([MQY])(\d+))|Year-end target schedule has \d+ annual values?, Y\d+ missing")

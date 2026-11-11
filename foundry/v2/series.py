@@ -137,7 +137,7 @@ def normalize_series_spec(spec: Mapping[str, Any] | None, *, default_value: floa
         resolution = str(raw.get("resolution") or "step").lower()
         if resolution not in _VALID_RESOLUTION:
             raise ValueError(f"unsupported explicit-series resolution {resolution!r}")
-        out.update({"cadence": cadence, "values": list(vals), "extend": extend,
+        out.update({"cadence": cadence, "values": carry_schedule_tag(list(vals), vals), "extend": extend,
                     "resolution": resolution})
     return out
 
@@ -166,26 +166,46 @@ import contextvars as _contextvars
 _SCHEDULE_FAILURES = _contextvars.ContextVar("foundry_schedule_failures", default=None)
 
 
-def _fp_value(v):
-    if v is None or isinstance(v, bool):
-        return repr(v)
-    try:
-        return repr(float(v))
-    except (TypeError, ValueError):
-        return repr(v)
+class ScheduleList(list):
+    """r484: an explicit schedule list carrying the saved path it came from (``_foundry_sched``).
+
+    Behaves and serialises exactly like a list; deepcopy keeps the tag. Resolvers report the tag
+    of the schedule they actually resolved, so attribution never depends on content.
+    """
 
 
-def schedule_fingerprint(values, cadence):
-    """Content identity of an explicit schedule (list or {period: value} mapping)."""
-    if isinstance(values, dict):
-        return ("map", str(cadence), tuple(sorted((str(k), _fp_value(v)) for k, v in values.items())))
-    return ("list", str(cadence), tuple(_fp_value(v) for v in (values or [])))
+class ScheduleDict(dict):
+    """r484: the mapping form of ``ScheduleList`` (natural-period schedules keyed '1'..N)."""
 
 
-def record_schedule_failure(values, cadence):
+def schedule_tag(obj):
+    return getattr(obj, "_foundry_sched", None)
+
+
+def tag_schedule(obj, tag):
+    """Return ``obj`` as a tagged container (a copy when it is a plain list or dict)."""
+    if tag is None:
+        return obj
+    if isinstance(obj, list):
+        t = ScheduleList(obj)
+    elif isinstance(obj, dict):
+        t = ScheduleDict(obj)
+    else:
+        return obj
+    t._foundry_sched = tag
+    return t
+
+
+def carry_schedule_tag(new, old):
+    """Keep the source schedule's tag on a converted copy (e.g. values coerced to float)."""
+    return tag_schedule(new, schedule_tag(old))
+
+
+def record_schedule_failure(values, cadence, message=None):
+    """Record which saved schedule a resolver is about to fail on, with the error text."""
     bucket = _SCHEDULE_FAILURES.get()
     if bucket is not None:
-        bucket.append(schedule_fingerprint(values, cadence))
+        bucket.append((schedule_tag(values), str(message or "")))
 
 
 def collecting_schedule_failures():
@@ -221,14 +241,17 @@ def check_explicit_values(values, need: int, cadence: str, *, offset: int = 0, r
                 ok = False
         if not ok:
             blanks.append(offset + i + 1)
+    src = values if record is None else record
     if blanks:
-        record_schedule_failure(values if record is None else record, cadence)
         shown = ", ".join(_period_range(cadence, b, b) for b in blanks[:6]) + (" \u2026" if len(blanks) > 6 else "")
-        raise ValueError(f"explicit {cadence} schedule has a blank or non-numeric value at {shown}")
+        msg = f"explicit {cadence} schedule has a blank or non-numeric value at {shown}"
+        record_schedule_failure(src, cadence, msg)
+        raise ValueError(msg)
     if len(vals) < need:
-        record_schedule_failure(values if record is None else record, cadence)
-        raise ValueError(f"explicit {cadence} schedule has {len(vals)} of {need} {cadence} values, "
-                         f"{_period_range(cadence, len(vals) + 1, need)} missing")
+        msg = (f"explicit {cadence} schedule has {len(vals)} of {need} {cadence} values, "
+               f"{_period_range(cadence, len(vals) + 1, need)} missing")
+        record_schedule_failure(src, cadence, msg)
+        raise ValueError(msg)
 
 
 def _explicit_value(values, idx: int, extend: str) -> float:

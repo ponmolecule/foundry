@@ -180,7 +180,7 @@ class BalanceComponents:
         if mode not in {'ramp','full'} or anchor not in {'model_year','calendar_year'}:raise ValueError('Invalid annual target path or anchor')
         values=s.get('values') or []
         if not values:raise ValueError('Year-end targets need at least one annual value')
-        values=[float(v) for v in values]
+        _raw_values=values; values=[float(v) for v in values]
         opening=float(s.get('target_opening',0))
         if any(not isfinite(v) or v<0 for v in [opening]+values):raise ValueError('Annual balance targets and opening target must be finite and non-negative')
         extend=s.get('extend','hold')
@@ -189,8 +189,9 @@ class BalanceComponents:
             if j<0:return opening
             if j<len(values):return values[j]
             # r482: a missing annual target fails closed whatever the saved extension.
-            from .series import record_schedule_failure; record_schedule_failure(s.get('values') or [], 'year')
-            raise ValueError(f'Year-end target schedule has {len(values)} annual value'+('s' if len(values)!=1 else '')+f', Y{j+1} missing')
+            msg=f'Year-end target schedule has {len(values)} annual value'+('s' if len(values)!=1 else '')+f', Y{j+1} missing'
+            from .series import record_schedule_failure; record_schedule_failure(_raw_values, 'year', msg)
+            raise ValueError(msg)
         start_month=getattr(self.context,'start_month',1) if anchor=='calendar_year' else 1
         out=[]
         for i in range(self.n):

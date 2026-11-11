@@ -97,7 +97,8 @@ def validate_periodic_flow_spec(spec: Mapping[str, Any] | None, *, ppy: int = 4,
         # r482: a blank is not a zero. Explicit zeros stay; blanks and text fail closed.
         from .series import check_explicit_values
         check_explicit_values(vals, len(vals), period)
-        out["values"] = [float(v) for v in vals]
+        from .series import carry_schedule_tag
+        out["values"] = carry_schedule_tag([float(v) for v in vals], vals)
     else:
         out["value"] = float(raw.get("value") or 0.0)
         if traj == "growth":

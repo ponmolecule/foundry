@@ -1,3 +1,7 @@
+# r484 — Schedule errors attributed by path
+
+See RELEASE_r484.md. The failing resolver reports the saved path of the schedule it resolved; a dormant schedule with identical content is never named. Engine only; no calculation change.
+
 # r483 — Smooth lookahead restored; schedule errors attributed by identity
 
 See RELEASE_r483.md. Fixes two r482 review findings. Engine only.
