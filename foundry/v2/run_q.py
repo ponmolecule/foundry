@@ -497,11 +497,13 @@ def _constraint_tests(cfg, scen_results):
 
 def run_v2(cfg):
     """Run; a strict-resolver schedule error is re-raised naming its component (r482)."""
+    from .series import collecting_schedule_failures, stop_collecting_schedule_failures
+    failures, token = collecting_schedule_failures()
     try:
         return _run_v2(cfg)
     except ValueError as e:
         from .schedule_completeness import relabel
-        new = relabel((cfg or {}).get("assumptions") or {}, str(e))
+        new = relabel((cfg or {}).get("assumptions") or {}, str(e), failures)
         if new == str(e):
             raise
         try:
@@ -509,6 +511,8 @@ def run_v2(cfg):
         except Exception:
             err = ValueError(new)
         raise err from e
+    finally:
+        stop_collecting_schedule_failures(token)
 
 
 def _run_v2(cfg):

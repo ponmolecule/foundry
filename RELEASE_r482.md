@@ -1,6 +1,6 @@
 # r482 — Explicit schedules must cover the horizon (engine)
 
-Engine and console. Calculations change only for schedules that were incomplete: those runs now stop instead of filling the gap. Complete schedules give identical results.
+Engine and console. Calculations change only for schedules that were incomplete: those runs now stop instead of filling the gap. (Correction in r483: r482 also flattened the final interval of a smooth schedule that supplied a point beyond the horizon; r483 restores that, and complete schedules then give identical results.)
 
 ## What was wrong
 

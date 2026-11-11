@@ -189,6 +189,7 @@ class BalanceComponents:
             if j<0:return opening
             if j<len(values):return values[j]
             # r482: a missing annual target fails closed whatever the saved extension.
+            from .series import record_schedule_failure; record_schedule_failure(s.get('values') or [], 'year')
             raise ValueError(f'Year-end target schedule has {len(values)} annual value'+('s' if len(values)!=1 else '')+f', Y{j+1} missing')
         start_month=getattr(self.context,'start_month',1) if anchor=='calendar_year' else 1
         out=[]

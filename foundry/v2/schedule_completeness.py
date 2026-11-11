@@ -80,7 +80,9 @@ def _label(a: dict, path: list) -> str:
     return where + (f" · {fld}" if fld else "")
 
 
-def _check_list(vals, need, cad, out, label):
+def _check_list(vals, need, cad, out, label, fps=None, raw_cad=None):
+    _start = len(out)
+    _orig = vals
     vals = list(vals or [])
     blanks = [i + 1 for i, v in enumerate(vals[:need]) if not _num(v)]
     if blanks:
@@ -89,9 +91,21 @@ def _check_list(vals, need, cad, out, label):
     elif len(vals) < need:
         out.append(f"{label}: {cad} schedule has {len(vals)} of {need} {cad} values, "
                    f"{_rng(cad, len(vals) + 1, need)} missing")
+    _tag(out, _start, fps, _orig, cad, raw_cad)
 
 
-def _check_map(sched, need, cad, out, label):
+def _tag(out, start, fps, values, cad, raw_cad):
+    """Remember which schedule (by content) each new message describes."""
+    if fps is None or len(out) == start:
+        return
+    from .series import schedule_fingerprint
+    keys = {schedule_fingerprint(values, c) for c in {cad, raw_cad} if c}
+    for i in range(start, len(out)):
+        fps.append((keys, out[i]))
+
+
+def _check_map(sched, need, cad, out, label, fps=None, raw_cad=None):
+    _start = len(out)
     sched = sched if isinstance(sched, dict) else {}
     get = lambda i: sched.get(str(i), sched.get(i))
     blanks = [i for i in range(1, need + 1) if (str(i) in sched or i in sched) and not _num(get(i))]
@@ -107,6 +121,7 @@ def _check_map(sched, need, cad, out, label):
             runs.append(_rng(cad, start, prev)); start = prev = m
         out.append(f"{label}: {cad} schedule has {need - len(missing)} of {need} {cad} values, "
                    f"{', '.join(runs[:4])}{' …' if len(runs) > 4 else ''} missing")
+    _tag(out, _start, fps, sched, cad, raw_cad)
 
 
 def _inactive(a: dict, path: list) -> bool:
@@ -128,7 +143,7 @@ def _inactive(a: dict, path: list) -> bool:
     return False
 
 
-def schedule_errors(a: dict) -> list[str]:
+def schedule_errors(a: dict, fps=None) -> list[str]:
     a = a or {}
     try:
         n, ppy = int(a.get("n_periods") or 12), int(a.get("periods_per_year") or 4)   # engine defaults
@@ -152,26 +167,26 @@ def schedule_errors(a: dict) -> list[str]:
             return
         traj = str(o.get("trajectory") or "").strip().lower()
         if traj == "explicit" and o.get("source", "entered") == "entered" and isinstance(o.get("values"), list):
-            cad = str(o.get("cadence") or o.get("period") or "year").strip().lower()
-            cad = model if cad == "model_period" else cad
+            raw = str(o.get("cadence") or o.get("period") or "year").strip().lower()
+            cad = model if raw == "model_period" else raw
             if cad in _FREQ:
-                _check_list(o["values"], _need(cad, n, ppy), cad, out, _label(a, path))
+                _check_list(o["values"], _need(cad, n, ppy), cad, out, _label(a, path), fps, raw)
             return
         if traj == "explicit" and isinstance(o.get("schedule"), list):          # legacy opex list
-            _check_list(o["schedule"], n, model, out, _label(a, path)); return
+            _check_list(o["schedule"], n, model, out, _label(a, path), fps); return
         if traj == "explicit_schedule" and isinstance(o.get("schedule"), dict) and "day1" not in o:   # managed-notional lumps are an event list
-            cad = str(o.get("period") or "model_period").strip().lower()
-            cad = model if cad == "model_period" else cad
+            raw = str(o.get("period") or "model_period").strip().lower()
+            cad = model if raw == "model_period" else raw
             if cad in _FREQ:
-                _check_map(o["schedule"], _need(cad, n, ppy), cad, out, _label(a, path))
+                _check_map(o["schedule"], _need(cad, n, ppy), cad, out, _label(a, path), fps, raw)
             return
         if isinstance(o.get("level_schedule"), dict):
             ls = o["level_schedule"]
             cad = str(ls.get("period") or "").strip().lower()
             if cad in _FREQ and isinstance(ls.get("schedule"), dict):
-                _check_map(ls["schedule"], _need(cad, n, ppy), cad, out, _label(a, path + ["level_schedule"]))
+                _check_map(ls["schedule"], _need(cad, n, ppy), cad, out, _label(a, path + ["level_schedule"]), fps)
         if str(o.get("behavior") or "") == "scheduled" and isinstance((o.get("params") or {}).get("schedule"), dict):
-            _check_map(o["params"]["schedule"], n, model, out, _label(a, path + ["rate schedule"]))
+            _check_map(o["params"]["schedule"], n, model, out, _label(a, path + ["rate schedule"]), fps)
         for k, v in o.items():
             if isinstance(k, str) and k.startswith("_"):
                 continue
@@ -184,44 +199,32 @@ def schedule_errors(a: dict) -> list[str]:
     return out
 
 
+def relabel(a: dict, message: str, failures=None) -> str:
+    """Replace resolver schedule errors with the component-named description of the schedule
+    that actually failed. ``failures`` are the content fingerprints the resolvers recorded
+    (series.record_schedule_failure). Only a saved schedule with identical content is named,
+    so another schedule missing the same period is never implicated. If a failure cannot be
+    attributed, the message is returned unchanged.
+    """
+    if "schedule" not in str(message) or not failures:
+        return message
+    fps: list = []
+    try:
+        schedule_errors(a, fps)
+    except Exception:
+        return message
+    named = []
+    for f in dict.fromkeys(failures):
+        hits = [m for keys, m in fps if f in keys]
+        if not hits:
+            return message
+        for m in hits:
+            if m not in named:
+                named.append(m)
+    kept = [p for p in str(message).split("; ") if not _RES.search(p) and not p.strip().startswith("expected exactly one")]
+    return "; ".join(named + kept)
+
+
 import re as _re
 
 _RES = _re.compile(r"explicit (month|quarter|year|natural-period) schedule (?:has \d+ of \d+ \w+ values, ([MQY])(\d+)|has no value for ([MQY])(\d+)|has a (?:blank or non-numeric|non-numeric|non-finite) value at ([MQY])(\d+))")
-_WALK = _re.compile(r": (month|quarter|year) schedule (?:has \d+ of \d+ \w+ values, ([MQY])(\d+)|has a blank or non-numeric value at ([MQY])(\d+))")
-
-
-def _key(m, missing_groups, blank_groups):
-    for g in missing_groups:
-        if m.group(g):
-            return ("missing", m.group(g), int(m.group(g + 1)))
-    for g in blank_groups:
-        if m.group(g):
-            return ("blank", m.group(g), int(m.group(g + 1)))
-    return None
-
-
-def relabel(a: dict, message: str) -> str:
-    """Return ``message`` with each resolver schedule error replaced by its component-named form."""
-    if "schedule" not in str(message):
-        return message
-    try:
-        walked = schedule_errors(a)
-    except Exception:
-        return message
-    index: dict = {}
-    for w in walked:
-        m = _WALK.search(w)
-        if m:
-            index.setdefault(_key(m, (2,), (4,)), []).append(w)
-    out, seen = [], set()
-    for part in str(message).split("; "):
-        m = _RES.search(part)
-        k = _key(m, (2, 4), (6,)) if m else None
-        hits = index.get(k) if k else None
-        if hits:
-            for h in hits:
-                if h not in seen:
-                    out.append(h); seen.add(h)
-        else:
-            out.append(part)
-    return "; ".join(out)

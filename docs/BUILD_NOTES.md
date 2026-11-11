@@ -1,3 +1,7 @@
+# r483 — Smooth lookahead restored; schedule errors attributed by identity
+
+See RELEASE_r483.md. Fixes two r482 review findings. Engine only.
+
 # r482 — Explicit schedules must cover the horizon
 
 See RELEASE_r482.md. Strict resolvers block a run on any missing, blank or non-numeric period the model uses; errors are relabeled with component and field; blank cells in a paste are refused. Engine change: incomplete schedules stop the run; complete ones give identical results.

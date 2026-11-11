@@ -76,14 +76,18 @@ def validate_errors_v2(cfg):
 
 def validate_config_v2(cfg):
     """Validate; an incomplete explicit schedule is reported with its component and field (r482)."""
+    from .series import collecting_schedule_failures, stop_collecting_schedule_failures
+    failures, token = collecting_schedule_failures()
     try:
         return _validate_config_v2(cfg)
     except ConfigErrorV2 as e:
         from .schedule_completeness import relabel
-        new = relabel((cfg or {}).get("assumptions") or {}, str(e))
+        new = relabel((cfg or {}).get("assumptions") or {}, str(e), failures)
         if new == str(e):
             raise
         raise ConfigErrorV2(new) from e
+    finally:
+        stop_collecting_schedule_failures(token)
 
 
 def _validate_config_v2(cfg):

@@ -159,11 +159,55 @@ def _period_range(cadence: str, a: int, b: int) -> str:
     return f"{L}{a}" if a == b else f"{L}{a}\u2013{L}{b}"
 
 
-def check_explicit_values(values, need: int, cadence: str) -> None:
+import contextvars as _contextvars
+
+# r483: resolvers record the exact schedule that failed (by content), so the error can be
+# attributed to that schedule and not to another one that happens to miss the same period.
+_SCHEDULE_FAILURES = _contextvars.ContextVar("foundry_schedule_failures", default=None)
+
+
+def _fp_value(v):
+    if v is None or isinstance(v, bool):
+        return repr(v)
+    try:
+        return repr(float(v))
+    except (TypeError, ValueError):
+        return repr(v)
+
+
+def schedule_fingerprint(values, cadence):
+    """Content identity of an explicit schedule (list or {period: value} mapping)."""
+    if isinstance(values, dict):
+        return ("map", str(cadence), tuple(sorted((str(k), _fp_value(v)) for k, v in values.items())))
+    return ("list", str(cadence), tuple(_fp_value(v) for v in (values or [])))
+
+
+def record_schedule_failure(values, cadence):
+    bucket = _SCHEDULE_FAILURES.get()
+    if bucket is not None:
+        bucket.append(schedule_fingerprint(values, cadence))
+
+
+def collecting_schedule_failures():
+    """Start collecting failures for this call unless an outer call already is; returns (bucket, token)."""
+    bucket = _SCHEDULE_FAILURES.get()
+    if bucket is not None:
+        return bucket, None
+    bucket = []
+    return bucket, _SCHEDULE_FAILURES.set(bucket)
+
+
+def stop_collecting_schedule_failures(token):
+    if token is not None:
+        _SCHEDULE_FAILURES.reset(token)
+
+
+def check_explicit_values(values, need: int, cadence: str, *, offset: int = 0, record=None) -> None:
     """r482: require ``need`` finite numeric values (explicit zeros are valid).
 
     Raises a ValueError naming the missing or blank source periods at the authored cadence.
     Values beyond ``need`` (for example after the horizon was shortened) are unused and allowed.
+    ``offset`` shifts period labels; ``record`` is the whole schedule recorded on failure.
     """
     vals = list(values or [])
     blanks = []
@@ -176,11 +220,13 @@ def check_explicit_values(values, need: int, cadence: str) -> None:
             except (TypeError, ValueError):
                 ok = False
         if not ok:
-            blanks.append(i + 1)
+            blanks.append(offset + i + 1)
     if blanks:
+        record_schedule_failure(values if record is None else record, cadence)
         shown = ", ".join(_period_range(cadence, b, b) for b in blanks[:6]) + (" \u2026" if len(blanks) > 6 else "")
         raise ValueError(f"explicit {cadence} schedule has a blank or non-numeric value at {shown}")
     if len(vals) < need:
+        record_schedule_failure(values if record is None else record, cadence)
         raise ValueError(f"explicit {cadence} schedule has {len(vals)} of {need} {cadence} values, "
                          f"{_period_range(cadence, len(vals) + 1, need)} missing")
 
@@ -239,8 +285,14 @@ def resolve_entered_series(spec: Mapping[str, Any] | None, n_periods: int, ppy: 
         if resolution == "step" or width == 1:
             out.append(cur)
             continue
-        # Smooth: the final interval approaches its own value (no invented next point).
-        nxt = float(vals[src_idx + 1]) if src_idx + 1 < need else cur
+        # Smooth approaches the next authored point. When the schedule supplies one beyond the
+        # horizon it is used, exactly as before r482; otherwise the final interval stays at its
+        # own value (no invented next point).
+        if src_idx + 1 < len(vals):
+            check_explicit_values(vals[src_idx + 1:src_idx + 2], 1, s["cadence"] if s["cadence"] != "model_period" else {12: "month", 4: "quarter", 1: "year"}[ppy], offset=src_idx + 1, record=vals)
+            nxt = float(vals[src_idx + 1])
+        else:
+            nxt = cur
         # P1 of an interval is the current source value; final period approaches next.
         pos = (p - 1) % width
         frac = pos / float(width)
