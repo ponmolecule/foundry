@@ -90,6 +90,12 @@ def validate_config_v2(cfg):
     except ValueError as e:
         raise ConfigErrorV2(str(e)) from e
     errs = []
+    # r482: incomplete explicit schedules block the run first, named by component, so the
+    # downstream resolvers' generic messages never stand in for the actionable one.
+    from .schedule_completeness import schedule_errors
+    _sched_errs = schedule_errors(cfg.get("assumptions") or {})
+    if _sched_errs:
+        raise ConfigErrorV2("; ".join(_sched_errs))
     from .timebase import quarterly_value_to_period
     from .growth import validate_growth_spec_for_cadence, growth_context_from_cfg
     _a0 = cfg.get("assumptions") or {}

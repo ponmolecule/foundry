@@ -103,6 +103,9 @@ def _explicit_source_values(spec, months, *, engine_ppy=12):
     extend = str(spec.get("extend") or "hold").lower()
     cad = str(spec.get("cadence") or "year").lower()
     width = _period_width_months(cad, engine_ppy=engine_ppy)
+    # r482: the schedule must cover the horizon at its authored cadence; no hold or zero-fill.
+    from .series import check_explicit_values
+    check_explicit_values(vals, -(-int(months) // width), cad)
     out = []
     for mi in range(int(months)):
         idx = mi // width

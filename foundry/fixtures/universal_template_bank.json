@@ -656,7 +656,7 @@
         "fee_yield_ann": 0.003,
         "index_spread": 0.03,
         "measurement": "fair_value",
-        "name": "Small Business / C&I \u2014 fair value",
+        "name": "Small Business / C&I — fair value",
         "opening_balance": 10000000.0,
         "opex_fixed_m": 10000.0,
         "opex_pct_ann": 0.006,
@@ -1405,7 +1405,7 @@
               "source": "customer_acquisition_count",
               "trajectory": "flat"
             },
-            "name": "Account fee \u2014 period end",
+            "name": "Account fee — period end",
             "quantity_series_id": "fee-qty-cust-eop-universal",
             "rate": {
               "behavior": "flat",
@@ -1434,7 +1434,7 @@
               "source": "customer_acquisition_count",
               "trajectory": "flat"
             },
-            "name": "Account fee \u2014 period average",
+            "name": "Account fee — period average",
             "quantity_series_id": "fee-qty-cust-avg-universal",
             "rate": {
               "behavior": "flat",
@@ -1469,7 +1469,7 @@
               "source": "customer_acquisition_count",
               "trajectory": "flat"
             },
-            "name": "Account fee \u2014 year-end held",
+            "name": "Account fee — year-end held",
             "quantity_series_id": "fee-qty-cust-year-universal",
             "rate": {
               "behavior": "flat",
@@ -1611,9 +1611,17 @@
                   "resolution": "smooth",
                   "schedule": {
                     "1": 1000.0,
-                    "12": 2400.0,
+                    "2": 1000.0,
+                    "3": 1000.0,
                     "4": 1300.0,
-                    "8": 1800.0
+                    "5": 1300.0,
+                    "6": 1300.0,
+                    "7": 1300.0,
+                    "8": 1800.0,
+                    "9": 1800.0,
+                    "10": 1800.0,
+                    "11": 1800.0,
+                    "12": 2400.0
                   }
                 }
               },
@@ -1967,8 +1975,41 @@
                 "rate": 0.001,
                 "schedule": {
                   "1": 0.001,
+                  "2": 0.001,
+                  "3": 0.001,
+                  "4": 0.001,
+                  "5": 0.001,
+                  "6": 0.001,
+                  "7": 0.001,
+                  "8": 0.001,
+                  "9": 0.001,
+                  "10": 0.001,
+                  "11": 0.001,
+                  "12": 0.001,
                   "13": 0.0009,
-                  "25": 0.0008
+                  "14": 0.001,
+                  "15": 0.001,
+                  "16": 0.001,
+                  "17": 0.001,
+                  "18": 0.001,
+                  "19": 0.001,
+                  "20": 0.001,
+                  "21": 0.001,
+                  "22": 0.001,
+                  "23": 0.001,
+                  "24": 0.001,
+                  "25": 0.0008,
+                  "26": 0.001,
+                  "27": 0.001,
+                  "28": 0.001,
+                  "29": 0.001,
+                  "30": 0.001,
+                  "31": 0.001,
+                  "32": 0.001,
+                  "33": 0.001,
+                  "34": 0.001,
+                  "35": 0.001,
+                  "36": 0.001
                 }
               }
             },
@@ -2562,7 +2603,7 @@
     "This fixture is a coverage specimen, not a recommended business plan; unusual combinations are deliberate to keep current authoring branches under regression."
   ],
   "engagement_id": "exhaustive-coverage",
-  "hq": "Parity fixture \u2014 n/a",
+  "hq": "Parity fixture — n/a",
   "parity_expectation": null,
   "parity_profile": "pf_a",
   "peer_query": {
@@ -2598,7 +2639,7 @@
   },
   "prepared_by": "Foundry lineage/coverage build",
   "proposed_bank": "Nook & Cranny National Bank",
-  "scenario_name": "Universal coverage \u2014 current Foundry capability contract",
+  "scenario_name": "Universal coverage — current Foundry capability contract",
   "scenario_overlays": null,
   "schema_version": "2.0",
   "step_0": {
@@ -2614,7 +2655,7 @@
   },
   "step_0a": {
     "entities": {
-      "bank": "Parity Fixture Bank A1 \u2014 single entity"
+      "bank": "Parity Fixture Bank A1 — single entity"
     },
     "flags_from_map": [],
     "map_approved": null

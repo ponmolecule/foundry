@@ -12,19 +12,10 @@ _VALID_PERIODS = {"month", "quarter", "year"}
 _VALID_TRAJECTORIES = {"flat", "growth", "explicit_schedule"}
 
 
-def _schedule_value(schedule: Mapping[str, Any] | None, idx: int, default: float) -> float:
-    cur = float(default or 0.0)
-    points = []
-    for k, v in (schedule or {}).items():
-        try:
-            points.append((int(k), float(v)))
-        except (TypeError, ValueError):
-            continue
-    for k, v in sorted(points):
-        if k > int(idx):
-            break
-        cur = v
-    return cur
+def _schedule_value(schedule: Mapping[str, Any] | None, idx: int, default: float, period=None) -> float:
+    # r482: every period the model reaches must be entered; no carry-forward.
+    from .income_modules import _fee_schedule_value
+    return _fee_schedule_value(schedule, idx, default, period)
 
 
 def _level_schedule_value(spec: Mapping[str, Any], q: int, ppy: int, default: float = 0.0) -> float:
@@ -52,10 +43,10 @@ def _level_schedule_value(spec: Mapping[str, Any], q: int, ppy: int, default: fl
 
     def _month_level(month_index: int) -> float:
         idx = (int(month_index) - 1) // width_months + 1
-        cur = _schedule_value(schedule, idx, default)
+        cur = _schedule_value(schedule, idx, default, period)
         if idx <= 1:
             return cur
-        prev = _schedule_value(schedule, idx - 1, default)
+        prev = _schedule_value(schedule, idx - 1, default, period)
         pos = (int(month_index) - 1) % width_months + 1
         if resolution == "step":
             return cur if pos == width_months else prev

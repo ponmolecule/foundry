@@ -151,6 +151,40 @@ def _default_link_aggregation(kind: str) -> str:
     return "average"
 
 
+_PERIOD_LETTER = {"month": "M", "quarter": "Q", "year": "Y"}
+
+
+def _period_range(cadence: str, a: int, b: int) -> str:
+    L = _PERIOD_LETTER.get(cadence, "P")
+    return f"{L}{a}" if a == b else f"{L}{a}\u2013{L}{b}"
+
+
+def check_explicit_values(values, need: int, cadence: str) -> None:
+    """r482: require ``need`` finite numeric values (explicit zeros are valid).
+
+    Raises a ValueError naming the missing or blank source periods at the authored cadence.
+    Values beyond ``need`` (for example after the horizon was shortened) are unused and allowed.
+    """
+    vals = list(values or [])
+    blanks = []
+    for i, v in enumerate(vals[:need]):
+        ok = v is not None and not isinstance(v, bool)
+        if ok:
+            try:
+                f = float(v)
+                ok = f == f and f not in (float("inf"), float("-inf"))
+            except (TypeError, ValueError):
+                ok = False
+        if not ok:
+            blanks.append(i + 1)
+    if blanks:
+        shown = ", ".join(_period_range(cadence, b, b) for b in blanks[:6]) + (" \u2026" if len(blanks) > 6 else "")
+        raise ValueError(f"explicit {cadence} schedule has a blank or non-numeric value at {shown}")
+    if len(vals) < need:
+        raise ValueError(f"explicit {cadence} schedule has {len(vals)} of {need} {cadence} values, "
+                         f"{_period_range(cadence, len(vals) + 1, need)} missing")
+
+
 def _explicit_value(values, idx: int, extend: str) -> float:
     if 0 <= idx < len(values):
         v = values[idx]
@@ -193,14 +227,20 @@ def resolve_entered_series(spec: Mapping[str, Any] | None, n_periods: int, ppy: 
         raise ValueError(f"cannot align explicit {cadence} levels to cadence {ppy}")
     width = ppy // source_freq
     vals, extend, resolution = s["values"], s["extend"], s["resolution"]
+    # r482: an explicit schedule must supply every source period the horizon reaches at its
+    # authored cadence. Missing or blank periods fail closed; nothing is held or zero-filled.
+    need = -(-n // width)
+    check_explicit_values(vals, need, cadence if cadence != "model_period" else
+                          {12: "month", 4: "quarter", 1: "year"}[ppy])
     out: list[float] = []
     for p in range(1, n + 1):
         src_idx = (p - 1) // width
-        cur = _explicit_value(vals, src_idx, extend)
+        cur = float(vals[src_idx])
         if resolution == "step" or width == 1:
             out.append(cur)
             continue
-        nxt = _explicit_value(vals, src_idx + 1, extend)
+        # Smooth: the final interval approaches its own value (no invented next point).
+        nxt = float(vals[src_idx + 1]) if src_idx + 1 < need else cur
         # P1 of an interval is the current source value; final period approaches next.
         pos = (p - 1) % width
         frac = pos / float(width)

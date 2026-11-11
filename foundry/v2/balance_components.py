@@ -188,8 +188,8 @@ class BalanceComponents:
         def target(j):
             if j<0:return opening
             if j<len(values):return values[j]
-            if extend=='error':raise ValueError('Missing annual balance target')
-            return values[-1] if extend=='hold' else 0.
+            # r482: a missing annual target fails closed whatever the saved extension.
+            raise ValueError(f'Year-end target schedule has {len(values)} annual value'+('s' if len(values)!=1 else '')+f', Y{j+1} missing')
         start_month=getattr(self.context,'start_month',1) if anchor=='calendar_year' else 1
         out=[]
         for i in range(self.n):

@@ -161,8 +161,10 @@ def nie_category_series(c, Q, ppy=4, growth_context=None):
         base = quarterly_value_to_period("opex_fixed", float(c.get("per_quarter", 0.0) or 0.0), ppy)
     if traj == "explicit":
         sched = list(c.get("schedule") or [])
-        return [float(sched[i]) if i < len(sched) and sched[i] is not None else 0.0
-                for i in range(Q)]
+        # r482: every model period must be entered; blanks and a short schedule fail closed.
+        from .series import check_explicit_values
+        check_explicit_values(sched, Q, {12: "month", 4: "quarter", 1: "year"}.get(int(ppy), "period"))
+        return [float(sched[i]) for i in range(Q)]
     if traj in ("linear", "growth"):
         if c.get("growth_spec"):
             from .growth import resolve_growth_series
@@ -260,19 +262,16 @@ def managed_notional_series(mn, Q, ppy=4, growth_context=None):
         sched = mn.get("schedule") or {}
         cur = day1
         for q in range(1, Q + 1):
-            cur = cur + float(sched.get(str(q), 0.0))   # additive lumps (deltas)
+            cur = cur + _fee_schedule_value(sched, q, 0.0, _MODEL_PERIOD.get(int(ppy)))   # additive lumps (deltas); r482: every period entered
             end[q - 1] = cur
     elif traj == "explicit_levels":
         # ABSOLUTE per-period levels (already net of adds/attrition) — used as-is, NOT
         # accumulated. This is the socket for an upstream feeder (e.g. the CAC AUC
-        # roll-forward) that emits ending-AUC levels directly. Missing quarter carries
-        # the prior level forward (hold), so a sparse schedule still yields a full series.
+        # roll-forward) that emits ending-AUC levels directly. r482: every period must be
+        # entered; a sparse schedule no longer carries the prior level forward.
         sched = mn.get("schedule") or {}
-        cur = day1
         for q in range(1, Q + 1):
-            if str(q) in sched:
-                cur = float(sched[str(q)])
-            end[q - 1] = cur
+            end[q - 1] = _fee_schedule_value(sched, q, day1, _MODEL_PERIOD.get(int(ppy)))
     else:  # flat
         for q in range(1, Q + 1):
             end[q - 1] = day1
@@ -341,7 +340,7 @@ def _fee_rate_q(rt, q, base_qty, ppy=4, ctx=None, basis=None):
         # Transition 1 is after Year 1; Year 1 always uses the starting rate.
         rate = r0
         for transition in range(1, yr + 1):
-            delta = (_fee_schedule_value(path["schedule"], transition, rp.get("annual_delta") or 0.0)
+            delta = (_fee_schedule_value(path["schedule"], transition, rp.get("annual_delta") or 0.0, "year")
                      if path.get("trajectory") == "explicit_schedule" else
                      _fee_level_path_value(path, transition, 1, ctx, rp.get("annual_delta") or 0.0))
             if not math.isfinite(delta) or delta < -1:
@@ -349,8 +348,8 @@ def _fee_rate_q(rt, q, base_qty, ppy=4, ctx=None, basis=None):
             rate *= 1.0 + delta
         return rate
     if behavior == "scheduled":
-        sched = rp.get("schedule") or {}         # {model period: rate}
-        return float(sched.get(str(q), r0))
+        sched = rp.get("schedule") or {}         # {model period: rate}; r482: every period entered
+        return _fee_schedule_value(sched, q, r0, _MODEL_PERIOD.get(int(ppy)) if ppy else None)
     if behavior == "tiered":
         return None                              # signal: apply tiers to base_qty
     # durbin_capped: normal income uses the stream's net per_unit (set at config time);
@@ -458,20 +457,31 @@ def _fee_natural_period_index(q, period, ppy):
     raise ValueError(f"unsupported natural period: {period!r}")
 
 
-def _fee_schedule_value(schedule, idx, default):
-    """Carry the most recent explicit natural-period coefficient level forward."""
-    cur = float(default or 0.0)
-    points = []
-    for k, v in (schedule or {}).items():
-        try:
-            points.append((int(k), float(v)))
-        except (TypeError, ValueError):
-            continue
-    for k, v in sorted(points):
-        if k > int(idx):
-            break
-        cur = v
-    return cur
+_MODEL_PERIOD = {12: "month", 4: "quarter", 1: "year"}
+
+
+def _fee_schedule_value(schedule, idx, default, period=None):
+    """Value an explicit natural-period schedule at period ``idx`` (1-based).
+
+    r482: every period the model reaches must be entered. A missing, blank or non-numeric
+    period fails closed with the period named; earlier values are never carried forward and
+    ``default`` is not substituted. Explicit zeros are valid.
+    """
+    sched = schedule or {}
+    i = int(idx)
+    raw = sched.get(str(i), sched.get(i)) if isinstance(sched, dict) else None
+    label = ({"month": "M", "quarter": "Q", "year": "Y"}.get(str(period or "").lower(), "period ")) + str(i)
+    if raw is None or isinstance(raw, bool):
+        have = sum(1 for k in (sched if isinstance(sched, dict) else {}) if str(k).isdigit())
+        raise ValueError(f"explicit {period or 'natural-period'} schedule has no value for {label}"
+                         f" ({have} value{'s' if have != 1 else ''} entered)")
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"explicit {period or 'natural-period'} schedule has a non-numeric value at {label}")
+    if v != v or v in (float("inf"), float("-inf")):
+        raise ValueError(f"explicit {period or 'natural-period'} schedule has a non-finite value at {label}")
+    return v
 
 
 def _fee_level_schedule_value(spec, q, ppy, default=0.0):
@@ -506,10 +516,10 @@ def _fee_level_schedule_value(spec, q, ppy, default=0.0):
 
     def _month_level(month_index):
         idx = (int(month_index) - 1) // width_months + 1
-        cur = _fee_schedule_value(schedule, idx, default)
+        cur = _fee_schedule_value(schedule, idx, default, period)
         if idx <= 1:
             return cur
-        prev = _fee_schedule_value(schedule, idx - 1, default)
+        prev = _fee_schedule_value(schedule, idx - 1, default, period)
         pos = (int(month_index) - 1) % width_months + 1
         if resolution == "step":
             return cur if pos == width_months else prev
@@ -594,7 +604,7 @@ def _fee_factor_path_value(spec, q, ppy, ctx=None, default=0.0):
             raise ValueError("fee factor explicit_schedule requires at least one schedule value")
         idx = _fee_natural_period_index(q, period, ppy)
         if resolution == "step":
-            val = _fee_schedule_value(schedule, idx, val)
+            val = _fee_schedule_value(schedule, idx, val, period)
         else:
             # Smooth uses natural-period endpoint semantics, matching other level paths.
             val = _fee_level_schedule_value({
@@ -641,7 +651,7 @@ def _fee_flat_amount_value(spec, q, ppy, ctx=None):
         if not isinstance(schedule, dict):
             raise ValueError("flat amount explicit_schedule requires a mapping")
         idx = _fee_natural_period_index(q, period, ppy)
-        val = _fee_schedule_value(schedule, idx, val)
+        val = _fee_schedule_value(schedule, idx, val, period)
     return _fee_amount_per_engine_period(val, period, ppy)
 
 
@@ -681,12 +691,12 @@ def _fee_entered_flow_value(spec, q, ppy, ctx=None):
     # monthly stocks too; an already-authored flow has no such ambiguity.
     if period == "month" and int(ppy) == 4:
         first = (int(q) - 1) * 3 + 1
-        return sum(_fee_schedule_value(schedule, m, val) for m in range(first, first + 3))
+        return sum(_fee_schedule_value(schedule, m, val, "month") for m in range(first, first + 3))
     if period == "month" and int(ppy) == 1:
         first = (int(q) - 1) * 12 + 1
-        return sum(_fee_schedule_value(schedule, m, val) for m in range(first, first + 12))
+        return sum(_fee_schedule_value(schedule, m, val, "month") for m in range(first, first + 12))
     idx = _fee_natural_period_index(q, period, ppy)
-    val = _fee_schedule_value(schedule, idx, val)
+    val = _fee_schedule_value(schedule, idx, val, period)
     return _fee_amount_per_engine_period(val, period, ppy)
 
 
@@ -733,7 +743,7 @@ def _fee_coefficient_value(spec, q, ppy, ctx=None):
                                  context=(ctx or {}).get("growth_context"), base_position="period1")
     elif traj == "explicit_schedule":
         idx = _fee_natural_period_index(q, period, ppy)
-        val = _fee_schedule_value(spec.get("schedule") or {}, idx, val)
+        val = _fee_schedule_value(spec.get("schedule") or {}, idx, val, period)
     if kind == "pct" and semantics == "share":
         return val
     return _fee_amount_per_engine_period(val, period, ppy)

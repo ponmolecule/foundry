@@ -57,9 +57,12 @@ def _aggregate_months(months: list[float], n_periods: int, ppy: int) -> list[flo
 
 
 def _explicit_months(values: list[Any], period: str, n_months: int) -> list[float]:
-    """Expand natural-period flow totals to months, preserving legacy zero-after-schedule behavior."""
+    """Expand natural-period flow totals to months; the schedule must cover the horizon (r482)."""
     p = normalize_period(period)
     months_per_source = 12 // _PERIOD_FREQ[p]
+    # r482: every natural period the horizon reaches must be entered; no zero-fill after the schedule.
+    from .series import check_explicit_values
+    check_explicit_values(values, -(-int(n_months) // months_per_source), p)
     out: list[float] = []
     for raw in list(values or []):
         val = float(raw or 0.0) / float(months_per_source)
@@ -91,7 +94,10 @@ def validate_periodic_flow_spec(spec: Mapping[str, Any] | None, *, ppy: int = 4,
             vals = raw.get("schedule")
         if not isinstance(vals, (list, tuple)):
             raise ValueError("explicit recurring-flow values must be a list")
-        out["values"] = [float(v or 0.0) for v in vals]
+        # r482: a blank is not a zero. Explicit zeros stay; blanks and text fail closed.
+        from .series import check_explicit_values
+        check_explicit_values(vals, len(vals), period)
+        out["values"] = [float(v) for v in vals]
     else:
         out["value"] = float(raw.get("value") or 0.0)
         if traj == "growth":
