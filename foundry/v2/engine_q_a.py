@@ -779,7 +779,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
 
     from .lending_contracts import prepare as prepare_loan_contract
     for _loan in lend:
-        _contract = prepare_loan_contract(_loan, a, _activity_series, _fee_stream_qty_series, Q, ppy, _growth_ctx)
+        _contract = prepare_loan_contract(_loan, a, _activity_series, _fee_stream_qty_series, Q, ppy, _growth_ctx, deposits=dep)
         if _contract is not None:
             _loan['_loan_contract'] = _contract
             _loan['_alll'][0] = _contract['opening_allowance']
@@ -1967,6 +1967,17 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                     'deferredPrepaymentCatchup','deferredNetBalance','loanCarryingAmount',
                     'allowanceTarget','provision'):
                     if _key in _rows[0]: _pr[_key] = [row[_key] for row in _rows]
+                _lk = p['_loan_contract'].get('linked')
+                if _lk is not None:
+                    # r485: deposit-linked production audit. Balances and originations are dollars;
+                    # percentages are dimensionless fractions (authored per rate period; effective per
+                    # model period). origq = linkedSourceBalance x linkedEffectivePercentage x haircut.
+                    _pr['loanProductionSource'] = {k: _lk[k] for k in ('deposit_id', 'deposit_name', 'balance_measure',
+                        'percentage_period', 'rate_periods_per_year', 'model_periods_per_year', 'volume_multiplier', 'switched_off')}
+                    _pr['linkedSourceBalance'] = list(_lk['source_balance'])
+                    _pr['linkedPercentage'] = list(_lk['percentage'])
+                    _pr['linkedEffectivePercentage'] = list(_lk['effective_percentage'])
+                    _pr['linkedOriginations'] = list(_lk['originations'])
             # r445: publish the product's own allowance ledger at every lending method.
             # This is the same identity used by the statement provision; contract outputs above
             # retain their authored target and release policy. No financial calculation changes.

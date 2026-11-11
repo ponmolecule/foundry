@@ -2225,6 +2225,22 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
                         'loans / period' if _key=='newLoanCount' else '$000s',
                         _values if _key=='newLoanCount' else [v/1000 for v in _values],
                         _COUNT_FMT if _key=='newLoanCount' else _RAW_MONEY_FMT))
+            _src=_product.get('loanProductionSource')
+            if _src:
+                # r485: deposit-linked production. Money in $000s; percentages are fractions shown as %.
+                _per=_src.get('percentage_period')
+                _meas={'period_begin':'beginning','period_end':'ending','period_average':'average'}.get(_src.get('balance_measure'),'')
+                _dn=str(_src.get('deposit_name') or _src.get('deposit_id'))
+                _loan_rows.append(('Lending roll-forward',_product.get('name'),'linkedSourceBalance',
+                    f'$000s · {_dn} {_meas} balance',[v/1000 for v in _product.get('linkedSourceBalance') or []],_RAW_MONEY_FMT))
+                _loan_rows.append(('Lending roll-forward',_product.get('name'),'linkedPercentage',
+                    f'fraction per {_per} (authored)',list(_product.get('linkedPercentage') or []),_PCT_FMT))
+                _loan_rows.append(('Lending roll-forward',_product.get('name'),'linkedEffectivePercentage',
+                    f'fraction per model period = authored × {_src.get("rate_periods_per_year")} ÷ {_src.get("model_periods_per_year")}',
+                    list(_product.get('linkedEffectivePercentage') or []),_PCT_FMT))
+                _loan_rows.append(('Lending roll-forward',_product.get('name'),'linkedOriginations',
+                    f'$000s = balance × effective % × volume multiplier {_src.get("volume_multiplier")}',
+                    [v/1000 for v in _product.get('linkedOriginations') or []],_RAW_MONEY_FMT))
     if _loan_rows:
         _write_wide_rows(wb.create_sheet('Loan Rollforward'),cfg,_loan_rows,
             title='Loan principal and deferred fees / costs',

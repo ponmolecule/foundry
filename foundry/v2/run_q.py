@@ -597,6 +597,7 @@ def _run_v2(cfg):
         "totalCommitment", "unusedCommitment", "unusedCommitmentReserve", "unusedCommitmentProvision",
         "interestBasis", "linkedBalanceTarget", "repayments", "principalTransfersOut", "interest", "avg",
         "interestBeforeMinimum", "minimumInterestExpense", "minimumInterestTopUp",
+        "linkedSourceBalance", "linkedOriginations",
     )
     _exact_products = (base_exact or {}).get("products") or []
     _public_products = base.get("products") or []
@@ -606,6 +607,13 @@ def _run_v2(cfg):
         if 'loanRollforwardMethod' in _raw:
             _pub['loanRollforwardMethod'] = _raw['loanRollforwardMethod']
             if 'newLoanCount' in _raw: _pub['newLoanCount'] = list(_raw['newLoanCount'])
+            if 'loanProductionSource' in _raw:
+                # r485: money in $000s like every public array; percentages stay dimensionless fractions.
+                _pub['loanProductionSource'] = copy.deepcopy(_raw['loanProductionSource'])
+                _pub['linkedSourceBalance'] = [float(v) / 1000. for v in _raw['linkedSourceBalance']]
+                _pub['linkedOriginations'] = [float(v) / 1000. for v in _raw['linkedOriginations']]
+                _pub['linkedPercentage'] = [float(v) for v in _raw['linkedPercentage']]
+                _pub['linkedEffectivePercentage'] = [float(v) for v in _raw['linkedEffectivePercentage']]
         if "lendingAssumptionDetail" in _raw:
             _pub["lendingAssumptionDetail"] = copy.deepcopy(_raw["lendingAssumptionDetail"])
         if 'depositCustomerCalculation' in _raw:

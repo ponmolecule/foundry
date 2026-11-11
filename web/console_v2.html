@@ -3447,7 +3447,11 @@ tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.ope
 .lnv-mh{font-size:12px;font-weight:600;margin:14px 0 8px}
 .lnv-mg{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .lnv-mc{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:4px;border:1px solid #E3E1DC;border-radius:4px;padding:12px 14px;position:relative;background:#fff}
-.lnv-mc:hover{border-color:#B9B6AF}.lnv-mc.on{border-color:#2C2C2C;box-shadow:inset 3px 0 0 #C9A04E}
+.lnv-mc:hover{border-color:#B9B6AF}.lnv-mc.on{border-color:#2C2C2C;box-shadow:inset 3px 0 0 #C9A04E;background:#FDFBF6}
+.lnv-mc:focus-visible{outline:2px solid #1F5FBF;outline-offset:2px}
+.lnv-mc .sel{align-self:flex-start;font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:2px 7px;border-radius:10px;border:1px solid #D8D5CE;color:#76736C;background:#fff}
+.lnv-mc.on .sel{border-color:#2C2C2C;background:#2C2C2C;color:#fff}
+.loan-linked-warn{color:#9A3412}
 .lnv-mc .t{font-size:13px;font-weight:600;color:#1F1F1E}.lnv-mc .s{font-size:11.5px;color:#4A4945;line-height:1.5}
 .lnv-mc .f{font:11px/1.6 var(--mono);color:#4A4945;background:#FAFAF8;border-left:2px solid #C9A04E;padding:5px 8px;margin-top:4px}
 .lnv-mc .u{font-size:11px;color:#76736C}.lnv-mc .was{font-size:10.5px;color:#A3A09A;margin-top:-2px}
@@ -7248,7 +7252,7 @@ function feeQuantityLabel(ref){
   return 'Missing source';
 }
 function feeDeletionConsumers(owner,removed){
-  const ids=new Set(removed.flatMap(x=>[x.quantity_series_id,...(x._catalogRemovalIds||[]),...(x.source_catalog_id?['deposit.'+x.source_catalog_id+'.balance','lending.'+x.source_catalog_id+'.balance']:[])]).filter(Boolean)),names=new Set(removed.map(x=>x.name).filter(Boolean)),out=[];
+  const ids=new Set(removed.flatMap(x=>[x.quantity_series_id,...(x._catalogRemovalIds||[]),...(x.source_catalog_id?['deposit.'+x.source_catalog_id+'.balance','lending.'+x.source_catalog_id+'.balance']:[]),...(x.source_catalog_id&&(cfg.assumptions.deposit_products||[]).includes(x)?[x.source_catalog_id]:[])]).filter(Boolean))   /* r485: loan production links a deposit by its raw stable ID */,names=new Set(removed.map(x=>x.name).filter(Boolean)),out=[];
   const a=cfg.assumptions||{};
   function walk(value,label){
     if(!value||typeof value!=='object'||removed.includes(value))return;
@@ -8160,6 +8164,24 @@ function _sharedWeightedEditor(id){const rows=_sharedInputs(),j=rows.findIndex(x
 function loanContractEnable(i,on){const p=cfg.assumptions.lending_products[i],f=v=>({source:'entered',trajectory:'flat',value:v});
  if(on&&!p.loan_rollforward)p.loan_rollforward={source:'entered_count',count_spec:f(0),loan_size_spec:f(0),payment_rate_spec:f(0),prepayment_rate_spec:f(0),reserve_rate_spec:f(p.reserve_rate_pct_bal||0),opening_allowance:(p.opening_balance||0)*(p.reserve_rate_pct_bal||0),provision_release_policy:'allow'};
  if(!on)delete p.loan_rollforward;renderContent();refresh();}
+// r485: origination source switch keeps every source's saved inputs (non-destructive); the linked
+// deposit source gets explicit defaults so the run never infers a measure or period.
+function loanContractSource(i,v){const c=cfg.assumptions.lending_products[i].loan_rollforward;if(!c)return;c.source=v;
+ if(v==='deposit_balance'){if(c.deposit_id==null)c.deposit_id='';if(!c.balance_measure)c.balance_measure='period_end';if(!c.percentage_period)c.percentage_period='month';if(!c.percentage_spec)c.percentage_spec={source:'entered',trajectory:'flat',value:0};}
+ renderContent();refresh();}
+function loanContractDeposit(i,k){const c=cfg.assumptions.lending_products[i].loan_rollforward;if(!c)return;if(k===''){c.deposit_id='';}else{const d=(cfg.assumptions.deposit_products||[])[+k];if(!d)return;if(!d.source_catalog_id)d.source_catalog_id=_seriesId('product-source');c.deposit_id=d.source_catalog_id;}renderContent();refresh();}
+function _loanDepositSourceChoices(){return (cfg.assumptions.deposit_products||[]).map((p,k)=>({p,k})).filter(x=>x.p.balance_mode!=='pool'&&!x.p.retention_pool_id);}
+function _loanDepositSourceHtml(i,c,b,field,select){
+ const all=cfg.assumptions.deposit_products||[],choices=_loanDepositSourceChoices(),hits=all.filter(p=>c.deposit_id&&p.source_catalog_id===c.deposit_id);
+ const pooled=hits.length===1&&(hits[0].balance_mode==='pool'||hits[0].retention_pool_id);
+ const warn=!c.deposit_id?'Select a deposit product.':!hits.length?'The saved deposit no longer exists. Select a deposit product.':hits.length>1?'Two deposit products share this ID. Select one again.':pooled?'Retention-pool deposits depend on bank state and cannot drive originations.':'';
+ const per=c.percentage_period||'month',ppy=PPY(),rp={month:12,quarter:4,year:1}[per],mp=ppy===12?'month':ppy===4?'quarter':'year';
+ let h=field('Deposit product',`<div class="lfx-sel"><select aria-label="Linked deposit product" onchange="loanContractDeposit(${i},this.value)"><option value="">Select deposit</option>${choices.map(({p,k})=>`<option value="${k}"${c.deposit_id&&p.source_catalog_id===c.deposit_id&&hits.length===1?' selected':''}>${esc(p.name||'Deposit')}</option>`).join('')}</select></div>${warn?`<span class="fhint loan-linked-warn" role="status">${warn}</span>`:''}`,true);
+ h+=field('Balance observed',select(b+'.balance_measure',[['period_begin','Beginning balance'],['period_end','Ending balance'],['period_average','Average balance']],c.balance_measure||'period_end'));
+ h+=field('Percentage period',select(b+'.percentage_period',[['month','Month'],['quarter','Quarter'],['year','Year']],per));
+ h+=field('Percentage of balance · per '+per,`<div class="loan-contract-series">${_faSeriesEditor(b+'.percentage_spec',c.percentage_spec||{source:'entered',trajectory:'flat',value:0},'','rate',false)}</div>`,true);
+ h+=`<p class="memo full loan-linked-formula">Originations per ${mp} = deposit ${({period_begin:'beginning',period_end:'ending',period_average:'average'})[c.balance_measure||'period_end']} balance × percentage per ${per} × ${rp} ÷ ${ppy}. The deposit balance is live: changing the deposit changes originations. Repayments, charge-offs, allowance and deferred costs run on the loan as usual.</p>`;
+ return h;}
 function loanContractDeferred(i,on){const c=cfg.assumptions.lending_products[i].loan_rollforward,f=v=>({source:'entered',trajectory:'flat',value:v});if(on&&!c.deferred)c.deferred={basis:'per_loan',opening_net_cost:0,cost_spec:f(0),fee_spec:f(0),multiplier_spec:f(1),amortization_rate_spec:f(0),prepayment_rate_spec:f(0)};if(!on)delete c.deferred;renderContent();refresh();}
 const _loanContractDisclosureOpen = new Map();
 function loanContractDisclosure(key,open){_loanContractDisclosureOpen.set(key,open);}
@@ -8173,15 +8195,15 @@ function _loanContractHtml(i,p,base){const c=p.loan_rollforward,b=base+'.loan_ro
  if(!c)return h;
  const edit=(key,label,kind)=>field(label,`<div class="loan-contract-series">${_faSeriesEditor(b+'.'+key,c[key]||f(0),'',kind,false)}</div>`);
  const opts=_accountActivityOptions('transaction').filter(x=>x.flow_kind==='new_customers');
- let production=field('Origination source',select(b+'.source',[['entered_count','Entered new-loan count'],['account_activity','Gross new-customer flow'],['entered_money','Entered monetary originations']],c.source),true);
- production+=c.source==='account_activity'?field('Gross new-customer flow',`<div class="lfx-sel"><select onchange="setPath('${b}.series_id',this.value);refresh()"><option value="">Select a flow</option>${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===c.series_id?' selected':''}>${esc(o.label)}</option>`).join('')}</select></div>`,true):c.source==='entered_count'?edit('count_spec','New loans per model period','count'):edit('amount_spec','Originations per model period','money');
- if(c.source!=='entered_money')production+=edit('loan_size_spec','Amount per new loan','dollars');
+ let production=field('Origination source',`<div class="lfx-sel"><select aria-label="Origination source" onchange="loanContractSource(${i},this.value)">${[['entered_count','Entered new-loan count'],['account_activity','Gross new-customer flow'],['entered_money','Entered monetary originations'],['deposit_balance','Linked deposit balance × percentage']].map(([v,l])=>`<option value="${v}"${c.source===v?' selected':''}>${l}</option>`).join('')}</select></div>`,true);
+ production+=c.source==='deposit_balance'?_loanDepositSourceHtml(i,c,b,field,select):c.source==='account_activity'?field('Gross new-customer flow',`<div class="lfx-sel"><select onchange="setPath('${b}.series_id',this.value);refresh()"><option value="">Select a flow</option>${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===c.series_id?' selected':''}>${esc(o.label)}</option>`).join('')}</select></div>`,true):c.source==='entered_count'?edit('count_spec','New loans per model period','count'):edit('amount_spec','Originations per model period','money');
+ if(c.source!=='entered_money'&&c.source!=='deposit_balance')production+=edit('loan_size_spec','Amount per new loan','dollars');
  h+=wrap('balance',production+note('production-help','Profile A · entered amounts and counts are totals per model period. Annual schedules hold that per-period amount through the year. Quarterly runs apply rates once per quarter.'));
  h+=wrap('timing',edit('payment_rate_spec','Principal payment rate · annual','rate')+edit('prepayment_rate_spec','Prepayment rate · annual','rate')+note('repayment-help','Each rate applies separately to beginning principal, divided by periods per year. New funding starts repayment next period. This method has no automatic maturity balloon.'));
  h+=wrap('credit',edit('reserve_rate_spec','Allowance target · % of ending principal','rate')+field('Provision releases',select(b+'.provision_release_policy',[['allow','Allow releases to target'],['floor_zero','Floor provision at zero']],c.provision_release_policy||'allow'))+disclosure('opening-allowance','Opening allowance',`<div class="loan-contract-grid">${field('Opening allowance · $000s',`<div class="lfx-in">${numInput(b+'.opening_allowance','k')}</div>`)}</div>`)+note('credit-help','Charge-offs reduce allowance. A zero provision floor may leave allowance above target.'));
  let dhtml=field('Deferred origination fees &amp; costs',`<div class="lfx-sel"><select onchange="loanContractDeferred(${i},this.value==='on')"><option value="off"${!c.deferred?' selected':''}>Off</option><option value="on"${c.deferred?' selected':''}>Capitalize and amortize</option></select></div>`,true);
  if(c.deferred){const d=c.deferred,db=b+'.deferred',de=(k,l,kind)=>field(l,`<div class="loan-contract-series">${_faSeriesEditor(db+'.'+k,d[k]||f(k==='multiplier_spec'?1:0),'',kind,false)}</div>`);
- dhtml+=field('Amount basis',select(db+'.basis',[['per_loan','Dollars per new loan'],['percent_funded','Percent of funded amount']],d.basis||'per_loan'),true)+de('cost_spec','Origination cost',d.basis==='percent_funded'?'rate':'dollars')+de('multiplier_spec','Cost / fee multiplier','multiple')+de('amortization_rate_spec','Amortization rate · annual','rate')+de('prepayment_rate_spec','Prepayment catch-up rate · annual','rate');
+ dhtml+=field('Amount basis',select(db+'.basis',[['per_loan','Dollars per new loan'],['percent_funded','Percent of funded amount']],d.basis||'per_loan')+((d.basis||'per_loan')==='per_loan'&&(c.source==='entered_money'||c.source==='deposit_balance')?'<span class="fhint loan-linked-warn" role="status">This origination source has no loan count. Use Percent of funded amount.</span>':''),true)+de('cost_spec','Origination cost',d.basis==='percent_funded'?'rate':'dollars')+de('multiplier_spec','Cost / fee multiplier','multiple')+de('amortization_rate_spec','Amortization rate · annual','rate')+de('prepayment_rate_spec','Prepayment catch-up rate · annual','rate');
  dhtml+=disclosure('deferred-options','Origination fees &amp; opening balance',`<div class="loan-contract-grid">${de('fee_spec','Origination fee',d.basis==='percent_funded'?'rate':'dollars')}${field('Opening net deferred cost / (fee) · $000s',`<div class="lfx-in">${numInput(db+'.opening_net_cost','k')}</div>`)}</div>`)+note('deferred-help','Net costs add to carrying amount; net fees reduce it. Beginning-balance amortization reduces interest for net costs and increases it for net fees. This is not an effective-interest-yield calculation. New deferrals start amortizing next period. No duplicate operating-expense posting.');
  }
  return h+wrap('costs',dhtml);}
@@ -9079,7 +9101,7 @@ function _resultProductSeries(p,key){return (p&&p.detailExact&&p.detailExact[key
 function _resultPanelSeries(p,key,label,fam){const get=k=>_resultProductSeries(p,k),row=(name,k,slice)=>({name,unit:'$000s',values:slice?get(k).slice(1):get(k)});
  if(key==='credit'||key==='cred')return [row('Charge-offs','co'),row('Allowance (ALLL)','alll'),row('Target allowance','allowanceTarget'),row('Funded provision / (release)','provision'),row('Total commitment','totalCommitment'),row('Unused commitment','unusedCommitment'),row('Unused commitment reserve liability','unusedCommitmentReserve',true),row('Unused commitment provision / (release)','unusedCommitmentProvision')];
  if(fam==='obs'&&key==='balance'&&label==='Fee income')return [row('Fee income','fees')];
- if(key==='balance'||key==='timing'||key==='exp')return [row(label||'Ending balance','bal',true),row('Principal balance','principalBalance'),row('Originations','origq'),row('Principal payments','principalPayments'),row('Prepayments','prepayments'),row('Loan carrying amount','loanCarryingAmount'),...(p.newLoanCount?[{name:'New loans',unit:'count',values:p.newLoanCount}]:[]),...(key==='exp'?[row('Outstanding','calculatedOutstanding'),row('Distributed balance','distributedBalance')]:[])];
+ if(key==='balance'||key==='timing'||key==='exp')return [row(label||'Ending balance','bal',true),row('Principal balance','principalBalance'),row('Originations','origq'),row('Principal payments','principalPayments'),row('Prepayments','prepayments'),row('Loan carrying amount','loanCarryingAmount'),...(p.newLoanCount?[{name:'New loans',unit:'count',values:p.newLoanCount}]:[]),...(p.loanProductionSource?[row('Linked deposit balance · '+(p.loanProductionSource.deposit_name||''),'linkedSourceBalance'),{name:'Percentage · authored',unit:'fraction / '+p.loanProductionSource.percentage_period,values:p.linkedPercentage||[]},{name:'Percentage · effective',unit:'fraction / model period',values:p.linkedEffectivePercentage||[]},row('Linked originations','linkedOriginations')]:[]),...(key==='exp'?[row('Outstanding','calculatedOutstanding'),row('Distributed balance','distributedBalance')]:[])];
  if(key==='pricing'||key==='price')return fam==='obs'?[row('Fee income','fees')]:[row(fam==='deposit'?'Interest expense':'Interest income','interest'),row('Gross contractual interest','grossInterest'),row('Deferred cost / (fee) amortization','deferredAmortization'),row('Deferred prepayment catch-up','deferredPrepaymentCatchup'),row('Fee income','fees'),{name:fam==='deposit'?'Rate paid':'Yield',unit:'%',values:p.rateQ||[]}];
  if(key==='fees')return [row('Fee income','fees'),row('Fee-stream direct costs','passCost')];
  if(key==='costs'||key==='acct')return [row('Operating costs \u00b7 base','opex'),row('Fee-stream direct costs','passCost'),row('Deferred costs added','deferredCosts'),row('Deferred fees added','deferredFees'),row('Net deferred cost / (fee) balance','deferredNetBalance'),row('Deferred amortization','deferredAmortization'),row('Deferred prepayment catch-up','deferredPrepaymentCatchup')];
@@ -9603,10 +9625,10 @@ function _lnvBand(fam,i,p,root){
 }
 function _lnvMethodCards(i,p){
   const c=!!p.loan_rollforward,pend=_lnvConfirm.get(p);
-  const card=(k,on,s,f,u)=>`<button type="button" class="lnv-mc${on?' on':''}" aria-pressed="${on}" onclick="lnvMethod(${i},'${k}')"><span class="t">${LNV_METHOD[k]}</span><span class="was">Formerly “${LNV_FORMER[k]}”</span><span class="s">${s}</span><span class="f">${f}</span><span class="u">${u}</span></button>`;
-  let h=`<div class="lnv-mh">Production &amp; repayment method</div><div class="lnv-mg">`+
+  const card=(k,on,s,f,u)=>`<button type="button" class="lnv-mc${on?' on':''}" role="radio" aria-checked="${on}" tabindex="${on?0:-1}" data-lnv-method="${k}" onclick="lnvMethod(${i},'${k}')" onkeydown="lnvMethodKey(event,${i})"><span class="sel" aria-hidden="true">${on?'✓ Selected':'Select'}</span><span class="t">${LNV_METHOD[k]}</span><span class="was">Formerly “${LNV_FORMER[k]}”</span><span class="s">${s}</span><span class="f">${f}</span><span class="u">${u}</span></button>`;
+  let h=`<div class="lnv-mh" id="lnv-mh-${i}">Production &amp; repayment method</div><div class="lnv-mg" role="radiogroup" aria-labelledby="lnv-mh-${i}">`+
    card('legacy',!c,'Originations entered in dollars with a growth rate. One runoff rate covers scheduled payments and prepayments; term or revolving structure.','bal[t] = bal[t−1] + originations − runoff − charge-offs','Most consumer and small-business books.')+
-   card('contract',c,'New loans × amount per loan, a linked new-customer flow, or entered dollars. Principal payments and prepayments as separate annual rates; scheduled allowance; optional deferred fees and costs.','principal[t] = principal[t−1] + funded − payments − prepayments − charge-offs','Unit-economics and acquisition-driven books.')+`</div>`;
+   card('contract',c,'New loans × amount per loan, a linked new-customer flow, entered dollars, or a linked deposit balance × percentage. Principal payments and prepayments as separate annual rates; scheduled allowance; optional deferred fees and costs.','principal[t] = principal[t−1] + funded − payments − prepayments − charge-offs','Unit-economics and acquisition-driven books.')+`</div>`;
   if(pend)h+=`<div class="lnv-confirm" role="alert"><span>Switching to dollar originations removes this product’s production inputs (loan counts, amounts, payment and prepayment rates, allowance and deferred-fee settings). Opening balance and pricing are kept.</span><button type="button" class="lnv-btn" onclick="lnvMethodCancel(${i})">Cancel</button><button type="button" class="lnv-btn dk" onclick="lnvMethodConfirm(${i})">Switch</button></div>`;
   else h+=`<div class="lnv-note">Switching method follows today’s rules: leaving Loan production removes its inputs, so the switch asks first.</div>`;
   return h;
@@ -9615,6 +9637,7 @@ function lnvSettings(fam,i){const p=_lnvP(fam,i);if(!p)return;_lnvSettings.set(p
 function lnvMethod(i,k){const p=_lnvP('lending',i);if(!p)return;const on=k==='contract';if(!!p.loan_rollforward===on)return;
   if(!on){_lnvConfirm.set(p,true);renderContent();return;}
   loanContractEnable(i,true);}
+function lnvMethodKey(e,i){const k={ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[e.key];if(!k)return;e.preventDefault();const g=e.currentTarget.closest('.lnv-mg'),cards=[...g.querySelectorAll('.lnv-mc')],j=cards.indexOf(e.currentTarget),nx=cards[(j+k+cards.length)%cards.length];if(nx){cards.forEach(c=>c.tabIndex=c===nx?0:-1);nx.focus();}}
 function lnvMethodCancel(i){const p=_lnvP('lending',i);if(p)_lnvConfirm.delete(p);renderContent();}
 function lnvMethodConfirm(i){const p=_lnvP('lending',i);if(!p)return;_lnvConfirm.delete(p);loanContractEnable(i,false);}
 function _lnvRoot(){return document.querySelector('.prd-card .lfx.lnv');}

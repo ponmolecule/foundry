@@ -1,3 +1,7 @@
+# r485 — Loan production: linked deposit balance × percentage
+
+See RELEASE_r485.md. New origination source in the existing Loan production method: observed deposit balance × percentage × rate periods ÷ model periods, by stable deposit ID. Method cards are a keyboard radio group with a Selected badge. Engine change for the new source only; existing configurations give identical results.
+
 # r484 — Schedule errors attributed by path
 
 See RELEASE_r484.md. The failing resolver reports the saved path of the schedule it resolved; a dormant schedule with identical content is never named. Engine only; no calculation change.
