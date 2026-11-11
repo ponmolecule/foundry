@@ -1,3 +1,7 @@
+# r482 — Explicit schedules must cover the horizon
+
+See RELEASE_r482.md. Strict resolvers block a run on any missing, blank or non-numeric period the model uses; errors are relabeled with component and field; blank cells in a paste are refused. Engine change: incomplete schedules stop the run; complete ones give identical results.
+
 # r481 — Operating Expense guard and cause-first run error
 
 See RELEASE_r481.md. Leaving Detailed asks first when other inputs link to its Series; a run broken by a parked Detailed block names the cause with Restore Detailed. Console only; no engine change.
