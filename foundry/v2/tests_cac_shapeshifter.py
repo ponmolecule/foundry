@@ -127,11 +127,19 @@ def main():
     ck("monthly AUC-linked expense aggregates exactly to quarterly presentation",
        all(_eq(sum(mo_exp[q*3:(q+1)*3]), qu_exp[q]) for q in range(28)))
 
-    # 7) Explicit schedules can intentionally extend by holding the last authored value.
+    # 7) r482: an explicit schedule no longer extends by holding its last value, even when the
+    #    saved spec says extend=hold. A short schedule fails closed and names the missing years.
     hold = copy.deepcopy(scheduled)
     hold["driver_specs"]["pool"] = {"mode":"explicit","cadence":"year","values":[1000,1500],"extend":"hold"}
     hold["driver_specs"]["conversion_rate"] = {"mode":"flat","value":0.02,"cadence":"year"}
-    ck("explicit hold-last extension", _eq(channel_new_customers(hold,5),30.0))
+    try:
+        channel_new_customers(hold,5); _held = None
+    except ValueError as _e:
+        _held = str(_e)
+    ck("explicit short schedule fails closed instead of holding (r482)", bool(_held) and "Y3\u2013Y5 missing" in _held, _held)
+    for _sp in hold["driver_specs"].values():   # enter every explicit driver for all 5 years
+        if _sp.get("mode") == "explicit": _sp["values"] = (_sp["values"] + [_sp["values"][-1]] * 5)[:5]
+    ck("the same schedule entered in full gives the former held result", _eq(channel_new_customers(hold,5),30.0))
 
     # 8) A generic growth spec is available in the same driver contract.
     gs = {"name":"Organic","method":"pool_conversion","params":{},"avg_auc_per_customer":0,

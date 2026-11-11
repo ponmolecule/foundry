@@ -496,6 +496,22 @@ def _constraint_tests(cfg, scen_results):
 
 
 def run_v2(cfg):
+    """Run; a strict-resolver schedule error is re-raised naming its component (r482)."""
+    try:
+        return _run_v2(cfg)
+    except ValueError as e:
+        from .schedule_completeness import relabel
+        new = relabel((cfg or {}).get("assumptions") or {}, str(e))
+        if new == str(e):
+            raise
+        try:
+            err = type(e)(new)
+        except Exception:
+            err = ValueError(new)
+        raise err from e
+
+
+def _run_v2(cfg):
     cfg = validate_config_v2(cfg)
     config_hash = _hash(cfg)
     # Single authoritative reporting horizon, threaded through the whole consumer layer (the T34 lesson:

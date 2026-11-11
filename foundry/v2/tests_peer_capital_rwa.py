@@ -26,6 +26,8 @@ def test_cash_detail_drives_rwa_without_hidden_percentage():
 def test_peer_horizon_is_q12_even_when_model_is_seven_years():
     cfg = _cfg()
     cfg["assumptions"]["n_periods"] = 84
+    from .testing_schedules import fill_schedules_like_r481
+    fill_schedules_like_r481(cfg["assumptions"])   # r482: a longer horizon needs its schedules entered
     result = run_v2(cfg)
     pq = result["peer_quarterly"]
     assert len(pq["quarters"]) == 12

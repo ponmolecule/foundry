@@ -39,6 +39,9 @@ def migrated(shares):
 def main():
     a = {"1": 100_000, "2": 200_000, "3": 300_000, "4": 400_000}
     b = {"1": .10, "2": .20, "3": .30, "4": .40}
+    # r482: schedules are entered for every month the model reaches (formerly M4 carried forward).
+    for _s in (a, b):
+        for _m in range(5, 13): _s[str(_m)] = _s["4"]
     s, m = source(a), migrated(b)
     m1 = product_fee_streams_q({"fee_streams": [deepcopy(s), deepcopy(m)]}, 1, {}, 12)[0]
     q1 = product_fee_streams_q({"fee_streams": [deepcopy(s), deepcopy(m)]}, 1, {}, 4)[0]

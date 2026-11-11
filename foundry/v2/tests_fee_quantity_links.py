@@ -5,8 +5,8 @@ from .fee_links import FeeLinkPlan
 from .validate_q import validate_errors_v2
 from .deposit_balance import source_catalog
 
-def source(sid='tpv',values=(100000,200000,300000),price=.01):
-    return {'name':'TPV','quantity_series_id':sid,'basis':'transaction','driver':{'source':'constant','trajectory':'explicit_schedule','params':{'flow_path':{'unit_kind':'money_flow','period':'month','trajectory':'explicit_schedule','schedule':{str(i+1):v for i,v in enumerate(values)}}}},'rate':{'behavior':'flat','params':{'pricing_basis':'pct_of_throughput','per_unit':price}},'cost':{'kind':'none','params':{}}}
+def source(sid='tpv',values=(100000,200000,300000),price=.01):  # r482: schedule covers the 36-month horizon (formerly M3 carried)
+    return {'name':'TPV','quantity_series_id':sid,'basis':'transaction','driver':{'source':'constant','trajectory':'explicit_schedule','params':{'flow_path':{'unit_kind':'money_flow','period':'month','trajectory':'explicit_schedule','schedule':{str(i+1):v for i,v in enumerate(list(values)+[values[-1]]*(36-len(values)))}}}},'rate':{'behavior':'flat','params':{'pricing_basis':'pct_of_throughput','per_unit':price}},'cost':{'kind':'none','params':{}}}
 def linked(sid='migrated',ref='tpv',share=.5):
     return {'name':'Migrated','quantity_series_id':sid,'basis':'transaction','driver':{'source':'fee_stream_quantity','ref':ref,'trajectory':'derived','params':{'coefficient':{'kind':'pct','semantics':'share','period':'month','trajectory':'flat','value':share}}},'rate':{'behavior':'flat','params':{'pricing_basis':'pct_of_throughput','per_unit':.02}},'cost':{'kind':'pct_of_throughput_opex','params':{'pct':.01}}}
 def product(name,streams):return {'name':name,'call_report_line':'obs','_fee_product':True,'fee_streams':streams}
@@ -44,7 +44,7 @@ def test_dag_and_rejections():
     print('PASS true stream DAG across owners A → B → A; cycles/missing/duplicate-ID/unit mismatch rejected')
 
 def test_cadence_and_zero():
-    c=fixture(4);coef=c['assumptions']['obs_exposures'][0]['fee_streams'][0]['driver']['params']['coefficient'];coef.update(trajectory='explicit_schedule',schedule={'1':.1,'2':.2,'3':.3})
+    c=fixture(4);coef=c['assumptions']['obs_exposures'][0]['fee_streams'][0]['driver']['params']['coefficient'];coef.update(trajectory='explicit_schedule',schedule={**{'1':.1,'2':.2,'3':.3},**{str(i):.3 for i in range(4,37)}})  # r482: every month entered (formerly M3 carried)
     r=run_v2(c);near(quantities(r,'tpv')[0],600000);near(quantities(r,'migrated')[0],140000)
     c=fixture();c['assumptions']['obs_exposures'][1]['fee_streams'][0]['timing']={'start_period':2,'end_period':2};r=run_v2(c)
     assert quantities(r,'migrated')[:3]==[0.,100000.,0.]

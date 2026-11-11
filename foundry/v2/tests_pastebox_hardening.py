@@ -60,7 +60,7 @@ def main():
     ck("all twenty-four scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
     ck("scalar schedules share one fail-closed parser", "function _seriesExplicitValues(text)" in html
        and html.count("raw=_seriesExplicitValues(txt)") >= 5
-       and "function _feeParseExplicitValues(text){ return _seriesExplicitValues(text).map" in html)
+       and "function _feeParseExplicitValues(text){ const r=_seriesExplicitValues(text),v=r.map(x=>x.value)" in html)  # r482: also carries blank positions
     ck("scalar schedules share one live Load controller", "function _seriesExplicitPasteInput(id)" in html
        and "function _feeCoeffPasteInput(id){ _seriesExplicitPasteInput(id); }" in html
        and "function _feeFlatAmountPasteInput(id){ _seriesExplicitPasteInput(id); }" in html)

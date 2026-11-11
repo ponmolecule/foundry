@@ -53,6 +53,8 @@ class CapacityTests(unittest.TestCase):
         ch=a['cac_feeds']['Acquisition']['channels'][0]
         ch['method']='explicit';ch['driver_specs']={'new_customers':{'source':'entered',
             'trajectory':'explicit','cadence':'month','period':'month','values':[0,0,10,0,0,0]}}
+        from .testing_schedules import fill_schedules_like_r481 as _fill  # r482
+        _fill(a)   # the feed schedule is entered for the whole horizon
         self.assertEqual(workforce_capacity_monthly(ops,6,assumptions=a)['counts'],[0,0,1,1,1,1])
         a['cac_feeds']['Acquisition']['beginning_customers']=30
         self.assertEqual(workforce_capacity_monthly(ops,6,assumptions=a)['source'],[30,30,40,40,40,40])
@@ -79,7 +81,7 @@ class CapacityTests(unittest.TestCase):
         ops['capacity_count']['measure']='active_customers'
         feed=a['cac_feeds']['Acquisition'];feed['driver_specs']['attrition_rate']=flat(1,period='month')
         feed['channels']=[{'name':'One cohort','method':'explicit','driver_specs':{'new_customers':
-            {'source':'entered','trajectory':'explicit','cadence':'month','period':'month','values':[10,0,0]}}}]
+            {'source':'entered','trajectory':'explicit','cadence':'month','period':'month','values':[10]+[0]*11}}}]  # r482: zeros entered for the 12-month horizon
         self.assertEqual(workforce_capacity_monthly(ops,3,assumptions=a)['counts'],[1,0,0])
 
     def test_bad_inputs(self):

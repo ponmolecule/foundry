@@ -179,7 +179,12 @@ def main():
     ck("flat explicit annual escrow schedule exact in quarterly cadence", all(abs(a-b)<1e-9 for a,b in zip(annual_q,want_escrow)))
     ck("flat explicit annual escrow schedule exact in monthly cadence", all(abs(a-b)<1e-9 for a,b in zip(annual_m,want_escrow)))
     ck("flat explicit amount is cadence-stable by model year", all(abs(a-b)<1e-9 for a,b in zip(annual_q,annual_m)))
-    ck("flat explicit schedule carries last amount forward", abs(fee_stream_q(s_flat_explicit, 29, {}, ppy=4)[0] - 112_500.0) < 1e-9)
+    # r482: past its last entered year the schedule fails closed instead of carrying the last amount.
+    try:
+        fee_stream_q(s_flat_explicit, 29, {}, ppy=4); _carry = None
+    except ValueError as _e:
+        _carry = str(_e)
+    ck("flat explicit schedule past its last year fails closed naming Y8 (r482)", bool(_carry) and "no value for Y8" in _carry)
 
     # Existing natural-period Flat contract is unchanged when trajectory is absent.
     legacy_natural = {"basis":"flat","rate":{"params":{"flat_amount":{"value":120_000.0,"period":"year"}}},"timing":{"start_period":1}}

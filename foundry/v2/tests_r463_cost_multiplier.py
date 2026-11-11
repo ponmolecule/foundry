@@ -9,6 +9,8 @@ class CostMultiplier(unittest.TestCase):
         cp=st['cost']['params'];cp['multiplier_path']=copy.deepcopy(path)
         cp['factor_path']={'value':21624,'trajectory':'flat','period':'month'}
         if not linked:del cp['linked_sources']
+        from .testing_schedules import fill_schedules_like_r481 as _fill  # r482
+        _fill(c['assumptions'])   # schedules entered for the whole horizon
         return run_v2(c)['fee_stream_economics']['series']['digital-cost']
 
     def test_flat_and_zero(self):
@@ -36,6 +38,8 @@ class CostMultiplier(unittest.TestCase):
         cp['multiplier_path']={'trajectory':'explicit_schedule','period':'month','schedule':{'1':1,'2':2,'3':3}}
         channel=c['assumptions']['cac_feeds']['Accounts']['channels'][0]
         channel['driver_specs']={'spend':{'source':'entered','trajectory':'explicit','cadence':'month','values':[1000,2000,3000]+[0]*57}}
+        from .testing_schedules import fill_schedules_like_r481 as _fill  # r482
+        _fill(c['assumptions'])
         cost=run_v2(c)['fee_stream_economics']['series']['digital-cost']['fee_product_cost']
         self.assertAlmostEqual(cost[0],(500+250)*1+(1000+250)*2+(1500+250)*3)
 

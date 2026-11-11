@@ -75,6 +75,18 @@ def validate_errors_v2(cfg):
 
 
 def validate_config_v2(cfg):
+    """Validate; an incomplete explicit schedule is reported with its component and field (r482)."""
+    try:
+        return _validate_config_v2(cfg)
+    except ConfigErrorV2 as e:
+        from .schedule_completeness import relabel
+        new = relabel((cfg or {}).get("assumptions") or {}, str(e))
+        if new == str(e):
+            raise
+        raise ConfigErrorV2(new) from e
+
+
+def _validate_config_v2(cfg):
     """Validate without editing the caller; return the normalized input copy.
 
     Switch preparation is private to validation. The returned input retains saved
@@ -90,12 +102,6 @@ def validate_config_v2(cfg):
     except ValueError as e:
         raise ConfigErrorV2(str(e)) from e
     errs = []
-    # r482: incomplete explicit schedules block the run first, named by component, so the
-    # downstream resolvers' generic messages never stand in for the actionable one.
-    from .schedule_completeness import schedule_errors
-    _sched_errs = schedule_errors(cfg.get("assumptions") or {})
-    if _sched_errs:
-        raise ConfigErrorV2("; ".join(_sched_errs))
     from .timebase import quarterly_value_to_period
     from .growth import validate_growth_spec_for_cadence, growth_context_from_cfg
     _a0 = cfg.get("assumptions") or {}

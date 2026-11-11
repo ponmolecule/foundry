@@ -20,7 +20,7 @@ class Tests(unittest.TestCase):
   for ppy in (1,4,12):
    for q in range(1,7*ppy+1):self.assertAlmostEqual(_fee_rate_q(a,q,1,ppy),_fee_rate_q(b,q,1,ppy),places=16)
  def test_explicit_transitions_and_growth(self):
-  a=stream()['rate'];a['params']['annual_delta_path']={'trajectory':'explicit_schedule','period':'year','schedule':{'1':-.02,'2':-.03,'3':.01}}
+  a=stream()['rate'];a['params']['annual_delta_path']={'trajectory':'explicit_schedule','period':'year','schedule':{'1':-.02,'2':-.03,'3':.01,'4':.01}}  # r482: every transition entered (Y4 formerly carried)
   expected=[.0014,.001372,.00133084,.0013441484,.001357589884]
   for ppy in (1,4,12):
    for y,v in enumerate(expected):self.assertAlmostEqual(_fee_rate_q(a,y*ppy+1,1,ppy),v,places=14)

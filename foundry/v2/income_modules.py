@@ -262,7 +262,7 @@ def managed_notional_series(mn, Q, ppy=4, growth_context=None):
         sched = mn.get("schedule") or {}
         cur = day1
         for q in range(1, Q + 1):
-            cur = cur + _fee_schedule_value(sched, q, 0.0, _MODEL_PERIOD.get(int(ppy)))   # additive lumps (deltas); r482: every period entered
+            cur = cur + float(sched.get(str(q), 0.0))   # additive lumps (deltas): an event list, so an unlisted period is no change (r482 keeps this)
             end[q - 1] = cur
     elif traj == "explicit_levels":
         # ABSOLUTE per-period levels (already net of adds/attrition) — used as-is, NOT

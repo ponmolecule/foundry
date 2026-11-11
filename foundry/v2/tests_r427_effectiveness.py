@@ -46,6 +46,8 @@ class Tests(unittest.TestCase):
   from .validate_q import validate_errors_v2
   c=json.loads(Path('foundry/fixtures/core_bank_test_base.json').read_text());ch=channel();spec(ch,[.0425]*3+[.14]*3+[.275]*3+[.425]*3)
   c['assumptions']['cac_feeds']={'Digital feed':{'series_id':'digital-feed','customer_count_series_id':'digital-count','channels':[ch],'beginning_customers':0,'beginning_auc':0,'attrition_rate':0,'intra_period_path':'monthly_flows'}}
+  from .testing_schedules import fill_schedules_like_r481
+  fill_schedules_like_r481(c['assumptions'])   # r482: the 12-month schedule is entered for the whole horizon
   self.assertEqual(validate_errors_v2(copy.deepcopy(c)),[])
   r=run_v2(c);m=r['customer_acquisition']['Digital feed']['monthly'][0];self.assertEqual(m['total_spend'],21.624);self.assertAlmostEqual(m['new_cust'],3.468)
   row=_cac_monthly_acquisition_rows(c,12,12)[0];self.assertEqual(row[-2],.0425);self.assertEqual(row[17],21624)

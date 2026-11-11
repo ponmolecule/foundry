@@ -1,14 +1,14 @@
-"""r482: explicit schedules must cover the model horizon at their authored cadence.
+"""r482: name the component behind an incomplete explicit schedule.
 
-Every active explicit schedule (Series values lists, periodized flows, natural-period
-fee/cost schedules keyed 1..N, model-period schedules) is checked before a run. A missing,
-blank or non-numeric period blocks the run with a message that names the component, the
-field and the periods. Explicit zeros are valid. Values beyond the horizon (for example
-after the horizon was shortened) are unused and allowed. Nothing is held or zero-filled.
+Blocking is done by the strict resolvers (series.py, periodic_flows.py, income_modules.py,
+cost_recovery.py, cac_feeder.py, balance_components.py): only schedules the model actually
+uses are resolved, so a dormant schedule kept for a non-destructive mode switch never blocks
+a run. Those resolvers know the cadence and period but not where the schedule lives.
 
-The strict resolvers in series.py, periodic_flows.py, income_modules.py, cost_recovery.py,
-cac_feeder.py and balance_components.py fail closed on the same conditions; this pass runs
-first so the message can say where the schedule lives.
+``schedule_errors`` walks the saved assumptions and describes every explicit schedule that
+does not cover the horizon, with component and field. ``relabel`` replaces a resolver message
+with the walker's description of the matching schedule(s), keyed on cadence, first missing or
+blank period, and kind. The walker never blocks on its own.
 """
 from __future__ import annotations
 
@@ -131,7 +131,7 @@ def _inactive(a: dict, path: list) -> bool:
 def schedule_errors(a: dict) -> list[str]:
     a = a or {}
     try:
-        n, ppy = int(a.get("n_periods") or 0), int(a.get("periods_per_year") or 4)
+        n, ppy = int(a.get("n_periods") or 12), int(a.get("periods_per_year") or 4)   # engine defaults
     except (TypeError, ValueError):
         return []
     if n <= 0 or ppy not in (1, 4, 12):
@@ -159,7 +159,7 @@ def schedule_errors(a: dict) -> list[str]:
             return
         if traj == "explicit" and isinstance(o.get("schedule"), list):          # legacy opex list
             _check_list(o["schedule"], n, model, out, _label(a, path)); return
-        if traj == "explicit_schedule" and isinstance(o.get("schedule"), dict):
+        if traj == "explicit_schedule" and isinstance(o.get("schedule"), dict) and "day1" not in o:   # managed-notional lumps are an event list
             cad = str(o.get("period") or "model_period").strip().lower()
             cad = model if cad == "model_period" else cad
             if cad in _FREQ:
@@ -182,3 +182,46 @@ def schedule_errors(a: dict) -> list[str]:
             continue
         walk(v, [k])
     return out
+
+
+import re as _re
+
+_RES = _re.compile(r"explicit (month|quarter|year|natural-period) schedule (?:has \d+ of \d+ \w+ values, ([MQY])(\d+)|has no value for ([MQY])(\d+)|has a (?:blank or non-numeric|non-numeric|non-finite) value at ([MQY])(\d+))")
+_WALK = _re.compile(r": (month|quarter|year) schedule (?:has \d+ of \d+ \w+ values, ([MQY])(\d+)|has a blank or non-numeric value at ([MQY])(\d+))")
+
+
+def _key(m, missing_groups, blank_groups):
+    for g in missing_groups:
+        if m.group(g):
+            return ("missing", m.group(g), int(m.group(g + 1)))
+    for g in blank_groups:
+        if m.group(g):
+            return ("blank", m.group(g), int(m.group(g + 1)))
+    return None
+
+
+def relabel(a: dict, message: str) -> str:
+    """Return ``message`` with each resolver schedule error replaced by its component-named form."""
+    if "schedule" not in str(message):
+        return message
+    try:
+        walked = schedule_errors(a)
+    except Exception:
+        return message
+    index: dict = {}
+    for w in walked:
+        m = _WALK.search(w)
+        if m:
+            index.setdefault(_key(m, (2,), (4,)), []).append(w)
+    out, seen = [], set()
+    for part in str(message).split("; "):
+        m = _RES.search(part)
+        k = _key(m, (2, 4), (6,)) if m else None
+        hits = index.get(k) if k else None
+        if hits:
+            for h in hits:
+                if h not in seen:
+                    out.append(h); seen.add(h)
+        else:
+            out.append(part)
+    return "; ".join(out)

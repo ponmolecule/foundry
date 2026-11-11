@@ -18,6 +18,7 @@ def main():
     payload=other_liability_audit_payload(p,[r['total'] for r in rows],rows)
     assert payload['components'][0]['terms'][0]['driver'][2]==777100
     cfg=_cfg();_activate(cfg['assumptions'],12,12);cfg['assumptions']['other_liabilities_model']=copy.deepcopy(a['other_liabilities_model'])
+    _v=cfg['assumptions']['other_liabilities_model']['components'][0]['terms'][0]['driver_spec']['values'];_v+= [_v[-1]]*(12-len(_v))  # r482: cover the 12-month horizon (formerly held)
     assert not validate_errors_v2(cfg),validate_errors_v2(cfg)
     with_ap=run_pf_a(cfg)
     zero=copy.deepcopy(cfg);zero['assumptions']['other_liabilities_model']['components']=[]

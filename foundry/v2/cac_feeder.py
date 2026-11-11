@@ -68,8 +68,10 @@ def _legacy_spec(owner, key, *, is_feed=False):
         # Historical ``new_customers_by_year`` returned zero beyond the supplied list.
         # Preserve that exact legacy extension semantic while resolving each supplied annual
         # flow onto the monthly causal grid.
+        # r482: this is the one documented zero-tail contract (legacy field, and the zero node a
+        # switched-off channel becomes); authored explicit schedules no longer extend.
         return {"source": "entered", "trajectory": "explicit", "cadence": "year",
-                "values": vals, "extend": "zero", "resolution": "step"}
+                "values": vals, "extend": "zero", "resolution": "step", "_legacy_zero_tail": True}
     growth_keys = {
         "pool": "pool_growth", "conversion_rate": "conversion_growth",
         "spend": "spend_growth", "cac": "cac_growth", "ftes": "ftes_growth",
@@ -105,7 +107,8 @@ def _explicit_source_values(spec, months, *, engine_ppy=12):
     width = _period_width_months(cad, engine_ppy=engine_ppy)
     # r482: the schedule must cover the horizon at its authored cadence; no hold or zero-fill.
     from .series import check_explicit_values
-    check_explicit_values(vals, -(-int(months) // width), cad)
+    if not spec.get("_legacy_zero_tail"):
+        check_explicit_values(vals, -(-int(months) // width), cad)
     out = []
     for mi in range(int(months)):
         idx = mi // width

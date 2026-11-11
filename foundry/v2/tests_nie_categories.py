@@ -21,12 +21,17 @@ def main():
     lin = _cats({"categories":[{"per_quarter":100,"trajectory":"linear","growth_q":0.10}]})
     ck("legacy linear remains compounded growth: q1=base, q2=base*1.1, q3=base*1.21",
        abs(lin[0]-100)<1e-9 and abs(lin[1]-110)<1e-9 and abs(lin[2]-121)<1e-9)
-    exp = _cats({"categories":[{"trajectory":"explicit","schedule":[10,20,30]}]})
-    ck("explicit follows schedule, pads 0", exp[:3]==[10.0,20.0,30.0] and exp[3]==0.0 and exp[11]==0.0)
+    exp = _cats({"categories":[{"trajectory":"explicit","schedule":[10,20,30]+[0]*9}]})
+    ck("explicit follows schedule, explicit zeros kept", exp[:3]==[10.0,20.0,30.0] and exp[3]==0.0 and exp[11]==0.0)
+    try:
+        _cats({"categories":[{"trajectory":"explicit","schedule":[10,20,30]}]}); _short=None
+    except ValueError as _e:
+        _short=str(_e)
+    ck("explicit short schedule fails closed instead of padding 0 (r482)", bool(_short) and "Q4\u2013Q12 missing" in _short)
     mix = _cats({"categories":[
         {"per_quarter":100},
         {"per_quarter":10,"trajectory":"linear","growth_q":1.0},
-        {"trajectory":"explicit","schedule":[5,5,5]}]})
+        {"trajectory":"explicit","schedule":[5,5,5]+[0]*9}]})  # r482: zeros entered explicitly
     ck("mixed categories sum per quarter",
        abs(mix[0]-115)<1e-9 and abs(mix[1]-125)<1e-9 and abs(mix[3]-180)<1e-9)
     ck("empty categories -> zeros", _cats({"categories":[]}) == [0.0]*12)

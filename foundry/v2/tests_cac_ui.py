@@ -42,7 +42,7 @@ function _seriesSourcePeriods(cadence){const f={year:1,quarter:4,month:12}[caden
 function _seriesCadenceOptions(){const p=PPY();return p===12?["year","quarter","month"]:(p===4?["year","quarter"]:["year"]);}
 function _seriesPeriodLabel(cadence,i){return (cadence==="month"?"M":cadence==="quarter"?"Q":"Y")+(i+1);}
 function _seriesPasteCad(c){return ['month','quarter','year'].includes(c)?c:({12:'month',4:'quarter',1:'year'}[PPY()]||'month');}
-function _seriesPasteLengthOk(n,cadence){const cad=_seriesPasteCad(cadence),need=_seriesSourcePeriods(cad);if(n===need)return true;appStatus('err',n+' values pasted');return false;}
+function _seriesPasteLengthOk(arr,cadence){const n=Array.isArray(arr)?arr.length:+arr,cad=_seriesPasteCad(cadence),need=_seriesSourcePeriods(cad);if(n===need)return true;appStatus('err',n+' values pasted');return false;}
 function _seedSeriesIfEmpty(sp,fill){sp.values=sp.values||[];if(!sp.values.length)_resizeSeriesValues(sp,fill);}
 function _resizeSeriesValues(sp,fill){sp.values=sp.values||[];const n=_seriesSourcePeriods(sp.cadence||"year");while(sp.values.length<n)sp.values.push(sp.values.length?sp.values[sp.values.length-1]:fill);if(sp.values.length>n)sp.values=sp.values.slice(0,n);}
 function renderContent(){} function refresh(){} function appStatus(){} function _pf(x){let n=parseFloat(String(x).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}

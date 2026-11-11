@@ -34,7 +34,7 @@ def main():
     approx(m.stocks(11,{})['capital-stock'],900000);approx(m.stocks(12,{})['capital-stock'],900000);approx(m.stocks(35,{})['capital-stock'],1045000)
     r,_=m.period(0,{},m.stocks(0,{}),0,0,0);approx(r[0]['income'],28400/12)
     # Different use case: declining targets, non-zero opening, full-target path and calendar anchors.
-    other=component('inventory','earning_asset',0);other['terms']=[{'source_spec':targets([600,300],target_opening=1200),'factors':[]}]
+    other=component('inventory','earning_asset',0);other['terms']=[{'source_spec':targets([600,300,300,300],target_opening=1200),'factors':[]}]  # r482: targets cover every year the horizon reaches (formerly held)
     x=runtime([other]);approx(x.stocks(0,{})['inventory'],1150);approx(x.stocks(23,{})['inventory'],300)
     other['terms'][0]['source_spec']['target_path']='full';assert runtime([other]).stocks(0,{})['inventory']==600
     other['terms'][0]['source_spec'].update(target_path='ramp',target_anchor='calendar_year')

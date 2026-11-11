@@ -33,6 +33,8 @@ class Tests(unittest.TestCase):
   for ppy in (12,4):
    cfg=setup(ppy);p,c=streams();c['driver'].update(source='fee_stream_quantity',ref='savers')
    cfg['assumptions']['deposit_products'][0]['fee_streams']=[c]
+   from .testing_schedules import fill_schedules_like_r481 as _fill  # r482
+   _fill(cfg['assumptions'])   # schedules entered for the whole horizon
    self.assertEqual(validate_errors_v2(copy.deepcopy(cfg)),[])
    before=copy.deepcopy(cfg);r=run_v2(cfg);self.assertEqual(cfg,before)
    self.assertIn('onboard',r['fee_stream_quantities']['series'])

@@ -11,6 +11,8 @@ class ExpenseNumbersTests(unittest.TestCase):
                 if ppy==4:
                     cfg['assumptions']['nie_detail']={'categories':[{'name':'Rent','series_id':'rent','per_period':12000},{'name':'Insurance','series_id':'insurance','per_period':6000}], 'workforce':{'roles':[]},'fdic_bp_ann':0}
                 cfg['assumptions'].update(periods_per_year=ppy,n_periods=n)
+                from .testing_schedules import fill_schedules_like_r481
+                fill_schedules_like_r481(cfg['assumptions'])   # r482: a longer horizon needs its schedules entered
                 before=copy.deepcopy(cfg);r=run_v2(cfg);self.assertEqual(cfg,before)
                 ns=r['nie_detail_series'];cats=cfg['assumptions']['nie_detail']['categories']
                 self.assertEqual(len(ns['category_details']),len(cats))

@@ -179,6 +179,8 @@ class ReportingManifestTests(unittest.TestCase):
     def test_horizon_follows_engagement(self):
         cfg, _ = _grouped()
         cfg["assumptions"]["n_periods"] = 48
+        from .testing_schedules import fill_schedules_like_r481
+        fill_schedules_like_r481(cfg["assumptions"])   # r482: a longer horizon needs its schedules entered
         res = run_v2(copy.deepcopy(cfg))
         v = res["reporting"]
         self.assertEqual(v["window"]["label"], "M1–M48")
