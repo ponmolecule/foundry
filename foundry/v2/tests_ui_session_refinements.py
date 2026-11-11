@@ -19,7 +19,7 @@ def main():
     a=html.index("function _operatingExpenseMode(")
     b=html.index("function structuresSectionsHtml()", a)
     helpers=html[a:b]
-    c=html.index("window.nieOff = function(){")
+    c=html.index("window.nieOff = function(force){")
     d=html.index("// Static mirror", c)
     switches=html[c:d]
     js=r'''

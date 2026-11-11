@@ -17,9 +17,12 @@ def main():
     a=html.index("window.poPaste = function(")
     b=html.index("// Risk-based capital ratios", a)
     js=html[a:b]
-    ma=html.index("window.nieOff = function(){")
+    ma=html.index("window.nieOff = function(force){")
     mb=html.index("// Static mirror", ma)
     js += "\n" + html[ma:mb]
+    # r481: nieOff consults the leave-Detailed guard first
+    ga=html.index("function _operatingExpenseMode("); gb=html.index("window._wfDependents=_wfDependents;", ga)
+    js += "\n" + html[ga:gb]
     roles="\n".join(
         f"Role {i+1}\t{60+i}\tPer FTE\tYear\tM{1+(i*7)%57}\t{2+(i%4)}" for i in range(48)
     )

@@ -19,3 +19,5 @@ Restore Detailed brings back the parked block with every role, category and Seri
 The count is of inputs that link directly. Products that fail only because they consume a broken input (for example a lending product fed by a CAC feed) appear in the full list, not in the count.
 
 Validation: web/tests_r481_opex_guard.cjs (7 checks against the engine's real messages for the universal template with Detailed parked: dependents scan, guard text, Keep Detailed and Escape leave the config untouched, confirm parks the draft, cause-first banner with rejoined messages, Restore Detailed restores roles and categories, module-strip Off guarded, unrelated errors and no-dependent switches unchanged).
+
+Full suite on 0ff8cda9: 319 files. Two harnesses located nieOff by its old signature and were updated (tests_growth_ui also loads the guard helpers); both pass on the final commit. The remaining 12 failures are the same 12 that fail on r480 and r479.
