@@ -21,7 +21,10 @@ ctx.NP=()=>36;ctx.PPY=()=>12;
 assert.match(render(25),/25 of 36 months loaded/);
 assert.match(html,/_cacScheduleLoadedHtml\(sp,_cacUnit\(meta,sp\)\)/);
 assert.match(html,/_cacScheduleLoadedHtml\(asp,'%'\)/);
-assert.match(html,/\.cac-schedule-loaded\.cac-schedule-incomplete\{[^}]*color:#9C4A1A!important/);
+assert.match(html,/\.cac-schedule-loaded\.cac-schedule-incomplete\{[^}]*color:#713F12!important/);
 // Compile every inline script to catch template-literal or integration syntax errors.
 for(const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new vm.Script(m[1]);
 console.log('PASS schedule loaded status: cadence, missing/extra/invalid values, zeros, horizon changes, both collapsed render paths, no mutation, script syntax');
+
+assert.strictEqual(fs.readFileSync('BUILD_STAMP','utf8').trim(),'foundry-r487-schedule-warning-amber');
+assert.match(html,/background:#FDE68A;border:2px solid #D97706/);
