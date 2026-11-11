@@ -1,0 +1,27 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync('web/console_v2.html','utf8');
+const ctx={NP:()=>60,PPY:()=>12,esc:s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')};
+vm.createContext(ctx);
+vm.runInContext(html.slice(html.indexOf('function _seriesPasteCad('),html.indexOf('function _seriesCadenceOptions(')),ctx);
+const render=(n,cad='month')=>ctx._cacScheduleLoadedHtml({cadence:cad,values:Array(n).fill(0)},'%');
+assert.match(render(25),/25 of 60 months loaded — M26–M60 missing/);
+assert.match(render(59),/59 of 60 months loaded — M60 missing/);
+assert.match(render(4,'year'),/4 of 5 years loaded — Y5 missing/);
+assert.match(render(19,'quarter'),/19 of 20 quarters loaded — Q20 missing/);
+for(const [n,cad] of [[60,'month'],[20,'quarter'],[5,'year']])assert(!render(n,cad).includes('cac-schedule-incomplete'));
+assert.match(render(61),/1 extra value beyond horizon/);
+assert.match(render(0),/0 of 60 months loaded — M1–M60 missing/);
+const vals=Array(60).fill(0);vals[1]=null;vals[30]='';vals[58]=NaN;
+const before=vals.slice();const h=ctx._cacScheduleLoadedHtml({cadence:'month',values:vals},'%');
+assert.match(h,/57 of 60 months loaded — M2, M31, M59 missing/);assert.deepStrictEqual(vals,before);
+ctx.NP=()=>20;ctx.PPY=()=>4;
+assert(!render(5,'year').includes('cac-schedule-incomplete'));
+assert(!render(60,'month').includes('cac-schedule-incomplete'));
+ctx.NP=()=>36;ctx.PPY=()=>12;
+assert.match(render(25),/25 of 36 months loaded/);
+assert.match(html,/_cacScheduleLoadedHtml\(sp,_cacUnit\(meta,sp\)\)/);
+assert.match(html,/_cacScheduleLoadedHtml\(asp,'%'\)/);
+assert.match(html,/\.cac-schedule-loaded\.cac-schedule-incomplete\{[^}]*color:#9C4A1A!important/);
+// Compile every inline script to catch template-literal or integration syntax errors.
+for(const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new vm.Script(m[1]);
+console.log('PASS schedule loaded status: cadence, missing/extra/invalid values, zeros, horizon changes, both collapsed render paths, no mutation, script syntax');
