@@ -1,3 +1,7 @@
+# r481 — Operating Expense guard and cause-first run error
+
+See RELEASE_r481.md. Leaving Detailed asks first when other inputs link to its Series; a run broken by a parked Detailed block names the cause with Restore Detailed. Console only; no engine change.
+
 # r480 — Pasted schedules must match the horizon
 
 See RELEASE_r480.md. Every series paste requires exactly the horizon's count at its cadence; mismatches are refused with nothing loaded. Saved mismatched schedules are flagged; cadence changes no longer pad. Console only; no engine change.

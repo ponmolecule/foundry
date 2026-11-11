@@ -1641,6 +1641,15 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .fxs-pane .lfx-grid .fld>.lfx-seg{justify-self:start;width:auto!important;max-width:100%;flex-wrap:wrap;height:auto!important}
 .fxs-pane .lfx-grid .fld>.lfx-seg button{white-space:normal}
 
+/* r481: Operating Expense guard and cause-first run error */
+.opex-guard{position:fixed;inset:0;background:rgba(31,31,30,.28);display:flex;align-items:center;justify-content:center;z-index:1000}
+.opex-guard-b{background:#fff;border:1px solid #CFCCC6;border-radius:6px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:18px 20px;max-width:520px;width:calc(100% - 32px);font-size:13px;color:#1F1F1E}
+.opex-guard-b b{font-size:14px}.opex-guard-b p{margin:8px 0 14px;line-height:1.5;color:#4A4945}
+.opex-guard-a{display:flex;gap:8px;justify-content:flex-end}
+.opex-guard-a button{font:600 12.5px Inter,Arial,sans-serif;padding:7px 13px;border-radius:3px;border:1px solid #CFCCC6;background:#fff;color:#2A2A2A;cursor:pointer}
+.opex-guard-a .opex-guard-go{background:#A64938;border-color:#A64938;color:#fff}
+.config-run-error .cre-cause{line-height:1.5}.config-run-error .cre-fix{margin-left:6px;font:600 12px Inter,Arial,sans-serif;padding:4px 10px;border-radius:3px;border:1px solid #A64938;background:#fff;color:#873B2E;cursor:pointer}
+.config-run-error .cre-other{margin-top:6px}.config-run-error .cre-all{margin-top:6px;font-size:12px}.config-run-error .cre-all summary{cursor:pointer;color:#873B2E}.config-run-error .cre-all ul{margin:6px 0 0 18px;padding:0}.config-run-error .cre-all li{margin:2px 0;word-break:break-word}
 .config-run-error{margin:12px 0;padding:12px 16px;border:1px solid #A64938;background:#FFF4EF;color:#873B2E;border-radius:6px}
 
 /* Linked monetary costs own their layout; source names are not form-row labels. */
@@ -14422,12 +14431,23 @@ function _renderContentInner(){
   _restoreAuthoringState(state);
   _renderedAuthoringTab=currentTab;_renderedAuthoringCfg=cfg;
 }
+// r481: when errors come from Detailed Operating Expense being parked, lead with that cause and keep the full list behind a disclosure.
+function _runErrorNotice(notice,errors){const A=(cfg&&cfg.assumptions)||{},mode=typeof _operatingExpenseMode==='function'?_operatingExpenseMode(A):'detailed';
+ // The server splits engine messages on '; ', so a trailing 'expected exactly one' arrives as its own item; rejoin it to the message it belongs to.
+ const merged=[];errors.forEach(m=>{m=String(m);if(merged.length&&/^expected exactly one\b/i.test(m.trim()))merged[merged.length-1]+='; '+m.trim();else merged.push(m);});
+ const wfErr=m=>/linked (workforce|operating[_ ]expense)[^']* series '[^']*' (resolved to 0|does not exist)|Linked expense category does not exist|Gross-up eligibility requires detailed Operating Expense/i.test(m);
+ const rel=merged.filter(wfErr),other=merged.filter(m=>!wfErr(m));
+ if(mode==='detailed'||!rel.length){notice.textContent='Figures unavailable — '+errors.join(' · ');return;}
+ const d=_wfDependents(A),n=d.count;
+ notice.innerHTML=`<div class="cre-cause"><b>Figures unavailable. Operating Expense is ${mode==='off'?'turned off':'set to Simple'}, so its workforce and expense-category series are unavailable.</b> ${n?`${n} input${n===1?' links':'s link'} to them (${esc(d.text)}).`:''} <button type="button" class="cre-fix" onclick="nieOn()">Restore Detailed</button></div>`
+  +(other.length?`<div class="cre-other">Also: ${other.map(esc).join(' · ')}</div>`:'')
+  +`<details class="cre-all"><summary>All ${merged.length} messages</summary><ul>${merged.map(m=>'<li>'+esc(m)+'</li>').join('')}</ul></details>`;}
 function refreshConfigPreviews(){
   // Build read-only output fragments off-screen; keep every live input node mounted.
   const root=document.getElementById('content');if(!root)return;
   let notice=root.querySelector(':scope > .config-run-error');
   const errors=(lastErrs||[]).map(e=>e.message||String(e));if(lastRunFailure)errors.push(lastRunFailure.message);
-  if(errors.length){if(!notice){notice=document.createElement('div');notice.className='config-run-error';notice.setAttribute('role','alert');root.prepend(notice);}notice.textContent='Figures unavailable — '+errors.join(' · ');}
+  if(errors.length){if(!notice){notice=document.createElement('div');notice.className='config-run-error';notice.setAttribute('role','alert');root.prepend(notice);}_runErrorNotice(notice,errors);}
   else if(notice)notice.remove();
   const fresh=document.createElement('div');fresh.innerHTML=structuresSectionsHtml();
   const state=_captureAuthoringState();
@@ -17931,10 +17951,29 @@ function _operatingExpenseMode(A){
   return hasSimple ? "simple" : "off";
 }
 window._operatingExpenseMode = _operatingExpenseMode;
-window.opexToggle = function(){
+/* r481: inputs outside Detailed Operating Expense that link to its Series (workforce headcount, workforce expense, expense categories), and the guard before leaving Detailed. */
+const _WF_DEP_LABEL={fixed_assets:['fixed assets'],account_adoption:['account activity'],deposit_products:['deposit','deposits'],lending_products:['lending product','lending products'],obs_exposures:['fee product','fee products'],cac_feeds:['CAC feed','CAC feeds'],cost_pools:['cost pool','cost pools'],balance_components_model:['interest-bearing balances'],other_assets_model:['other assets'],other_liabilities_model:['other liabilities'],managed_securities_portfolios:['securities portfolio','securities portfolios']};
+function _wfDependents(A){A=A||(cfg&&cfg.assumptions)||{};const items=new Map();
+ const isWf=o=>typeof o.kind==='string'&&!!o.series_id&&(/^(workforce_count|workforce_role_count|workforce_role_expense|operating_expense_category)$/.test(o.kind)||(o.kind==='operating_expense_flow'&&o.series_id!=='operating_expense_categories'));
+ const walk=(o,path)=>{if(!o||typeof o!=='object')return;if(Array.isArray(o)){o.forEach((v,i)=>walk(v,path.concat(i)));return;}
+  if(isWf(o)){const top=path[0],sub=path[1],multi=(_WF_DEP_LABEL[top]||[]).length>1||((_WF_DEP_LABEL[top]||[]).length===0&&(Array.isArray(A[top])||top==='cac_feeds'));items.set(String(top)+(multi&&sub!=null?'#'+sub:''),top);return;}
+  for(const k in o){if(k==='nie_detail'||k.charAt(0)==='_')continue;walk(o[k],path.concat(k));}};
+ for(const k in A){if(k==='nie_detail'||k.charAt(0)==='_')continue;walk(A[k],[k]);}
+ const by={},order=[];items.forEach(top=>{if(!(top in by))order.push(top);by[top]=(by[top]||0)+1;});
+ const parts=order.map(k=>{const L=_WF_DEP_LABEL[k]||[String(k).replace(/_/g,' ')];return L.length>1?by[k]+' '+(by[k]===1?L[0]:L[1]):L[0];});
+ return {count:items.size,parts,text:parts.join(', ')};}
+function _opexLeaveDetailedGuard(to,go){const A=cfg.assumptions;if(_operatingExpenseMode(A)!=='detailed')return go();const d=_wfDependents(A);if(!d.count)return go();
+ document.querySelectorAll('.opex-guard').forEach(e=>e.remove());const el=document.createElement('div');el.className='opex-guard';el.setAttribute('role','alertdialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-labelledby','opex-guard-h');el.setAttribute('aria-describedby','opex-guard-p');
+ const lab=to==='off'?'Turn Operating Expense off':'Switch Operating Expense to Simple';
+ el.innerHTML=`<div class="opex-guard-b"><b id="opex-guard-h">${lab}?</b><p id="opex-guard-p">${d.count} input${d.count===1?' links':'s link'} to Operating Expense series such as workforce headcount or expense categories (${esc(d.text)}). They will stop resolving, and figures will be unavailable, until Detailed is restored. Your Detailed settings are kept as a draft.</p><div class="opex-guard-a"><button type="button" class="opex-guard-no">Keep Detailed</button><button type="button" class="opex-guard-go">${to==='off'?'Turn off':'Switch to Simple'}</button></div></div>`;
+ document.body.appendChild(el);const close=()=>{el.remove();document.removeEventListener('keydown',esc_);};const esc_=e=>{if(e.key==='Escape')close();};document.addEventListener('keydown',esc_);
+ el.querySelector('.opex-guard-no').onclick=close;el.querySelector('.opex-guard-go').onclick=()=>{close();go();};el.querySelector('.opex-guard-no').focus();}
+window._wfDependents=_wfDependents;
+window.opexToggle = function(force){
   const A=cfg.assumptions;
   const mode=_operatingExpenseMode(A);
-  if(mode==="off"){ window.nieOn(); return; }          // strip activation keeps the historical Detailed default
+  if(mode==="off"){ window.nieOn(); return; }
+  if(force!==true) return _opexLeaveDetailedGuard('off',()=>window.opexToggle(true));   // r481          // strip activation keeps the historical Detailed default
   if(A.nie_detail) A._nie_detail_draft=A.nie_detail;   // turning the module off is non-destructive
   A.nie_detail=null; A._operating_expense_mode="off";
   renderContent(); refresh();
@@ -18707,8 +18746,9 @@ window.nieOccSimplifiedToggle = function(on){
   if(on && nd.occ_payment_first_period==null) nd.occ_payment_first_period=(PPY()===12?3:1);
   renderContent(); refresh();
 };
-window.nieOff = function(){
+window.nieOff = function(force){
   const A=cfg.assumptions;
+  if(force!==true) return _opexLeaveDetailedGuard('simple',()=>window.nieOff(true));   // r481
   // Simple and Detailed are both ACTIVE operating-expense authoring modes. Moving to
   // Simple must therefore keep the module-strip toggle on; only opexToggle() turns the
   // whole Operating Expense module off. Detailed assumptions are preserved as a draft.
