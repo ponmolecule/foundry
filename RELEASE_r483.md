@@ -21,3 +21,5 @@ Limit: two schedules with identical content (same cadence and every value equal)
 - Differential run of all 12 fixture configs on r481 and r483: identical results for every one (config and run hashes excluded). This is the basis for "complete schedules give identical results".
 - New: foundry/v2/tests_r483_schedule_identity.py (7 checks: smooth lookahead annual and quarterly, smooth without lookahead, blank lookahead rejected, dormant-only runs, active-plus-dormant names only the active schedule, two active failures each named by their own component).
 - r482 checks (17) still pass.
+
+Full suite on 94ecc0f7: 322 files, 12 failing, the same 12 that fail on r482, r481, r480 and r479.
