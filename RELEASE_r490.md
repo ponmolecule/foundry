@@ -24,3 +24,9 @@ Rule now, for every level schedule editor (securities, shared Series editor, ope
 - Updated to the new rule: web/tests_r480_schedule_length.cjs (check 8) and web/tests_r474_factor_cadence_unit.cjs. Both had asserted that a cadence change keeps values unchanged, which is the behavior that produced the "60 of 5" bug.
 - Passing: r412, r413, r430, r441, r451, r475, r481, r482, schedule loaded status, workforce capacity.
 - Reference coverage regenerated.
+
+## r491 follow-up (same change)
+
+The full suite caught two tests that lift the series editors into a bare harness without the r490 helpers (tests_managed_securities.py, tests_balance_formulas.cjs). The editors and the seed guard now check the helpers exist before calling them. No behavior change in the console.
+
+Full suite: 329 files, 15 failing. 12 are the long-standing baseline. 3 are new in GPT's r489 and fail the same way on r489 alone: foundry.tests_parity (A.8: 10 constraint tests, expected 5), foundry.tests_protocol (T41f/T42b: a crafted CRE concentration no longer raises the severe flag), web/tests_r414_balance_view.cjs (balance view rows empty, expected [9999, 1, 2, 3]). foundry.v2.tests_r459_component_switches, a baseline failure, now passes.
