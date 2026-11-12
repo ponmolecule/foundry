@@ -1,0 +1,33 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),cp=require('child_process');
+const html=fs.readFileSync('web/console_v2.html','utf8');
+for(const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new vm.Script(m[1]);
+const script=html.slice(html.indexOf('const TAX_BLOCK_TYPES='),html.indexOf('function otherIncomeState()'));
+const cfg=JSON.parse(cp.execFileSync('python3',['-c','import json;from foundry.v2.tests_annual_tax_block import setup;print(json.dumps(setup()))'],{encoding:'utf8'}));
+let refreshes=0;
+const x={cfg,console,renderContent(){},refresh(){refreshes++},scheduleAutosave(){},_nativeFlowPeriod:()=> 'month',_pf:Number,confirm:()=>true,otherIncomeSources:()=>[],_faSeriesEditor:()=>'',esc:s=>String(s??'').replaceAll('"','&quot;')};
+x.window=x;x.fetch=async(url,opt)=>{const r=cp.spawnSync('python3',['-c','import json,sys;from foundry.v2.tax_blocks import plan;x=json.load(sys.stdin);print(json.dumps(plan(x["cfg"],x["block"])))'],{input:opt.body,encoding:'utf8'});return {ok:r.status===0,json:async()=>r.status===0?JSON.parse(r.stdout):{error:r.stderr}};};
+vm.createContext(x);vm.runInContext(script,x);
+(async()=>{
+ const before=JSON.stringify(x.cfg);x.extTaxBlockNew('annual_state_federal');let d=vm.runInContext('extTaxBlockState().draft',x);
+ assert.equal(d.bindings.opening_losses,'opening');assert.equal(d.bindings.state_rate,'','never guess a rate source');
+ assert.equal(d.bindings.federal_rate,'configured_tax_rate');assert.equal(d.deduct_state,true);
+ let h=vm.runInContext('externalTaxHtml()',x);
+ for(const label of ['State tax rate','Federal tax rate','Opening federal loss carryforward','Tax year ends','Prior-year loss utilization limit','Deduct cumulative state'])assert(h.includes(label),label);
+ assert.equal(JSON.stringify(x.cfg),before,'opening the form is inert');
+ x.extTaxBlockSet('bindings.state_rate','state');await x.extTaxBlockPreview();let s=vm.runInContext('extTaxBlockState()',x);
+ assert(s.preview,s.error);assert.equal(JSON.stringify(x.cfg),before,'preview never alters config');assert.equal(refreshes,0);
+ const inputs=JSON.stringify(x.cfg.assumptions.external_tax.inputs);x._taxRulesExpanded=true;x.extTaxBlockApply();
+ assert.equal(refreshes,1);assert.equal(x.cfg.assumptions.external_tax.blocks.length,1);
+ assert.equal(x.cfg.assumptions.external_tax.outputs.current,x.cfg.assumptions.external_tax.blocks[0].outputs.tax);
+ assert.equal(JSON.stringify(x.cfg.assumptions.external_tax.inputs),inputs);
+ assert.equal(x.cfg.assumptions.tax_policy.fiscal_year_end_month,12);assert.equal(x._taxRulesExpanded,false);
+ h=vm.runInContext('externalTaxHtml()',x);assert(h.includes('Actual YTD · annual loss tracking'));assert(h.includes('Source'));
+ const saved=JSON.stringify(x.cfg);x.extTaxBlockEdit(x.cfg.assumptions.external_tax.blocks[0].id);x.extTaxBlockSet('deduct_state',false);x.extTaxBlockCancel();assert.equal(JSON.stringify(x.cfg),saved);
+ // Existing working LTI controls: bulk selection and row layout do not alter economics.
+ const a=html.indexOf('window.nieWorkforceAddLti=function'),b=html.indexOf('function _workforcePiecewiseEditorHtml',a);
+ const wf={roles:[{role:'One',series_id:'one'},{role:'Two',series_id:'two'}],additive_components:[{driver:'salary_vesting',role_series_ids:[],historical_awards:[{model_year:0,amount:1000}]}]};
+ const y={window:{},_ensureWorkforce:()=>wf,_ensureLinkableSeriesIds(){},_wfPiecewise:i=>wf.additive_components[i],renderContent(){},refresh(){},esc:String,_numInput:String,fmtComma:String,lastRes:null};
+ vm.createContext(y);vm.runInContext(html.slice(a,b),y);y.window.nieLtiAll(0,true);assert.equal(wf.additive_components[0].role_series_ids.length,2);y.window.nieLtiAll(0,false);assert.equal(wf.additive_components[0].role_series_ids.length,0);
+ h=y._workforceLtiEditorHtml(wf.additive_components[0],0);assert(h.includes('Select all'));assert(h.includes('Clear all'));assert(h.includes('wf-lti-award-row'));assert(h.includes('wf-lti-add-award'));
+ console.log('PASS annual tax form: named inputs, no guessed state rate, isolated live preview, one apply, preserved inputs, posting, shared calendar, cancel; LTI select/clear and aligned controls');
+})().catch(e=>{console.error(e);process.exit(1)});

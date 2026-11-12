@@ -8,7 +8,7 @@ import ast
 import copy
 import re
 
-KINDS={'loss_carryforward','credit_limit','allocation'}
+KINDS={'loss_carryforward','credit_limit','allocation','annual_state_federal'}
 
 
 def _canonical(expression):
@@ -39,6 +39,9 @@ def _all_refs(expression):
 
 
 def plan(cfg,draft):
+    if isinstance(draft,dict) and draft.get('kind')=='annual_state_federal':
+        from .annual_tax_block import plan_annual
+        return plan_annual(cfg,draft)
     from .external_tax import validate,CONFIGURED_UNITS,RESERVED
     if not isinstance(cfg,dict) or not isinstance(draft,dict):raise ValueError('Configuration and block choices are required')
     candidate=copy.deepcopy(cfg);a=candidate.get('assumptions') or {}

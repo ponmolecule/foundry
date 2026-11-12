@@ -14,7 +14,7 @@ from .series import resolve_entered_series
 OPS=(ast.Add,ast.Sub,ast.Mult,ast.Div)
 FUNCS={'min','max','abs','prior','safe_div'}
 CONFIGURED_UNITS={'configured_tax_rate':'scalar','configured_nol_limit':'scalar','configured_opening_nol':'money'}
-RESERVED=FUNCS|{'bank_pretax','periods_per_year'}|set(CONFIGURED_UNITS)
+RESERVED=FUNCS|{'bank_pretax','periods_per_year','tax_year_start'}|set(CONFIGURED_UNITS)
 
 def configured_value(a,key):
     policy=a.get('tax_policy') or {};detail=a.get('tax_detail') or {}
@@ -102,6 +102,13 @@ def validate(a,cfg):
     for key in configured_refs:
         configured_value(a,key)
         units[key]=CONFIGURED_UNITS[key]
+    if any('tax_year_start' in {node.id for node in ast.walk(t) if isinstance(node,ast.Name)} for t in trees.values()):
+        from .annual_tax_block import validate_calendar
+        validate_calendar(a, cfg)
+        for block in m.get('blocks',[]):
+            if block.get('kind')=='annual_state_federal' and block.get('fiscal_year_end_month')!=(a.get('tax_policy') or {}).get('fiscal_year_end_month',12):
+                raise ValueError('Annual tax calendar changed; preview and apply the annual tax block again')
+        units['tax_year_start']='scalar'
     unknown=set().union(*(references(t) for t in trees.values()))-ids if trees else set()
     if unknown:raise ValueError('Unknown tax source/rule: '+', '.join(sorted(unknown)))
     for t in trees.values():
@@ -185,6 +192,9 @@ class ExternalTaxLedger:
     def evaluate(self,period,pretax):
         if period!=self.last_period+1:raise ValueError('External tax periods must be evaluated and committed in order')
         env={'bank_pretax':number(pretax),'periods_per_year':float(self.ppy)}
+        if 'tax_year_start' in self.units:
+            from .annual_tax_block import start_flag
+            env['tax_year_start']=start_flag(self.cfg, self.a, period, self.ppy)
         for key in CONFIGURED_UNITS:
             if key in self.units:env[key]=configured_value(self.a,key)
         for x in self.m.get('inputs',[]):
@@ -218,9 +228,15 @@ class ExternalTaxLedger:
         deferred=(dtl-self.dtl)-(dta-self.dta)
         payments=current if self.m.get('payment_mode','same_period')=='same_period' else env[out['payments']]
         payable=self.payable+current-payments
-        year,closing=tax_year(self.cfg,period,self.ppy);old=self.rows[-1] if self.rows and self.rows[-1]['year']==year else {}
+        year,closing=tax_year(self.cfg,period,self.ppy, (self.a.get('tax_policy') or {}).get('fiscal_year_end_month',12) if 'tax_year_start' in self.units else 12);old=self.rows[-1] if self.rows and self.rows[-1]['year']==year else {}
         row={k:0. for k in MONEY_SERIES}
         row.update(period=period,year=year,yearEnd=closing,basis='Externally determined tax',tax=current+deferred,nol=0.,taxCurrent=current,taxDeferred=deferred,dtaGross=dta,dtaVA=0.,dtaNet=dta,taxIncomeYtd=old.get('taxIncomeYtd',0)+pretax,taxCurrentYtd=old.get('taxCurrentYtd',0)+current,taxProvisionYtd=old.get('taxProvisionYtd',0)+current+deferred,payments=payments,settlementNet=payable,taxPayable=max(0.,payable),taxReceivable=max(0.,-payable),deferredLiability=dtl,operands=env)
+        for block in self.m.get('blocks',[]):
+            if block.get('kind')=='annual_state_federal' and out.get('current')==(block.get('outputs') or {}).get('tax'):
+                ids=block['outputs']
+                row.update(nol=env[ids['closing']], yearOpeningNol=env[ids['opening']],
+                           nolUsedYtd=env[ids['used']], stateProvision=env[ids['state']],
+                           federalProvision=env[ids['federal']])
         return row
     def commit(self,row):
         if row['period']!=self.last_period+1:raise ValueError('External tax cannot commit twice')
