@@ -256,8 +256,15 @@ def main():
         if r1 != r2 or r1["run_hash"] != r2["run_hash"]:
             print("  T-PRV FAIL: identical config produced different results"); sys.exit(1)
         want = len(cfg["constraints"]) * len(r1["scenarios"])
-        if len(r1["constraint_tests"]) != want:
-            print(f"  A.8 FAIL: {len(r1['constraint_tests'])} constraint tests, expected {want}"); sys.exit(1)
+        # Authored constraints and modeled funding feasibility are separate families.
+        # Preserve exhaustive coverage and reject duplicate or missing scenario checks.
+        authored = [t for t in r1['constraint_tests'] if t['key'] != 'funding_cash_requirement']
+        funding = [t for t in r1['constraint_tests'] if t['key'] == 'funding_cash_requirement']
+        expected = {(c['key'], scen) for c in cfg['constraints'] for scen in r1['scenarios']}
+        if (len(authored) != want or {(t['key'], t['scenario']) for t in authored} != expected
+                or len(funding) != len(r1['scenarios'])
+                or {t['scenario'] for t in funding} != set(r1['scenarios'])):
+            print('  A.8 FAIL: authored constraints or funding feasibility lack exact scenario coverage'); sys.exit(1)
         if not all(abs(sum(x['contribution'] for x in [dict(row) for row in r1['ftp']['rows']])
                        + r1['ftp']['treasury_center'] - r1['ftp']['consolidated_pretax']) < 0.05
                    for _ in [0]):

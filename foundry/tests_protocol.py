@@ -1625,7 +1625,19 @@ def t41():
     cfg2 = _json.loads(_json.dumps(cfg))
     cfg2["assumptions"]["lending_products"] = [dict(cfg2["assumptions"]["lending_products"][0],
         name="CRE tower", call_report_line="loanCRE", opening_balance=900_000_000)]
+    # This legacy concentration fixture assumes financing is available.  Make it
+    # explicit rather than relying on the removed automatic borrowing default.
+    cfg2['assumptions']['funding_shortfall_policy'] = 'automatic_borrowing'
     r2 = run_v2(cfg2)
+    unfunded_cfg = _json.loads(_json.dumps(cfg2))
+    unfunded_cfg['assumptions'].pop('funding_shortfall_policy')
+    unfunded = run_v2(unfunded_cfg)
+    check('T41h', 'the same unfinanced CRE plan exposes a severe funding failure without creating debt',
+          not unfunded['funding']['feasible']
+          and all(v == 0 for v in unfunded['funding']['automatic_borrowing'])
+          and any(f['id'] == 'MOD-FUNDING-SHORTFALL' and f['sev'] == 'severe' for f in unfunded['flags'])
+          and any(t['key'] == 'funding_cash_requirement' and t['scenario'] == 'base' and not t['pass']
+                  for t in unfunded['constraint_tests']))
     cre_row = next(x for x in r2["concentrations"]["rows"] if x["name"].startswith("CRE"))
     check("T41f", "a crafted CRE concentration breaches and raises a severe flag",
           cre_row["status"] == "BREACH"
@@ -1650,7 +1662,19 @@ def t42():
     cfg2 = _json.loads(_json.dumps(cfg))
     cfg2["assumptions"]["lending_products"] = [dict(cfg2["assumptions"]["lending_products"][0],
         name="CRE tower", call_report_line="loanCRE", opening_balance=600_000_000)]
+    # This legacy concentration fixture assumes financing is available.  Make it
+    # explicit rather than relying on the removed automatic borrowing default.
+    cfg2['assumptions']['funding_shortfall_policy'] = 'automatic_borrowing'
     r2 = run_v2(cfg2)
+    unfunded_cfg = _json.loads(_json.dumps(cfg2))
+    unfunded_cfg['assumptions'].pop('funding_shortfall_policy')
+    unfunded = run_v2(unfunded_cfg)
+    check('T42d', 'the same unfinanced CRE plan exposes a severe funding failure without creating debt',
+          not unfunded['funding']['feasible']
+          and all(v == 0 for v in unfunded['funding']['automatic_borrowing'])
+          and any(f['id'] == 'MOD-FUNDING-SHORTFALL' and f['sev'] == 'severe' for f in unfunded['flags'])
+          and any(t['key'] == 'funding_cash_requirement' and t['scenario'] == 'base' and not t['pass']
+                  for t in unfunded['constraint_tests']))
     cre_flag = next((f for f in r2.get("flags") or [] if f.get("id") == "CONC-CRE-RBC"), None)
     check("T42b", "the CRE breach flag carries the severe CLASS (user report: 'as tame as it "
                     "gets' — the advisory badge was a classification-timing bug)",
