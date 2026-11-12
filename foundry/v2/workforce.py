@@ -302,6 +302,9 @@ def normalize_workforce_additive_component(component: Mapping[str, Any] | None, 
     """
     c = dict(component or {})
     drv = str(c.get("driver") or "").strip().lower()
+    if drv == "salary_vesting":
+        from .vesting_compensation import normalize
+        return normalize(c, ppy)
     if drv != WORKFORCE_ADDITIVE_DRIVER:
         raise ValueError("workforce additive component must use the tiered/banded driver")
     from .opex_extensions import (
@@ -411,7 +414,7 @@ def workforce_additive_component_amount(component: Mapping[str, Any], period_ind
     )
     c = component
     i = int(period_index)
-    if c.get("allocation") == "model_year_equal":
+    if c.get("allocation") in {"model_year_equal", "salary_vesting"}:
         if metrics.get("annual_compensation_probe"):
             return 0.0
         row = (metrics.get("annual_compensation_plan") or {}).get(c["component_id"])

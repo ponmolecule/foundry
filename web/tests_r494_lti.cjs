@@ -1,0 +1,18 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync('web/console_v2.html','utf8');
+const start=html.indexOf('window.nieWorkforceAddLti=function'),end=html.indexOf('function _workforcePiecewiseEditorHtml',start);
+const wf={roles:[{role:'Staff',series_id:'staff'}],additive_components:[]};
+const x={window:{},_ensureLinkableSeriesIds:()=>{},_ensureWorkforce:()=>wf,_seriesId:()=> 'test-lti',renderContent:()=>{},refresh:()=>{},esc:String,_numInput:String,fmtComma:String,lastRes:null,_wfPiecewise:j=>wf.additive_components[j]};
+vm.createContext(x);vm.runInContext(html.slice(start,end),x);
+x.window.nieWorkforceAddLti();const c=wf.additive_components[0];
+assert.equal(c.driver,'salary_vesting');assert.equal(c.award_rate,.3);assert.equal(c.cliff_years,1);assert.equal(c.vesting_years,4);
+assert(!Object.hasOwn(c,'historical_awards'));
+const before=JSON.stringify(c);let h=x._workforceLtiEditorHtml(c,0);assert.equal(JSON.stringify(c),before);
+assert(h.includes('Required: enter historical awards'));assert(h.includes('before bonus, benefits'));assert(h.includes('Historical awards before forecast'));
+x.window.nieLtiRole(0,'staff',true);assert.equal(c.role_series_ids[0],'staff');
+x.window.nieLtiHistoryAdd(0);assert.equal(c.historical_awards[0].amount,null);
+x.window.nieLtiHistoryEdit(0,0,'amount','12.3456789');assert(Math.abs(c.historical_awards[0].amount-12345.6789)<1e-9);
+x.window.nieLtiHistoryEdit(0,0,'amount','');assert.equal(c.historical_awards[0].amount,null);
+x.window.nieLtiHistoryRemove(0,0);assert.equal(c.historical_awards.length,0);
+assert(html.includes('+ Long-term incentives'));
+console.log('PASS LTI entry controls, required history, role selection, dollar conversion and inert rendering');

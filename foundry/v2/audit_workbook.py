@@ -1017,6 +1017,17 @@ def _workforce_component_detail_rows(cfg, results, n, ppy, exact=None):
         comp = normalize_workforce_additive_component(raw, ppy)
         name = str(comp.get("name") or f"Component {ci+1}")
         cid = str(comp.get("component_id") or "")
+        if comp.get("allocation") == "salary_vesting":
+            annual = next((x for x in (source.get("workforce") or {}).get("annual_pool_calculations", []) if x.get("component_id") == cid), None)
+            if annual:
+                for i in range(n):
+                    y = annual["years"][i // int(ppy)]
+                    rows.append([name, cid, i+1, model_period_end_date(cfg, i+1, ppy), True,
+                                 None, None, None, "selected_role_base_salary", None, "award_cohorts",
+                                 comp["award_rate"], y["selected_base_pay"], y["award"], None,
+                                 None, None, None, None, y["per_period"],
+                                 f"Award cohorts={y['cohorts']}; cliff={comp['cliff_years']} years; duration={comp['vesting_years']} years. Amounts in dollars; excludes bonus and benefits."])
+            continue
         if comp.get("allocation") == "model_year_equal":
             annual = next((x for x in (source.get("workforce") or {}).get("annual_pool_calculations", []) if x.get("component_id") == cid), None)
             if annual is None:

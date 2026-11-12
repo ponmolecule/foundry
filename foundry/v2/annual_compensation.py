@@ -11,7 +11,7 @@ from .opex_extensions import apply_piecewise_schedule
 
 def enabled(cfg):
     wf = (((cfg.get('assumptions') or {}).get('nie_detail') or {}).get('workforce') or {})
-    return any(c.get('allocation') == 'model_year_equal' for c in wf.get('additive_components') or [])
+    return any(c.get('allocation') == 'model_year_equal' or c.get('driver') == 'salary_vesting' for c in wf.get('additive_components') or [])
 
 
 def build_plan(cfg, projection):
@@ -25,6 +25,13 @@ def build_plan(cfg, projection):
     role_pay = inputs.get('role_base_pay') or {}
     plan = {}
     for c in resolve_workforce_additive_components(wf, ppy):
+        if c.get('driver') == 'salary_vesting':
+            from .vesting_compensation import build
+            cid = c['component_id']
+            if not cid or cid in plan:
+                raise ValueError('Compensation pools require unique stable component IDs')
+            plan[cid] = build(c, role_pay, n, ppy)
+            continue
         if c.get('allocation') != 'model_year_equal':
             continue
         cid = c['component_id']
