@@ -213,6 +213,8 @@ def _conv_balance_components(block):
         for k in ('ending','interest_balance','income','cost'):r[k]=[_k(v) for v in c[k]]
         if 'income_basis' in c:r['income_basis']=[_k(v) for v in c['income_basis']]
         if 'requested_balance' in c:r['requested_balance']=[_k(v) for v in c['requested_balance']]
+        for key in ('prior_quarter_beginning','prior_quarter_ending'):
+            if key in c:r[key]=[_k(v) for v in c[key]]
         rows.append(r)
     return {'components':rows,'units':'$000s; annual_rate, annual_cost_rate and risk_weight are decimal rates'}
 

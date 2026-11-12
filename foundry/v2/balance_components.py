@@ -11,6 +11,26 @@ from .interest_balances import interest_balance_amount
 TREATMENTS = {'cash_allocation', 'residual_cash', 'earning_asset', 'off_book'}
 
 
+def prior_quarter_average(opening, previous_quarter_beginning, ending_history, period_index, ppy):
+    """Average the two boundaries of the preceding modeled quarter, without lookahead.
+
+    Monthly models hold this basis for M1-M3, M4-M6, etc.  Only the first
+    modeled quarter needs an additional historical boundary.  The current
+    period's ending balance is intentionally not an argument.
+    """
+    if ppy not in (4, 12):
+        raise ValueError('Previous-quarter average requires monthly or quarterly cadence')
+    span = int(ppy) // 4
+    first = (int(period_index) // span) * span
+    boundaries = [float(opening)] + list(ending_history)
+    if first >= len(boundaries):
+        raise ValueError('Previous-quarter average is missing modeled balance history')
+    prior_begin = (boundaries[first-span] if first >= span
+                   else float(previous_quarter_beginning))
+    prior_end = boundaries[first]
+    return (max(0., prior_begin) + max(0., prior_end)) / 2., prior_begin, prior_end
+
+
 def validate_model(a):
     m=a.get('balance_components_model') or {}
     if not m or m.get('enabled') is False:return
@@ -29,7 +49,17 @@ def validate_model(a):
             v=float(c.get(k) or 0)
             if not isfinite(v) or v<0:raise ValueError('Balance component '+k+' must be finite and non-negative')
         if float(c.get('risk_weight') or 0)>2.5:raise ValueError('Balance-component risk weight exceeds 250%')
-        if c.get('interest_balance_measure','current_end') not in {'current_end','prior_end','average'}:raise ValueError('Invalid balance-component interest measurement')
+        if c.get('interest_balance_measure','current_end') not in {'current_end','prior_end','average','prior_quarter_average'}:raise ValueError('Invalid balance-component interest measurement')
+        if c.get('interest_balance_measure') == 'prior_quarter_average':
+            if c['treatment'] not in {'cash_allocation','residual_cash'}:
+                raise ValueError('Previous-quarter average is available only for cash components')
+            if int(a.get('periods_per_year') or 4) not in (4,12):
+                raise ValueError('Previous-quarter average requires monthly or quarterly cadence')
+            value = c.get('prior_quarter_opening_balance')
+            if isinstance(value,bool) or not isinstance(value,(int,float)) or not isfinite(value) or value < 0:
+                raise ValueError('Previous-quarter average requires an explicit non-negative previous-quarter beginning balance')
+            if c.get('income_method','balance_yield') != 'balance_yield':
+                raise ValueError('Previous-quarter average prices modeled cash; remove the separate income balance')
         if c.get('income_line','interest') not in {'interest','fee'}:raise ValueError('Invalid balance-component income destination')
         if c.get('cost_line','interest_expense') not in {'interest_expense','operating_expense'}:raise ValueError('Invalid balance-component cost destination')
         if 'cap_at_available_cash' in c:
@@ -264,7 +294,12 @@ class BalanceComponents:
             r=self.rows[c['id']];stock=stocks.get(c['id'],0.)
             if c['treatment']=='residual_cash':stock=max(0.,cash-allocated);has_residual=True
             prior=r['ending'][-1] if r['ending'] else (0. if c.get('prior_interest_initialization')=='zero' else r['opening'])
-            measure=interest_balance_amount(stock,prior,c.get('interest_balance_measure','current_end'))
+            quarter_bounds = None
+            if c.get('interest_balance_measure') == 'prior_quarter_average':
+                measure, qb, qe = prior_quarter_average(r['opening'], c['prior_quarter_opening_balance'], r['ending'], i, self.ppy)
+                quarter_bounds = (qb, qe)
+            else:
+                measure=interest_balance_amount(stock,prior,c.get('interest_balance_measure','current_end'))
             rate=self.value(c.get('yield_spec') or {'value':0},i,bank)
             cost_rate=self.value(c.get('cost_spec') or {'value':0},i,bank)
             enabled=c.get('interest_enabled',True) and (self.model.get('cash_interest_enabled',True) if c['treatment'] in {'cash_allocation','residual_cash'} else True)
@@ -286,6 +321,8 @@ class BalanceComponents:
                 if method=='entered_amount':out[-1]['income_amount_period']=c['income_amount_spec']['period']
                 out[-1]['income_basis']=income_balance if method=='separate_balance_yield' else amount
             if c['id'] in requests:out[-1]['requested_balance']=requests[c['id']]
+            if quarter_bounds is not None:
+                out[-1]['prior_quarter_beginning'], out[-1]['prior_quarter_ending'] = quarter_bounds
         unassigned=0.
         if not has_residual:
             prior_alloc=sum((self.rows[c['id']]['ending'][-1] if self.rows[c['id']]['ending'] else self.rows[c['id']]['opening']) for c in self.components if c['treatment']=='cash_allocation')
@@ -302,6 +339,8 @@ class BalanceComponents:
                 if 'income_amount_period' in x:row['income_amount_period']=x['income_amount_period']
                 row.setdefault('income_basis',[]).append(x['income_basis'])
             if 'requested_balance' in x:row.setdefault('requested_balance',[]).append(x['requested_balance'])
+            for key in ('prior_quarter_beginning','prior_quarter_ending'):
+                if key in x:row.setdefault(key,[]).append(x[key])
 
     def audit(self):return {'components':list(self.rows.values())}
 
