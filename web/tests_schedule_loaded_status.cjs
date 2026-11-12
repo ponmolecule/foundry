@@ -26,5 +26,5 @@ assert.match(html,/\.cac-schedule-loaded\.cac-schedule-incomplete\{[^}]*color:#7
 for(const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new vm.Script(m[1]);
 console.log('PASS schedule loaded status: cadence, missing/extra/invalid values, zeros, horizon changes, both collapsed render paths, no mutation, script syntax');
 
-assert.strictEqual(fs.readFileSync('BUILD_STAMP','utf8').trim(),'foundry-r487-schedule-warning-amber');
+{/* r488: any release from r487 on; a hard-coded stamp failed every later build */const st=fs.readFileSync('BUILD_STAMP','utf8').trim(),m=/^foundry-r(\d+)-/.exec(st);assert(m&&+m[1]>=487,'build stamp '+st);}
 assert.match(html,/background:#FDE68A;border:2px solid #D97706/);

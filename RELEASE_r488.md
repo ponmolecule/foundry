@@ -20,3 +20,5 @@ On a lending product that uses a shared assumption (for example Receivable Advan
 - Updated: web/tests_r366_shared_lending.cjs opens the panel before checking the editor and checks the new impact wording.
 - r453, r454, r455 and r340 shared-assumption tests pass.
 - Reference coverage regenerated.
+- web/tests_schedule_loaded_status.cjs (r487) asserted the exact r487 build stamp, so it failed on any later build. It now accepts any stamp from r487 on.
+- Full suite: 327 files; the 12 failures are the same 12 as r485 and earlier.
