@@ -1,3 +1,7 @@
+# r490 — Securities target schedule layout; cadence changes convert or hold, never relabel
+
+See RELEASE_r490.md. Console only.
+
 # r488 — Shared assumption panel
 
 See RELEASE_r488.md. The shared-assumption editor moves from a disclosure line into a visible panel that names every product using it; product-only settings are labelled. Console only.

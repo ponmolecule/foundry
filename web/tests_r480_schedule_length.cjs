@@ -57,11 +57,13 @@ assert(/^59 of 60 mo · /.test(await page.locator('.bc-editor .fk-spark-bad em')
 await load(62,'month');
 assert.strictEqual(await page.locator('.bc-editor .fk-drawer .eps-warn').first().innerText(),'M61–M62 beyond the 60-month horizon. Schedule has 62 of 60 month values.');
 assert.strictEqual(await page.locator('.bc-editor .fk-drawer .eps-beyond').count(),2);
-// 8. A cadence change keeps entered values and flags the mismatch instead of padding or cutting.
+// 8. r490: a cadence change never relabels values. 60 varying months cannot become quarters, so the quarter
+// schedule starts empty (flagged, not padded or zero-filled) and switching back restores the months.
 await load(60,'month');before=await stored();
 await page.evaluate(P=>faSeriesCadence(P,'quarter'),P);st=await stored();
-assert.strictEqual(st.cadence,'quarter');assert.deepStrictEqual(st.values,before.values,'values untouched');
-assert.strictEqual(await page.locator('.bc-editor .fk-drawer .eps-warn').first().innerText(),'Q21–Q60 beyond the 20-quarter horizon. Schedule has 60 of 20 quarter values.');
+assert.strictEqual(st.cadence,'quarter');assert.deepStrictEqual(st.values,[],'months not relabelled as quarters');
+await page.evaluate(P=>faSeriesCadence(P,'month'),P);st=await stored();
+assert.strictEqual(st.cadence,'month');assert.deepStrictEqual(st.values,before.values,'month values restored');
 // 9. Matching schedules show no flag.
 await load(60,'month');
 assert.strictEqual(await page.locator('.bc-editor .eps-warn').count(),0);assert.strictEqual(await page.locator('.bc-editor .fk-spark-bad').count(),0);
