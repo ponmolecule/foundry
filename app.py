@@ -1910,7 +1910,7 @@ def v2_exhibit(cfg: dict, _=Depends(gate)):
 
 
 @app.post("/api/v2/calculation-audit")
-def v2_calculation_audit(payload: dict, user=Depends(gate)):
+def v2_calculation_audit(payload: dict, _=Depends(gate)):
     """Granular multi-sheet calculation workbook pinned to the displayed preview snapshot.
 
     Backward compatible: callers may still POST the raw config.  The browser posts an envelope
@@ -1957,7 +1957,7 @@ def v2_calculation_audit(payload: dict, user=Depends(gate)):
             from foundry import store as _store
             from foundry.v2 import stress as _stress
             from foundry.v2.stress_export import add_stress_sheets
-            _recs = [_store.load_stress_run(payload["slug"], rid, user=user) for rid in _ids]
+            _recs = [_store.load_stress_run(payload["slug"], rid, user=_) for rid in _ids]
             add_stress_sheets(_wb, _recs, lambda r: _stress.run_state(r, cfg))
         _wb.save(buf)
     except Exception:
