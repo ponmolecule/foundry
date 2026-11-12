@@ -1136,6 +1136,11 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
         for p in obs:
             obs_n[q] += p["_bal"][q]
 
+    from .funding import funding_policy, funding_diagnostics
+    _funding_policy = funding_policy(a)
+    if _bcm:
+        _bcm.allow_cash_shortfall = _funding_policy == "show_shortfall"
+    _required_cash_t = [0.0] * (Q + 1)
     ne_q = [0]
     def plug(dep_carry, dep_bal, net_loans_end, equity_end, msr_end, sec_books_end=0.0, ne=None,
              extra_liab=0.0, other_liab_level=None, required_cash=0.0, extra_assets=0.0):
@@ -1144,10 +1149,11 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
         investable = (funding - net_loans_end - (non_earn if ne is None else ne)
                       - msr_end - sec_books_end - float(extra_assets or 0.0))
         req_cash = max(cash_floor * dep_bal, float(required_cash or 0.0))
+        _required_cash_t[ne_q[0]] = req_cash
         if ne_q[0] == 0 and _switch_opening_reference is not None:
             _opening_sec = _switch_opening_reference['sec'][0]
             _net_cash = investable - _opening_sec
-            _cash = max(req_cash, _net_cash)
+            _cash = max(req_cash, _net_cash) if _funding_policy == "automatic_borrowing" else _net_cash
             return _cash, _opening_sec, _cash - _net_cash
         if investable >= req_cash:
             # Explicit policy owns surplus routing independently of module activation.
@@ -1157,7 +1163,10 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
             if hold_cash:
                 return investable, 0.0, 0.0
             return req_cash, investable - req_cash, 0.0
-        return req_cash, 0.0, req_cash - investable
+        if _funding_policy == "automatic_borrowing":
+            return req_cash, 0.0, req_cash - investable
+        # A negative cash position exposes an unfunded plan; it is not new debt.
+        return investable, 0.0, 0.0
 
     day_one = sum(p["_fvadj"][0] for p in lend if p["_is_fv"])
     # pre-opening burn (Patrick I.9 convention, quarterly-converted at import):
@@ -1184,7 +1193,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                              "otherLiab")}
     bs["cash"][0], bs["sec"][0], bs["borrow"][0] = c0, s0, b0
     if _ibm:
-        bs["affiliatedCash"][0] = c0
+        bs["affiliatedCash"][0] = max(0.0, c0)
     bs["netLoans"][0], bs["re"][0], bs["equity"][0] = net0, day_one, equity0
     bs["afsBook"][0] = sum(p["_bal"][0] for p in afs_p) + _managed_open_afs
     bs["htmBook"][0] = sum(p["_bal"][0] for p in htm_p) + _managed_open_htm
@@ -1225,7 +1234,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                           required_cash=_bc_open.get('cash_allocation', 0), extra_assets=_bc_open.get('earning_asset', 0))
         bs["cash"][0], bs["sec"][0], bs["borrow"][0] = c0, s0, b0
         if _ibm:
-            bs["affiliatedCash"][0] = c0
+            bs["affiliatedCash"][0] = max(0.0, c0)
         bs["totalAssets"][0] = c0 + s0 + sec_books0 + net0 + non_earn + _tax_ledger.opening_dta
     if _bcm:
         _bcm.set_opening_cash(bs['cash'][0])
@@ -1712,12 +1721,14 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                             required_cash=_operating_cash, extra_assets=_frb_stock)
             sec_int = ((beg_s + s) / 2.0) * a.get("securities_yield", 0.0) / ppyf + book_int
             if _ibm:
-                _affiliated_cash = max(0.0, c - _operating_cash)
+                _actual_operating_cash = (min(_operating_cash, max(0.0, c))
+                    if _funding_policy == 'show_shortfall' else _operating_cash)
+                _affiliated_cash = max(0.0, c - _actual_operating_cash)
                 _affiliate_interest_balance = interest_balance_amount(
                     _affiliated_cash, bs["affiliatedCash"][q - 1],
                     _ibm["affiliated_cash_interest_basis"])
                 _operating_interest_balance = interest_balance_amount(
-                    _operating_cash, bs["operatingCash"][q - 1],
+                    _actual_operating_cash, bs["operatingCash"][q - 1],
                     _ibm["operating_cash_interest_basis"])
                 affiliated_cash_int = (_affiliate_interest_balance * _ibm["scenario_rate_spec"][_ib_i] / ppyf
                                        if q >= _ibm["affiliated_cash_interest_start_period"] else 0.0)
@@ -1732,7 +1743,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
             else:
                 _affiliated_cash = c
                 affiliated_cash_int = operating_cash_int = fiduciary_aua_int = frb_stock_int = 0.0
-                cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / ppyf
+                cash_int = ((max(0.0, beg_c) + max(0.0, c)) / 2.0) * a["cash_yield"] / ppyf
             borr_exp = ((beg_b + b) / 2.0) * a.get("borrow_rate_ann", 0.0) / ppyf + sched_int_t[q]
             nii = loan_int + sec_int + cash_int - dep_exp - borr_exp
             _wf_add_values = []
@@ -1862,7 +1873,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
         re += ni
 
         bs["cash"][q], bs["sec"][q], bs["borrow"][q] = c, s, b
-        bs["affiliatedCash"][q], bs["operatingCash"][q], bs["frbStock"][q] = _affiliated_cash, _operating_cash, _frb_stock
+        bs["affiliatedCash"][q], bs["operatingCash"][q], bs["frbStock"][q] = _affiliated_cash, (_actual_operating_cash if _ibm else _operating_cash), _frb_stock
         bs["fiduciaryAuaNonInterest"][q], bs["fiduciaryAuaInterest"][q] = _fid_ni, _fid_ib
         bs["fiduciaryAuaTotal"][q] = _fid_total
         bs["mabCount"][q] = _ibm["mab"][_ib_i] if _ibm else 0.0
@@ -2076,6 +2087,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                    "borrowSched": sched_t,
                    "dta": bs["dta"]},
             "is": {k: v[1:] for k, v in is_.items()}}
+    _out['funding'] = funding_diagnostics(_funding_policy, bs['cash'], _required_cash_t,
+                                           bs['borrow'], sched_t, ppy)
     if _unused_enabled:
         _out['bs']['unusedCommitmentReserve'] = _unused_reserve
         _out['bs']['otherLiab'] = list(bs['otherLiab'])

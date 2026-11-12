@@ -8,9 +8,9 @@ from .tests_fee_quantity_links import fixture, quantities
 
 
 class Tests(unittest.TestCase):
-    def test_r458_full_output_baseline(self):
+    def test_r488_full_output_baseline(self):
         import hashlib
-        manifest=json.loads(Path('foundry/fixtures/r458_all_on_hashes.json').read_text())
+        manifest=json.loads(Path('foundry/fixtures/r488_all_on_hashes.json').read_text())
         for path,expected in manifest['sha256'].items():
             with self.subTest(path=path):
                 result=run_v2(json.loads(Path(path).read_text()))

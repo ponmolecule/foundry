@@ -2023,6 +2023,18 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_wide_rows(wb.create_sheet("Balance Sheet"), cfg,
                      _exact_financial_rows(bs, "Balance Sheet", "$000s EOP", n, include_open=True),
                      title="Balance Sheet · Calculation Audit", subtitle="Unrounded base-engine opening and EOP balances, converted to $000s without display rounding.", n=n, ppy=ppy, include_open=True)
+    if exact.get('funding'):
+        _fd = exact['funding']
+        _funding_rows = [('Funding', label, key,
+            '$000s; diagnostic only' if key not in ('automatic_borrowing','scheduled_borrowing') else '$000s funding balance',
+            [float(v)/1000. for v in _fd[key]], _RAW_NUM_FMT)
+            for key,label in [('cash_position','Cash position (negative = unfunded)'),
+                ('required_cash','Cash requirement'),('cash_shortfall','Shortfall against cash requirement'),
+                ('unfunded_cash','Unfunded cash below zero'),('automatic_borrowing','Automatic borrowing'),
+                ('scheduled_borrowing','Entered borrowing schedule')]]
+        _write_wide_rows(wb.create_sheet('Funding Diagnostics'), cfg, _funding_rows,
+            title='Funding Diagnostics', subtitle='Policy: '+_fd['policy']+'. Negative cash exposes an unfunded plan; it is not a borrowing facility. Diagnostics do not post to equity or liabilities.',
+            n=n, ppy=ppy, include_open=True)
     _write_wide_rows(wb.create_sheet("Fixed Assets"), cfg, _fixed_asset_rows(cfg, exact, n),
                      title="Fixed Assets / CAPEX · Calculation Audit",
                      subtitle="Formula / level or Asset schedule causal bridge to gross PP&E, accumulated depreciation, net PP&E, depreciation and CAPEX/disposal. Formula / level linked drivers remain in native units; monetary values are converted once to $000s.",

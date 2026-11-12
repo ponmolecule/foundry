@@ -206,7 +206,14 @@ class BalanceComponents:
 
     def set_opening_cash(self,cash):
         strict=sum(self.rows[c['id']]['opening'] for c in self.components if c['treatment']=='cash_allocation' and not c.get('cap_at_available_cash'))
-        if strict>cash+1e-6:raise ValueError('Opening allocated cash exceeds available cash')
+        if strict>max(0.,cash)+1e-6:
+            if not getattr(self,'allow_cash_shortfall',False):
+                raise ValueError('Opening allocated cash exceeds available cash')
+            scale=max(0.,cash)/strict
+            for c in self.components:
+                if c['treatment']=='cash_allocation' and not c.get('cap_at_available_cash'):
+                    r=self.rows[c['id']];r['requested_opening']=r['opening'];r['opening']*=scale
+            strict=max(0.,cash)
         left=max(0.,cash-strict)
         for c in self.components:
             if c['treatment']=='cash_allocation' and c.get('cap_at_available_cash'):
@@ -233,14 +240,25 @@ class BalanceComponents:
     def period(self,i,bank,stocks,cash,residual_rate,prior_cash):
         stocks=dict(stocks)
         strict=sum(stocks.get(c['id'],0) for c in self.components if c['treatment']=='cash_allocation' and not c.get('cap_at_available_cash'))
-        if strict>cash+1e-6:raise ValueError('Allocated cash exceeds available cash')
-        left=max(0.,cash-strict);requests={}
+        requests=({c['id']:stocks.get(c['id'],0.) for c in self.components
+                   if c['treatment']=='cash_allocation' and not c.get('cap_at_available_cash')}
+                  if getattr(self,'allow_cash_shortfall',False) else {})
+        if strict>max(0.,cash)+1e-6:
+            if not getattr(self,'allow_cash_shortfall',False):
+                raise ValueError('Allocated cash exceeds available cash')
+            scale=max(0.,cash)/strict
+            for c in self.components:
+                if c['treatment']=='cash_allocation' and not c.get('cap_at_available_cash'):
+                    requests[c['id']]=stocks.get(c['id'],0.)
+                    stocks[c['id']]=requests[c['id']]*scale
+            strict=max(0.,cash)
+        left=max(0.,cash-strict)
         for c in self.components:
             if c['treatment']=='cash_allocation' and c.get('cap_at_available_cash'):
                 requested=stocks.get(c['id'],0);requests[c['id']]=requested
                 stocks[c['id']]=min(requested,left);left-=stocks[c['id']]
         allocated=sum(stocks.get(c['id'],0) for c in self.components if c['treatment']=='cash_allocation')
-        if allocated>cash+1e-6:raise ValueError('Allocated cash exceeds available cash')
+        if allocated>max(0.,cash)+1e-6:raise ValueError('Allocated cash exceeds available cash')
         out=[];has_residual=False
         for c in self.components:
             r=self.rows[c['id']];stock=stocks.get(c['id'],0.)
@@ -271,7 +289,7 @@ class BalanceComponents:
         unassigned=0.
         if not has_residual:
             prior_alloc=sum((self.rows[c['id']]['ending'][-1] if self.rows[c['id']]['ending'] else self.rows[c['id']]['opening']) for c in self.components if c['treatment']=='cash_allocation')
-            unassigned=((cash-allocated)+max(0.,prior_cash-prior_alloc))/2*residual_rate/self.ppy
+            unassigned=(max(0.,cash-allocated)+max(0.,prior_cash-prior_alloc))/2*residual_rate/self.ppy
         if not self.model.get('cash_interest_enabled',True):unassigned=0.
         return out,unassigned
 

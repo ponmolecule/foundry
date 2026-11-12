@@ -870,6 +870,7 @@ def build_fiw(cfg, include_capability_map=False):
         ("Target opening", ch.get("target_opening", ""), "", True),
         ("CBLR election", "yes" if ch.get("cblr_election") else "no", "community bank leverage framework", True),
         ("Initial capital ($000s)", wbunits.to_workbook((cfg.get("target_state") or {}).get("initial_capital", "") or None, "$") if (cfg.get("target_state") or {}).get("initial_capital", "") not in ("", None) else "", "", True),
+        ("Funding shortfall policy", a.get("funding_shortfall_policy", ""), "blank or show_shortfall: no generated debt | automatic_borrowing: explicit opt-in", True),
         ("Surplus allocation policy", a.get("surplus_allocation_policy", ""), "cash | residual_securities (blank preserves legacy treatment)", True),
         ("Scenario name", cfg.get("scenario_name", ""), "", True),
     ] + [(f"Staged raise {i+1} — timing",
@@ -1415,6 +1416,7 @@ CONTROL_PATHS = {
     "CBLR election": ("charter_profile", "cblr_election"),
     "Initial capital ($000s)": ("target_state", "initial_capital"),
     "Initial capital ($)": ("target_state", "initial_capital"),
+    "Funding shortfall policy": ("assumptions", "funding_shortfall_policy"),
     "Surplus allocation policy": ("assumptions", "surplus_allocation_policy"),
     "Scenario name": ("scenario_name",),
 }

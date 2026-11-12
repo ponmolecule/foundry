@@ -209,6 +209,8 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
     _aoci_sens = float(a.get("aoci_sensitivity_annual") or 0.0)
     aoci_cum = 0.0
 
+    from .funding import funding_policy, funding_diagnostics
+    _funding_policy = funding_policy(a)
     def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end, extra_liab=0.0, other_liab_level=None, opening=False):
         uses = gross_end - alll_end + sec_prod_end + _ne[0] - _sched_t[_ne_q[0]]
         _ol = _other_liab_open if other_liab_level is None else float(other_liab_level or 0.0)
@@ -216,8 +218,12 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
         if opening and _switch_opening_reference is not None:
             ref_sec=_switch_opening_reference['sec']
             net_cash=liquid-ref_sec
-            return max(0.,net_cash),ref_sec,max(0.,-net_cash)
+            if _funding_policy == "automatic_borrowing":
+                return max(0.,net_cash),ref_sec,max(0.,-net_cash)
+            return net_cash,ref_sec,0.
         borrow = 0.0
+        if liquid < 0 and _funding_policy != "automatic_borrowing":
+            return liquid, 0.0, 0.0
         if liquid < 0:
             borrow = -liquid
             liquid = 0.0
@@ -228,6 +234,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
     _ne = [non_earn]
     _ne_q = [0]
     cash, sweep, borrow = plug(gl0, alll, sec0, dep0, equity, opening=True)
+    _funding_open_cash, _funding_open_borrow = cash, borrow
     prev_assets = cash + sweep + sec0 + (gl0 - alll) + non_earn
 
     out_bs = {k: [] for k in ("cash", "afs", "htm", "grossLoans", "alll", "netLoans",
@@ -246,6 +253,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
     if _tax_ledger.opening_dta:
         _ne[0] += _tax_ledger.opening_dta
         cash, sweep, borrow = plug(gl0, alll, sec0, dep0, equity, opening=True)
+        _funding_open_cash, _funding_open_borrow = cash, borrow
         prev_assets = cash + sweep + sec0 + (gl0 - alll) + _ne[0]
 
     _scenario_opening=dict(cash=cash,sec=sweep,borrow=borrow,netLoans=gl0-alll,deposits=dep0,equity=equity)
@@ -258,7 +266,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
         int_loans = sum(p["_avg"][qi] * _prod_rate(p, q, _rate) / 4.0 for p in lend)
         int_sec_prod = sum(p["_avg"][qi] * (p.get("yield_ann") or 0.0) / 4.0 for p in afs_p + htm_p)
         int_sweep = sweep * a["sweep_securities_yield"] / 4.0          # beginning balance
-        int_cash = cash * a["cash_yield"] / 4.0                        # beginning balance
+        int_cash = max(0.0, cash) * a["cash_yield"] / 4.0                        # beginning balance
         int_dep = sum(p['_interest_expense'][qi] if '_minimum_interest' in p else p["_avg"][qi] * _deposit_rate(p, q, _rate) / 4.0 for p in dep)
         from .source_catalog import financial_observations
         _financial_obs=financial_observations(dep,qi,_curves,profile_b=True,rate_fn=lambda p: _deposit_rate(p,q,_rate),ppy=4)
@@ -515,6 +523,9 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
     if _ol_prepared is None:
         out_bs.pop("otherLiab", None)
     _out = {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios, "tax_interim": _tax_ledger.audit()}
+    _fund_cash = [_funding_open_cash] + list(out_bs['cash'])
+    _out['funding'] = funding_diagnostics(_funding_policy, _fund_cash,
+        [0.] * len(_fund_cash), [_funding_open_borrow] + list(out_bs['borrowings']), _sched_t, 4)
     if _switch_capture_opening or cfg.get('_component_switches_prepared'):
         _out['scenario_opening']=_scenario_opening
     if _oa_prepared is not None:

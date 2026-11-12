@@ -222,7 +222,8 @@ def _conv(tree, is_ratio=False, raw=False):
     # displayed ratio). It must pass through at full precision: rounding it to 2 decimals turned
     # 0.037 into 0.04 and threw off every product's FTP/contribution vs the reference model.
     if isinstance(tree, dict):
-        return {k: (_conv_balance_components(v) if k == "balance_components" else
+        return {k: (v if k == "funding" else
+                    _conv_balance_components(v) if k == "balance_components" else
                     _conv_tax_interim(v) if k == "tax_interim" else
                     _conv_fixed_assets(v) if k == "fixed_assets" else
                     _conv_workforce(v) if k == "workforce" else

@@ -1,0 +1,18 @@
+{
+  "release": "r488",
+  "reason": "Explicit funding policy defaults to no automatic debt; added funding diagnostics, scenario feasibility and flags. Old manifest retained.",
+  "serialization": "sha256(json.dumps(run_v2(config), sort_keys=True, default=str).encode())",
+  "sha256": {
+    "foundry/fixtures/core_bank_test_base.json": "d67bbce28ce782f466dd8d16ef0c58a1de6badabcb2f8d3f28ed0ba73897c85f",
+    "foundry/fixtures/parity/configs/pf_a_base.json": "3bba5cf50f64409659cd25b311dbb407508244a8b847fd14d70f83eeddfdb84f",
+    "foundry/fixtures/parity/configs/pf_a_combined_stress.json": "8938ea12113bc4869574905d65f35250d3adc8e11f639c79d10aea3884c853e4",
+    "foundry/fixtures/parity/configs/pf_a_fv_election.json": "93833ae9fc3fc8bff0926b1ada3b98c9526292f07c563d299091909740e7aab6",
+    "foundry/fixtures/parity/configs/pf_a_ots_msr.json": "ed5115972fe6f5d524ce7bd1519d24b4c1afde3b282f27c2cecaf4f67d9a8f47",
+    "foundry/fixtures/parity/configs/pf_a_warning_heavy.json": "20b97a24a50c48ec1bb88c9fec6761a2eee49b86dd331be2aae1f028430508c7",
+    "foundry/fixtures/parity/configs/pf_b_base.json": "826cdee308b8858b6e66091ce06fa5082e1ec846f7c6774d2328d23d55abb1f8",
+    "foundry/fixtures/parity/configs/pf_b_htm_securities.json": "d71602b677f1ad21f7e5f2d69661fe0918b69c976965eea3323cf7b6d45bcef6",
+    "foundry/fixtures/parity/configs/pf_b_overrides.json": "43649ac96cbc3ee95dc8f962a336395cf66adcee4240f6f5c8983a5c7fd65d16",
+    "foundry/fixtures/parity/configs/pf_b_reserve_build.json": "e707b2eab315e55da983be5df22b303bf2148253c60fed04b16b2dfaae457306",
+    "foundry/fixtures/universal_template_bank.json": "c81a43fa56cf80983dcce90f5ebab77d9075f01dcd2993216e117c21531c1081"
+  }
+}

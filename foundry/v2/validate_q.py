@@ -217,6 +217,8 @@ def _validate_config_v2(cfg):
             FeeLinkPlan(a)
         except (ValueError, TypeError, KeyError) as exc:
             errs.append("Fee quantity links: " + str(exc))
+    if a.get("funding_shortfall_policy", "show_shortfall") not in ("show_shortfall", "automatic_borrowing"):
+        errs.append("funding_shortfall_policy must be show_shortfall or automatic_borrowing")
     if a.get("surplus_allocation_policy") not in (None, "cash", "residual_securities", "legacy_split"):
         errs.append("surplus_allocation_policy must be cash or residual_securities")
     if a.get("surplus_allocation_policy") == "legacy_split" and cfg.get("parity_profile") != "pf_b":

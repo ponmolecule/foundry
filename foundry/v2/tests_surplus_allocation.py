@@ -25,8 +25,10 @@ def main():
     a['surplus_allocation_policy']='cash';a['securities_afs']=[{'name':'Authored','opening':5_000_000,'yield_ann':0,'growth_per_period':0,'maturity_runoff_per_period':0}]
     r=run_pf_a(copy.deepcopy(c));assert r['bs']['afsBook'][0]==5_000_000
     assert r['bs']['cash'][0]==25_000_000 and r['bs']['sec'][0]==0
-    # A funding deficit still borrows to cover explicit assets.
+    # Default exposes a deficit; automatic financing must be explicitly selected.
     a['securities_afs'][0]['opening']=35_000_000
+    r=run_pf_a(copy.deepcopy(c));assert r['bs']['cash'][0]==-5_000_000 and r['bs']['borrow'][0]==0
+    a['funding_shortfall_policy']='automatic_borrowing'
     r=run_pf_a(copy.deepcopy(c));assert r['bs']['cash'][0]==0 and r['bs']['borrow'][0]==5_000_000
     # Explicit policy overrides module presence; authored portfolio remains intact.
     from .tests_managed_securities import _cfg

@@ -28,6 +28,17 @@ def _peer_annotated_flags(cfg, base):
     (no DB configured, band miss) returns the plain static flags unchanged, so a
     substrate outage never suppresses or breaks a flag."""
     flags = challenge_config(cfg)
+    funding = base.get('funding') or {}
+    if funding and not funding.get('feasible', True):
+        first = funding['first_shortfall_period']
+        label = 'Opening' if first == 0 else ('M' if funding['periods_per_year'] == 12 else 'Q' if funding['periods_per_year'] == 4 else 'Y') + str(first)
+        flags.append({'id':'MOD-FUNDING-SHORTFALL','sev':'severe','cls':'modeled',
+            'text':f"Unfunded plan: cash requirement first breached at {label}; peak shortfall ${funding['max_cash_shortfall']:,.2f}. No automatic borrowing was created. Negative cash is an unfunded position, not an available overdraft.",
+            'basis':'modeled funding; opening and every forecast period'})
+    elif funding.get('policy') == 'automatic_borrowing' and max(funding.get('automatic_borrowing') or [0.]) > .005:
+        flags.append({'id':'MOD-AUTOMATIC-BORROWING','sev':'advisory','cls':'modeled',
+            'text':f"Automatic borrowing is explicitly enabled; peak generated balance ${max(funding['automatic_borrowing']):,.2f}. This financing is separate from entered borrowing schedules.",
+            'basis':'explicit funding policy'})
     # Durbin $10B threshold-cross (needs the MODELED balance sheet, which challenge_config lacks):
     # the small-issuer exemption behind any interchange assumption holds only while assets are under
     # $10B. If the modeled path actually reaches $10B, the exemption no longer applies and the assumed
@@ -233,6 +244,9 @@ def _scen_metrics(res, cfg, commit):
         i = ep if lev_has_open else ep - 1
         lev_submission_q.append(lev[i] if 0 <= i < len(lev) else None)
     return {
+        "funding_feasible": (res.get('funding') or {}).get('feasible', True),
+        "funding_first_shortfall_period": (res.get('funding') or {}).get('first_shortfall_period'),
+        "funding_max_cash_shortfall": (res.get('funding') or {}).get('max_cash_shortfall', 0.) / 1000.,
         # Historical names consumed by the regulator-facing 12-quarter scenario matrix.
         "cum_ni": tot("ni", sub_p), "ni_q12": _at_flow("ni"),
         "cum_prov": tot("prov", sub_p) or tot("provision", sub_p),
@@ -475,6 +489,12 @@ def _capital_shortfall_estimate(cfg, scen_results):
 def _constraint_tests(cfg, scen_results):
     """A.8 — every constraint, every scenario, source cited."""
     tests = []
+    for scen, res in scen_results.items():
+        funding = res.get('funding') or {}
+        if funding:
+            tests.append({'key':'funding_cash_requirement', 'scenario':scen,
+                'value':funding['max_cash_shortfall']/1000., 'threshold':0.,
+                'pass':funding['feasible'], 'source':'Opening and every forecast cash requirement; $000s'})
     for c in cfg["constraints"]:
         for scen, res in scen_results.items():
             if c["key"] == "leverage_min":
@@ -642,6 +662,7 @@ def _run_v2(cfg):
                    "config_version": cfg.get("config_version"),
                    "config_frozen": cfg.get("config_frozen")},
         "financials": {"bs": base["bs"], "is": base["is"], "ratios": base.get("ratios")},
+        "funding": copy.deepcopy(base.get("funding") or {}),
         "products": base.get("products"),
         "tax_interim": base.get("tax_interim"),
         **({"deposit_retention_pools": base["deposit_retention_pools"]}

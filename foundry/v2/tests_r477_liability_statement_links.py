@@ -35,7 +35,7 @@ class Tests(unittest.TestCase):
      self.assertEqual(comp['terms'][0]['observation'],'quarter_to_date')
  def test_borrowing_feedback(self):
   c=json.loads(Path('foundry/fixtures/core_bank_test_base.json').read_text())
-  a=c['assumptions'];a.update(other_liabilities_mode='formula_level',other_liabilities_model=model(),borrow_rate_ann=.08)
+  a=c['assumptions'];a.update(funding_shortfall_policy='automatic_borrowing',other_liabilities_mode='formula_level',other_liabilities_model=model(),borrow_rate_ann=.08)
   c.setdefault('target_state',{})['initial_capital']=1000
   for dep in a['deposit_products']:dep.update(opening_balance=0,new_deposits_per_period=0)
   r=run_v2(c);inc=r['financials']['is'];self.assertGreater(max(r['financials']['bs']['borrow']),0)

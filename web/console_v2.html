@@ -6103,6 +6103,7 @@ function normalizeCfg(c){
   // Every stream needs an identity for its own result, independently of link eligibility.
   ["obs_exposures","lending_products","deposit_products"].forEach(k=>(c.assumptions[k]||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{if(st&&!st.quantity_series_id)st.quantity_series_id=_seriesId("fee-qty");})));
   // Freeze the previous treatment on import; future module toggles cannot change it.
+  if(c.assumptions.funding_shortfall_policy==null)c.assumptions.funding_shortfall_policy="show_shortfall";
   if(c.assumptions.surplus_allocation_policy==null)c.assumptions.surplus_allocation_policy=_surplusAllocationPolicy(c);
   c.assumptions.obs_exposures = c.assumptions.obs_exposures || [];
   // Migrate legacy monthly fixed-opex (opex_fixed_m) to the canonical quarterly key (opex_fixed_per_period).
@@ -6539,7 +6540,18 @@ try{const width=Number(localStorage.getItem('foundry.productSidebarWidth'));if(N
 function prdResizeStart(event){if(event.button!==0)return;event.preventDefault();const handle=event.currentTarget,shell=handle.closest('.prd-shell'),left=shell.getBoundingClientRect().left;handle.setPointerCapture(event.pointerId);document.body.classList.add('prd-resizing');const move=e=>prdSidebarWidth(e.clientX-left);const end=()=>{document.body.classList.remove('prd-resizing');handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',end);handle.removeEventListener('pointercancel',end);handle.removeEventListener('lostpointercapture',end);};handle.addEventListener('pointermove',move);handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);handle.addEventListener('lostpointercapture',end);}
 function prdResizeKey(event){if(!['ArrowLeft','ArrowRight','Home'].includes(event.key))return;event.preventDefault();const current=event.currentTarget.closest('.prd-shell').querySelector('.prd-nav').getBoundingClientRect().width;prdSidebarWidth(event.key==='Home'?300:current+(event.key==='ArrowRight'?20:-20));}
 function refreshProductValidation(){const e=document.getElementById('productValidation');if(e)e.innerHTML=productValidationHtml(!!window._prdLastGood);document.querySelector('.prd-shell')?.classList.toggle('prd-stale',!lastRes&&!!window._prdLastGood);}
+function fundingWarningHtml(f){
+ if(!f||!Object.keys(f).length)return '';
+ if(f.feasible===false){const p=f.first_shortfall_period,label=p===0?'Opening':(f.periods_per_year===12?'M':f.periods_per_year===4?'Q':'Y')+p;
+ return `<div class="prd-banner" role="alert"><b>Unfunded plan.</b> First cash-requirement breach: ${esc(label)}. Peak shortfall: $${Number(f.max_cash_shortfall).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}. No automatic borrowing created. Negative cash shows an unfunded position; these results are not a funded plan.</div>`;}
+ const peak=Math.max(0,...(f.automatic_borrowing||[]));
+ return f.policy==='automatic_borrowing'&&peak>.005?`<div class="prd-banner" role="status"><b>Automatic borrowing enabled.</b> Peak generated financing: $${peak.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}. Entered borrowing is reported separately.</div>`:'';
+}
 function paintChrome(){
+ const content=document.getElementById('content');let notice=document.getElementById('fundingWarning');
+ if(content&&!notice){notice=document.createElement('div');notice.id='fundingWarning';content.before(notice);}
+ if(notice)notice.innerHTML=fundingWarningHtml(lastRes?.funding);
+
   document.getElementById("status").textContent = lastRes ? "engine run " + lastRes.run_hash : (lastRunFailure ? "engine run failed" : "fail-closed: configuration incomplete");
   document.getElementById("rhash").innerHTML = lastRes ?
     `config <b>${lastRes.config_hash}</b> &nbsp; run <b>${lastRes.run_hash}</b>` : (lastRunFailure ? `<span style="color:#E2856D">run failed</span>` : `<span style="color:#DEAE61">validation pending</span>`);
@@ -13447,6 +13459,7 @@ function _precedenceZero(r){
 }
 // The verdict call word, from constraint/flag STATE. meets/does-not-meet only.
 function _verdictCall(r){
+  if(r?.funding?.feasible===false)return {call:"Unfunded plan — cash requirement breached",cls:"bad",gated:true};
   const p0 = _precedenceZero(r); if(p0) return {call:p0, cls:"bad", gated:true};
   const ct = (r.constraint_tests||[]);
   const baseFails = ct.filter(t=>t.scenario==="base" && t.pass===false);
@@ -13570,7 +13583,7 @@ function _verdictBlock(r){
   const ct = (r.constraint_tests||[]);
   const commit = (((cfgRef().constraints||[]).find(c=>c.key==="leverage_min")||{}).value)*100;
   const scenTotal = new Set(ct.map(t=>t.scenario)).size;
-  const scenFail = new Set(ct.filter(t=>!t.pass).map(t=>t.scenario)).size;
+  const scenFail = new Set(ct.filter(t=>!t.pass&&t.key==="leverage_min").map(t=>t.scenario)).size;
   let lines = "";
   if(!v.gated){
     // binding reason — frame by whether leverage is actually a concern. When the plan breaches (or
@@ -13981,7 +13994,7 @@ function renderOverviewClassic(){
   (r.constraint_tests||[]).forEach(t=>{
     const lbl = ((r.scenarios||{})[t.scenario]||{}).label || t.scenario;
     h += `<tr><td>${esc(lbl)}</td><td style="font-family:var(--mono);font-size:11px;color:#5E5E5B">${esc(t.key)}</td>`+
-      `<td class="num">${t.value==null?"n/m":(t.value*100).toFixed(2)+"%"}</td><td class="num">${(t.threshold*100).toFixed(1)}%</td>`+
+      `<td class="num">${t.value==null?"n/m":t.key==='funding_cash_requirement'?'$'+t.value.toLocaleString('en-US',{maximumFractionDigits:3})+'k':(t.value*100).toFixed(2)+"%"}</td><td class="num">${t.key==='funding_cash_requirement'?'$0k':(t.threshold*100).toFixed(1)+'%'}</td>`+
       `<td><span class="ovtag ${t.pass?"ok":"bad"}">${t.pass?"pass":"FAIL"}</span></td>`+
       `<td style="font-family:var(--mono);font-size:11px;color:#5E5E5B">${esc((t.source||"").replace(/\s*\(edit with citation\)\s*/i,"").trim())}</td></tr>`;
   });
@@ -14770,7 +14783,7 @@ function _renderContentBody(){
     if(view.width>1)h+='<div class="srcnote">Period-end balances, not sums. Opening stays separate; partial periods use their last modeled date and are labelled.</div>';
     h += '<table class="fin">' + headerRow(bsHasOpen, false);
     h += `<tr class="section"><td colspan="${finColspan(bsHasOpen,false)}">Assets</td></tr>`;
-    h += rowBS('Cash & Due from Banks', arr12(fin.bs.cash, bsHasOpen), null, 'cash');
+    h += rowBS('Cash position / unfunded if negative', arr12(fin.bs.cash, bsHasOpen), null, 'cash');
     if(fin.bs.affiliatedCash) h += rowBS('&nbsp;&nbsp;Cash at affiliated depository bank', arr12(fin.bs.affiliatedCash, bsHasOpen), null, 'affiliatedCash');
     if(fin.bs.operatingCash) h += rowBS('&nbsp;&nbsp;Operating cash', arr12(fin.bs.operatingCash, bsHasOpen), null, 'operatingCash');
     if(fin.bs.frbStock) h += rowBS('Capital Stock in Federal Reserve Bank', arr12(fin.bs.frbStock, bsHasOpen), null, 'frbStock');
@@ -18386,6 +18399,7 @@ function structuresSectionsHtml(){
 
     { const A4 = cfg.assumptions;
       h += `<div class="sec-major-section sec-funding-panel"><div class="sec-major-title">Funding &amp; balance-sheet settings</div><div class="cfg-setting-group"><h3>Funding allocation</h3><p class="cfg-group-note">Set how unallocated funds, cash reserves and borrowing are priced.</p><div class="cfg-setting-fields">`;
+      h += `<div class="crow" style="align-items:center">Funding shortfall<select aria-label="Funding shortfall policy" onchange="cfg.assumptions.funding_shortfall_policy=this.value;renderContent();refresh()"><option value="show_shortfall"${(A4.funding_shortfall_policy||'show_shortfall')==='show_shortfall'?' selected':''}>Show shortfall — no automatic borrowing</option><option value="automatic_borrowing"${A4.funding_shortfall_policy==='automatic_borrowing'?' selected':''}>Explicitly allow automatic borrowing</option></select></div><p class="cmut">Default: expose unfunded cash and cash-floor breaches. Entered borrowing schedules remain active. A shortfall is not a financing facility.</p>`;
       h += `<div class="crow" style="align-items:center">Unallocated funding<select aria-label="Unallocated funding" onchange="cfg.assumptions.surplus_allocation_policy=this.value;renderContent();refresh()"><option value="cash"${_surplusAllocationPolicy(cfg)==='cash'?' selected':''}>Hold in cash</option><option value="residual_securities"${_surplusAllocationPolicy(cfg)==='residual_securities'?' selected':''}>Invest surplus in securities</option>${cfg.parity_profile==='pf_b'?`<option value="legacy_split"${_surplusAllocationPolicy(cfg)==='legacy_split'?' selected':''}>Preserved legacy split</option>`:''}</select></div>`;
       h += `<div class="cmut" style="margin-bottom:8px">${_surplusAllocationDescription()}</div>`;
       h += `<div class="crow" style="align-items:center">Cash floor<input type="number" step="0.1" style="width:56px" value="${((A4.cash_target_pct_deposits||0)*100).toFixed(1)}" onchange="cfg.assumptions.cash_target_pct_deposits=_pf(this.value)/100;refresh()"><span class="cu">% of deposits</span></div>`;
