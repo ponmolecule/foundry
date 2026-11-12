@@ -1,3 +1,7 @@
+# r496 — Tax sources as aligned rows
+
+See RELEASE_r496.md. Closed sources are one aligned row; open sources put all settings on one line above the value editor. Console only.
+
 # r495 — Disclosures that look openable
 
 See RELEASE_r495.md. One stylesheet block: plain disclosures become bordered chevron controls, opening section headers get a chevron box, row editors read as links. Console only.
