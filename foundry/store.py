@@ -327,3 +327,39 @@ def start_tracking(slug, user=None):
 
 def is_saved(slug, user=None):
     return os.path.exists(os.path.join(_dir(user), slugify(slug) + ".json"))
+
+
+# ---------------------------------------------------------------- r498 stress run records
+def _stress_dir(slug, user=None):
+    d = os.path.join(_dir(user), "_stress_runs", slugify(slug))
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def save_stress_run(slug, record, user=None):
+    """Store one stress run record (evidence is kept automatically, independent of exports)."""
+    rid = re.sub(r"[^a-z0-9]", "", str(record.get("run_id") or "").lower())
+    if not rid:
+        raise ValueError("run record needs a run_id")
+    _atomic_json(os.path.join(_stress_dir(slug, user), rid + ".json"), record)
+    return rid
+
+
+def list_stress_runs(slug, user=None):
+    d = _stress_dir(slug, user)
+    out = []
+    for name in sorted(os.listdir(d)):
+        if name.endswith(".json"):
+            try:
+                with open(os.path.join(d, name), encoding="utf-8") as f:
+                    out.append(json.load(f))
+            except (OSError, ValueError):
+                continue
+    out.sort(key=lambda r: r.get("started_at") or "", reverse=True)
+    return out
+
+
+def load_stress_run(slug, run_id, user=None):
+    rid = re.sub(r"[^a-z0-9]", "", str(run_id or "").lower())
+    with open(os.path.join(_stress_dir(slug, user), rid + ".json"), encoding="utf-8") as f:
+        return json.load(f)

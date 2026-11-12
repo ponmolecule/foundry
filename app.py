@@ -1590,6 +1590,110 @@ def v31_fields(activations: str = "", _=Depends(gate)):
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+# ---------------------------------------------------------------- r498 stress testing
+def _stress_scenario(cfg, sid):
+    sc = next((s for s in (cfg.get("stress_scenarios") or []) if s.get("id") == sid), None)
+    if sc is None:
+        raise ValueError(f"scenario {sid!r} is not saved in this configuration")
+    return sc
+
+
+@app.post("/api/v31/stress/targets")
+def v31_stress_targets(body: dict, user=Depends(gate)):
+    """Inputs a scenario can shock, by stable identity. Read-only."""
+    from foundry.v2 import stress
+    try:
+        return JSONResponse({"targets": stress.targets(body.get("cfg") or {}), "base_fingerprint": stress.base_fingerprint(body.get("cfg") or {})})
+    except (ValueError, TypeError, KeyError) as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+
+@app.post("/api/v31/stress/probe")
+def v31_stress_probe(body: dict, user=Depends(gate)):
+    """Executed check for one input: rewritten with no shock, does it reproduce the base exactly?"""
+    from foundry.v2 import stress
+    try:
+        return JSONResponse(stress.probe_target(body.get("cfg") or {}, body.get("target")))
+    except (ValueError, TypeError, KeyError) as e:
+        return JSONResponse({"ok": False, "reason": str(e)}, status_code=422)
+
+
+@app.post("/api/v31/stress/check")
+def v31_stress_check(body: dict, user=Depends(gate)):
+    from foundry.v2 import stress
+    try:
+        cfg = body.get("cfg") or {}
+        return JSONResponse(stress.check_scenario(cfg, _stress_scenario(cfg, body.get("scenario_id"))))
+    except (ValueError, TypeError, KeyError) as e:
+        return JSONResponse({"ok": False, "errors": [str(e)]}, status_code=422)
+
+
+@app.post("/api/v31/stress/run")
+def v31_stress_run(body: dict, user=Depends(gate)):
+    """Run saved scenarios on copies of the base. Records are stored when the engagement is saved."""
+    from foundry import store
+    from foundry.v2 import stress
+    cfg = body.get("cfg") or {}
+    slug = body.get("slug")
+    out, stored = [], False
+    try:
+        base_cfg = {k: v for k, v in cfg.items() if k != "stress_scenarios"}
+        base_res = stress._engine_run(base_cfg)
+        for item in body.get("runs") or []:
+            sc = _stress_scenario(cfg, item.get("scenario_id"))
+            out += stress.run_scenario(cfg, sc, item.get("severities"), base_res=base_res,
+                                       attribution=bool(body.get("attribution", True)))
+    except (ValueError, TypeError, KeyError) as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    if slug:
+        try:
+            for r in out:
+                store.save_stress_run(slug, r, user=user)
+            stored = True
+        except (OSError, ValueError):
+            stored = False
+    for r in out:
+        r["state"] = stress.run_state(r, cfg)
+    return JSONResponse({"records": out, "stored": stored})
+
+
+@app.post("/api/v31/stress/runs")
+def v31_stress_runs(body: dict, user=Depends(gate)):
+    """Stored run records for an engagement, each marked current, stale or failed against the given config."""
+    from foundry import store
+    from foundry.v2 import stress
+    cfg, slug = body.get("cfg") or {}, body.get("slug")
+    if not slug:
+        return JSONResponse({"records": []})
+    recs = store.list_stress_runs(slug, user=user)
+    for r in recs:
+        r["state"] = stress.run_state(r, cfg)
+    return JSONResponse({"records": recs})
+
+
+@app.post("/api/v31/stress/export")
+def v31_stress_export(body: dict, user=Depends(gate)):
+    """Workbook of stored run records (or records passed for an unsaved engagement). No re-run."""
+    import io as _io
+    from fastapi.responses import StreamingResponse
+    from foundry import store
+    from foundry.v2 import stress
+    from foundry.v2.stress_export import stress_workbook
+    cfg, slug, ids = body.get("cfg") or {}, body.get("slug"), body.get("run_ids") or []
+    if slug:
+        try:
+            recs = [store.load_stress_run(slug, rid, user=user) for rid in ids]
+        except (OSError, ValueError):
+            return JSONResponse({"error": "a selected run record is not stored"}, status_code=404)
+    else:
+        recs = [r for r in (body.get("records") or []) if not ids or r.get("run_id") in ids]
+    buf = _io.BytesIO()
+    stress_workbook(recs, lambda r: stress.run_state(r, cfg)).save(buf)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f'attachment; filename="{_engagement_slug(cfg)}_stress_runs.xlsx"'})
+
+
 @app.post("/api/v31/tax-blocks/preview")
 def v31_tax_blocks_preview(body: dict, user=Depends(gate)):
     """Read-only planning; returns an isolated candidate, never saves or runs it."""
@@ -1806,7 +1910,7 @@ def v2_exhibit(cfg: dict, _=Depends(gate)):
 
 
 @app.post("/api/v2/calculation-audit")
-def v2_calculation_audit(payload: dict, _=Depends(gate)):
+def v2_calculation_audit(payload: dict, user=Depends(gate)):
     """Granular multi-sheet calculation workbook pinned to the displayed preview snapshot.
 
     Backward compatible: callers may still POST the raw config.  The browser posts an envelope
@@ -1846,7 +1950,16 @@ def v2_calculation_audit(payload: dict, _=Depends(gate)):
 
     buf = _io.BytesIO()
     try:
-        calculation_audit_workbook(cfg, results).save(buf)
+        _wb = calculation_audit_workbook(cfg, results)
+        # r498: stored stress run records travel with the audit workbook when asked for.
+        _ids = payload.get("stress_run_ids") if isinstance(payload.get("config"), dict) else None
+        if _ids and payload.get("slug"):
+            from foundry import store as _store
+            from foundry.v2 import stress as _stress
+            from foundry.v2.stress_export import add_stress_sheets
+            _recs = [_store.load_stress_run(payload["slug"], rid, user=user) for rid in _ids]
+            add_stress_sheets(_wb, _recs, lambda r: _stress.run_state(r, cfg))
+        _wb.save(buf)
     except Exception:
         import logging, uuid
         incident = uuid.uuid4().hex[:12]
