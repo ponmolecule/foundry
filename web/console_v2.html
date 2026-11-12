@@ -3453,6 +3453,23 @@ tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.ope
 .lnv-mc .sel{align-self:flex-start;font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:2px 7px;border-radius:3px;border:1px solid #D8D5CE;color:#76736C;background:#fff}
 .lnv-mc.on .sel{border-color:#2C2C2C;background:#2C2C2C;color:#fff}
 .loan-linked-warn{color:#9A3412}
+.shared-panel{border:1px solid #2C2C2C;border-radius:3px;margin:14px 0 18px;background:#fff}
+.shared-panel-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 12px;background:#F7F7F7;border-bottom:1px solid #D8D8D8}
+.shared-panel.open .shared-panel-head{background:#F5ECDD;border-bottom-color:#DFB367}
+.shared-tag{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;background:#2C2C2C;color:#F5F5F3;white-space:nowrap}
+.shared-tag.local{background:#fff;color:#4A4A4A;border:1px solid #C4C4C4}
+.shared-panel-title{display:flex;flex-direction:column;min-width:0;flex:1 1 220px}
+.shared-panel-title b{font-weight:600;color:#2C2C2C}
+.shared-panel-title span{font-size:12px;color:#666666}
+.shared-uses-count{font-size:12px;font-weight:600;color:#4A4A4A;white-space:nowrap}
+.shared-edit-btn{font:inherit;font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:3px;border:1px solid #2C2C2C;background:#2C2C2C;color:#F5F5F3;cursor:pointer;min-height:32px}
+.shared-panel.open .shared-edit-btn{background:#fff;color:#2C2C2C}
+.shared-edit-btn:focus-visible{outline:2px solid #1F5FBF;outline-offset:2px}
+.shared-use-list{list-style:none;margin:0;padding:8px 12px;display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:#343434}
+.shared-use-fam{color:#666666;font-size:11.5px}
+.shared-impact{margin:0 12px 10px;padding:8px 10px;border:1px solid #DFB367;background:#FDFBF6;border-radius:3px;font-size:12.5px;color:#343434}
+.shared-panel-body{padding:4px 12px 12px}
+.shared-local-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 10px;font-size:12px;color:#666666}
 .lnv-mc .t{font-size:13px;font-weight:600;color:#1F1F1E}.lnv-mc .s{font-size:11.5px;color:#4A4945;line-height:1.5}
 .lnv-mc .f{font:11px/1.6 var(--mono);color:#4A4945;background:#FAFAF8;border-left:2px solid #C9A04E;padding:5px 8px;margin-top:4px}
 .lnv-mc .u{font-size:11px;color:#76736C}.lnv-mc .was{font-size:10.5px;color:#A3A09A;margin-top:-2px}
@@ -8025,6 +8042,28 @@ function loanSharedCreate(i){const p=cfg.assumptions.lending_products[i],draft=_
  _loanSharedDraft.delete(p);const id=_seriesId('shared-amount');rows.push({id,name,unit:'money_per_unit',amount_time_basis:'year',spec:{source:'weighted_sum',unit:'money_per_unit',components:[{id:_seriesId('weighted-component'),name:'Component 1',amount_spec:{source:'entered',trajectory:'flat',value:0,unit:'money_per_unit'},weight_spec:{source:'entered',trajectory:'flat',value:1,unit:'share'}}]}});loanSharedSelect(i,id);}
 function loanSharedDraftName(i,value,el){const p=cfg.assumptions.lending_products[i],draft=_loanSharedDraft.get(p);if(!draft)return;draft.name=value;
  const duplicate=_sharedInputs().some(x=>x.name.trim().toLowerCase()===value.trim().toLowerCase()),box=el.closest('.loan-shared-create');box.querySelector('[data-shared-create]').disabled=!value.trim()||duplicate;box.querySelector('[role="status"]').textContent=duplicate?'Choose a distinct name.':'';}
+// r488: a shared assumption is edited in a visible panel that names every product using it, not
+// behind a disclosure line. Open state is per assumption and survives re-render.
+const _sharedPanelOpen=new Set();
+function _sharedUseLabels(id){const a=cfg.assumptions,fam={lending_products:'Lending',deposit_products:'Deposit',obs_exposures:'Fee product'},out=[];
+ _sharedInputUses(id).forEach(u=>{let m=/^assumptions\.(lending_products|deposit_products|obs_exposures)\.(\d+)/.exec(u.path),l;
+  if(m){const q=(a[m[1]]||[])[+m[2]];l={fam:fam[m[1]],name:(q&&q.name)||'Unnamed',obj:q};}
+  else if((m=/^assumptions\.balance_components_model\.components\.(\d+)/.exec(u.path))){const c=((a.balance_components_model||{}).components||[])[+m[1]];l={fam:'Interest-bearing balance',name:(c&&c.name)||'Unnamed',obj:c};}
+  else l={fam:'Other',name:u.path.replace(/^assumptions\./,''),obj:null};
+  if(!out.some(x=>x.obj&&x.obj===l.obj&&x.fam===l.fam))out.push(l);});
+ return out;}
+function _sharedSummary(x){const s=x.spec||{};if(s.source!=='weighted_sum')return 'Single amount path';const n=(s.components||[]).length,tb={month:'monthly amount',quarter:'quarterly amount',year:'annual amount'}[x.amount_time_basis]||'no time basis';return `Weighted average · ${n} component${n===1?'':'s'} · ${tb}`;}
+function sharedPanelToggle(id){if(_sharedPanelOpen.has(id))_sharedPanelOpen.delete(id);else _sharedPanelOpen.add(id);renderContent();}
+function _sharedAssumptionPanel(id,self){const x=_sharedInputs().find(r=>r.id===id);if(!x)return '';const uses=_sharedUseLabels(id),open=_sharedPanelOpen.has(id),others=uses.filter(u=>u.obj!==self);
+ const names=uses.map(u=>`<li>${esc(u.name)} <span class="shared-use-fam">${esc(u.fam)}${u.obj===self?' · this product':''}</span></li>`).join('');
+ const impact=others.length?`Edits here change ${uses.length} products: ${uses.map(u=>esc(u.name)).join(', ')}.`:'Only this product uses it today. Any product that selects it later will use the same values.';
+ return `<section class="shared-panel${open?' open':''}" aria-label="Shared assumption ${esc(x.name)}">
+<div class="shared-panel-head"><span class="shared-tag">Shared assumption</span><div class="shared-panel-title"><b>${esc(x.name)}</b><span>${esc(_sharedSummary(x))}</span></div>
+<span class="shared-uses-count">Used by ${uses.length} product${uses.length===1?'':'s'}</span>
+<button type="button" class="shared-edit-btn" aria-expanded="${open}" onclick="sharedPanelToggle(${esc(JSON.stringify(id))})">${open?'Done editing':'Edit shared assumption'}</button></div>
+<ul class="shared-use-list">${names}</ul>
+${open?`<div class="shared-impact" role="note"><b>Changes apply everywhere.</b> ${impact}</div><div class="shared-panel-body">${_sharedWeightedEditor(id)}</div>`:''}
+</section>`;}
 function _sharedInputUses(id){const uses=[];function walk(v,path){if(!v||typeof v!=='object')return;if(v.input_id===id)uses.push({value:v,path});Object.entries(v).forEach(([k,x])=>walk(x,path?path+'.'+k:k));}walk(cfg,'');return uses;}
 function _sharedEmptyPlaceholder(x){const s=x.spec||{},cs=s.components||[],c=cs[0]||{};return x.name==='Weighted amount per customer'&&x.unit==='money_per_unit'&&s.source==='weighted_sum'&&cs.length===1&&c.name==='Component 1'&&c.amount_spec?.source==='entered'&&c.amount_spec.trajectory==='flat'&&c.amount_spec.value===0&&c.weight_spec?.source==='entered'&&c.weight_spec.trajectory==='flat'&&c.weight_spec.value===1&&!s.factors?.length&&!c.amount_spec.factors?.length&&!c.weight_spec.factors?.length;}
 function loanSharedRemove(i,id,emptyOnly=false){const p=cfg.assumptions.lending_products[i],s=p.balance_driver.average_balance_per_customer_spec,rows=_sharedInputs(),x=rows.find(x=>x.id===id);if(!x)return;
@@ -8216,7 +8255,8 @@ function loanUnusedReserveHtml(i,p,base){const u=p.unused_commitment_reserve,b=b
 
 function _loanAmountEditor(i,p,base){const s=p.balance_driver.average_balance_per_customer_spec||{},shared=s.source==='input_ref',path=base+'.balance_driver.average_balance_per_customer_spec';let h=`<div class="fld wide"><label>Average lending per customer</label><select aria-label="Lending amount source" onchange="loanAmountMode(${i},this.value)"><option value="entered"${!shared?' selected':''}>Entered amount</option><option value="shared"${shared?' selected':''}>Shared assumption × factors</option></select></div>`;
  if(!shared)return h+`<div class="fld wide">${_faSeriesEditor(path,s,'Average lending per customer ($)','dollars',false)}</div>`;
- const rows=_sharedInputs().filter(x=>x.unit==='money_per_unit');h+=`<div class="fld wide shared-lending-assumption"><label>Reusable amount per customer</label><select aria-label="Shared amount" onchange="loanSharedSelect(${i},this.value)"><option value="">Select shared assumption</option>${rows.map(x=>`<option value="${esc(x.id)}"${s.input_id===x.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select>${_loanSharedTools(i,s,rows)}${s.input_id?`<details><summary>Edit shared assumption · changes affect every consumer</summary>${_sharedWeightedEditor(s.input_id)}</details>`:''}`;
+ const rows=_sharedInputs().filter(x=>x.unit==='money_per_unit');h+=`<div class="fld wide shared-lending-assumption"><label>Reusable amount per customer</label><select aria-label="Shared amount" onchange="loanSharedSelect(${i},this.value)"><option value="">Select shared assumption</option>${rows.map(x=>`<option value="${esc(x.id)}"${s.input_id===x.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select>${_loanSharedTools(i,s,rows)}${s.input_id?_sharedAssumptionPanel(s.input_id,p):''}`;
+ h+=`<div class="shared-local-head"><span class="shared-tag local">This product only</span><span>Settings below apply to ${esc(p.name||'this product')} and do not change the shared assumption.</span></div>`;
  h+=_loanPopulationEditor(i,p);
  (s.factors||[]).forEach((f,j)=>{const fp=path+'.factors.'+j;h+=`<div class="shared-weighted-component"><input aria-label="Factor name" value="${esc(f.name||'Factor')}" onchange="setPath('${fp}.name',this.value);refresh()">${_faSeriesEditor(fp,f,'Factor (%)','rate',false)}<button type="button" class="btn-plain" onclick="loanAmountFactorRemove(${i},${j})">Remove factor</button></div>`;});h+=`<button type="button" class="pillbtn" onclick="loanAmountFactorAdd(${i})">+ Percentage factor</button><p class="memo">Average lending = reusable amount × all factors. These factors do not change the shared assumption.</p>`;
  const out=((typeof lastRes!=='undefined'&&lastRes)||{}).products||[],r=out.filter(x=>x.family==='lending')[i];if(r&&r.name===p.name&&r.lendingAssumptionDetail){h+='<details><summary>Resolved assumption calculation · latest run</summary>';r.lendingAssumptionDetail.forEach(row=>{h+=`<div><b>${esc(row.name)}</b>`;[['amount','Amount ($/customer)'],['weight','Weight (fraction)'],['weighted_amount','Weighted amount ($/customer)'],['values',row.unit==='share'?'Factor (fraction)':'Resolved amount ($/customer)']].forEach(([key,label])=>{if(row[key])h+=`<div class="memo">${label}</div>`+_explicitPreviewHtml(row[key],v=>_numInput(v,8),row.cadence||(PPY()===12?'month':'quarter'));});h+='</div>';});h+='</details>';}
