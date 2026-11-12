@@ -1,3 +1,7 @@
+# r495 — Disclosures that look openable
+
+See RELEASE_r495.md. One stylesheet block: plain disclosures become bordered chevron controls, opening section headers get a chevron box, row editors read as links. Console only.
+
 # r490 — Securities target schedule layout; cadence changes convert or hold, never relabel
 
 See RELEASE_r490.md. Console only.
