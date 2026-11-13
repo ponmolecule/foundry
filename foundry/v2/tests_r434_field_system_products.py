@@ -10,7 +10,7 @@ class ProductFieldSystemTests(unittest.TestCase):
     def test_console_wiring(self):
         s = (ROOT / "web/console_v2.html").read_text(encoding="utf-8")
         for needle in ("function fxsProductsAfterRender(", "if(typeof fxsProductsAfterRender==='function')fxsProductsAfterRender();",
-                       "if(typeof fxAfterRender==='function') fxAfterRender();", "@container lnvbody (max-width:470px)"):
+                       "if(typeof fxAfterRender==='function') fxAfterRender();", "@container lnvbody (max-width:560px)"):   # r507: threshold raised from 470px
             self.assertIn(needle, s, needle)
 
     def test_browser(self):

@@ -17,7 +17,7 @@ ck('sections: open graphite, collapsed light',".lfx-s.c .lfx-h{background:#F7F7F
 ck('styles are scoped to the flow-lending layout',not re.search(r'\n\.(?:fld|st-body|prd-card)\s*\{',H.split('/* ===== r350')[1].split('</style>')[0]))
 ck('r351: layout uses the full stage width (1180px cap lifted for flow lending)','#content .prd-card:has(.lfx) .fields' in H and 'max-width:none!important' in H)
 ck('r351: wide screens add an engine readout column instead of stretching fields','@container (min-width:1320px)' in H and "_lfxLiveHtml('sro'" in H and 'const _LFX_RO=' in H)
-ck('r352: framed canvas, content capped at 1880px and centred','max-width:1880px;margin-left:auto!important' in H and 'clamp(40px,5.5vw,180px)' in H)
+ck('r352/r507: content capped at 1880px, starting 32px after the rail (r507 replaced the centring)','max-width:1880px;margin-left:0!important' in H and '.prd-stage:has(.lfx),.prd-stage:has(.lfx-st){padding-left:26px;padding-right:32px}' in H and 'clamp(40px,5.5vw,180px)' not in H)
 ck('r352: boxes keep natural widths; extra width becomes gutter',".lfx-grid{grid-template-columns:repeat(4,minmax(0,196px));column-gap:28px;justify-content:start}" in H)
 ck('r352: Browse / search sits at the edge of the capped selector','.lfx-f.s4:has(> .lfx-sel)>label{max-width:600px}' in H or '.lfx-f.s4:has(> .lfx-sel)>label' in H)
 ck('r352: one equation per line in the formula rail','<span class="eq">outstanding = Σ cohorts × curve</span>' in H and '<span class="eq">retained = outstanding × share</span>' in H)

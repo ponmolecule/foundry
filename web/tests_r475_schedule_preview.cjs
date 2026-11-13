@@ -46,7 +46,9 @@ assert.strictEqual(await btn.textContent(),'Copied');
 // 4. Responsive: a narrow page puts the drawer under the label and drops inner strip cells.
 await page.setViewportSize({width:900,height:3600});await load(900,'month');m=await metrics();
 assert(m.drawer>300,'drawer is full width on narrow pages: '+m.drawer);
-assert.deepStrictEqual(m.strip.map(c=>c.cls.trim()).sort(),['eps-c eps-h1','eps-c eps-t1'].sort());
+{const cl=m.strip.map(c=>c.cls.trim());   // r507: the product page is wider at 900px (32px margins), so the drawer may hold the medium strip
+ assert(cl.includes('eps-c eps-h1')&&cl.includes('eps-c eps-t1')&&cl.length<=4,'narrow page keeps first and last cells and drops the inner ones: '+cl);
+ m.strip.forEach(c=>assert(c.b.sw<=c.b.cw+1,'narrow strip cell squeezed: '+c.text));}
 m.grid.forEach((g,i)=>assert(g.h<g.lh*1.6&&g.sw<=g.cw+1,'narrow value '+i+' wraps'));
 // 5. Container widths drive the strip: 6 cells wide, 4 cells medium, 2 cells narrow.
 const counts=await page.evaluate(vals=>{const out=[];for(const w of [700,480,320]){const host=document.createElement('div');host.style.cssText='width:'+w+'px;display:flex';host.className='cfgwrap';host.innerHTML=_explicitPreviewHtml(vals.map(v=>v/1000),v=>fmtComma(v),'month');document.body.appendChild(host);

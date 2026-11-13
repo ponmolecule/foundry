@@ -76,9 +76,9 @@ assert.strictEqual(await page.evaluate(()=>document.querySelector('#card-nie .cf
 // Stress Testing rail: shared side-menu look
 await page.evaluate(()=>setTab('stress'));await settle();
 const r=await page.evaluate(()=>{const on=document.querySelector('.st-rail .st-ri.on'),mi=on&&on.querySelector('.mi'),cs=x=>getComputedStyle(x);
-  return {head:(document.querySelector('#content .h2.pg-band.st-band')||{}).textContent,card:!!document.querySelector('.st-rail .st-rcard'),icons:document.querySelectorAll('.st-rail .st-ri .mi').length,items:document.querySelectorAll('.st-rail .st-ri').length,
+  return {head:(document.querySelector('.st-rail .st-rhead')||{}).textContent,card:!!document.querySelector('.st-rail .st-rcard'),icons:document.querySelectorAll('.st-rail .st-ri .mi').length,items:document.querySelectorAll('.st-rail .st-ri').length,
     selBg:cs(on).backgroundColor,miBg:cs(mi).backgroundColor,bar:getComputedStyle(on,'::before').backgroundColor};});
-assert(r.head==='Stress Testing'&&r.card&&r.icons===r.items&&r.items>=6,'graphite title band, rail card and icon squares '+JSON.stringify(r));
+assert(r.head==='Stress Testing'&&r.card&&r.icons===r.items&&r.items>=6,'rail heading, rail card and icon squares (r507: no page-wide band) '+JSON.stringify(r));
 assert(r.selBg==='rgb(245, 236, 221)'&&r.miBg==='rgb(44, 44, 44)'&&r.bar==='rgb(223, 179, 103)','selected item like the Configuration rail '+JSON.stringify(r));
 assert.deepStrictEqual(errors,[]);
 console.log('PASS r505 configuration pattern: band, status, figures, numbered menu with one section open, footer on all eight modules; config untouched; sections switch and controls still write; Stress Testing rail matches');

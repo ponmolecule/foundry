@@ -1340,8 +1340,9 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .lfx-ro{display:none}
 /* r352: a framed canvas on wide monitors. Content stops at 1680px and centres; inputs keep their
    natural width; the remaining width goes to the engine results, which get a real chart. */
-.prd-stage:has(.lfx),.prd-stage:has(.lfx-st){padding-left:clamp(40px,5.5vw,180px);padding-right:clamp(40px,5.5vw,180px)}
-.prd-stage:has(.lfx)>*,.prd-stage:has(.lfx-st)>*{max-width:1880px;margin-left:auto!important;margin-right:auto!important}
+/* r507: product content starts 32px after the rail, like Configuration, and fills the width up to 1,880px */
+.prd-stage:has(.lfx),.prd-stage:has(.lfx-st){padding-left:26px;padding-right:32px}
+.prd-stage:has(.lfx)>*,.prd-stage:has(.lfx-st)>*{max-width:1880px;margin-left:0!important;margin-right:0!important}
 @container (min-width:1320px){
   .lfx-b.has-ro{grid-template-columns:288px minmax(520px,900px) minmax(360px,1fr)}
   .lfx-ro{display:block;padding:16px 20px 18px;border-left:1px solid #EFEFED;background:#FCFCFB;min-width:0}
@@ -1822,9 +1823,9 @@ table.fin th{border-bottom:1px solid var(--gold)}
 .cfg-subnav a{font-size:12px;line-height:17px;color:var(--k-tx3);text-decoration:none;padding:4px 8px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cfg-subnav a:hover{color:var(--k-tx1);background:var(--k-hover)}
 /* r505: one page pattern for every Configuration module */
-.cfggrid>.cfgcard.cfgx.cfgx-on{display:grid!important;grid-template-columns:220px minmax(0,1fr);column-gap:28px;row-gap:0;align-items:start}
+.cfggrid>.cfgcard.cfgx.cfgx-on{display:grid!important;grid-template-columns:248px 24px minmax(0,1fr) 24px;column-gap:0;row-gap:0;align-items:start}
 .cfggrid>.cfgcard.cfgx.cfgx-on.cfgx-native,.cfggrid>.cfgcard.cfgx.cfgx-on.cfgx-nomenu{grid-template-columns:minmax(0,1fr)}
-.cfgcard.cfgx>*{grid-column:2;min-width:0}
+.cfgcard.cfgx>*{grid-column:3;min-width:0}
 .cfgcard.cfgx.cfgx-native>*,.cfgcard.cfgx.cfgx-nomenu>*,.cfgcard.cfgx>.cardhead,.cfgcard.cfgx>.cfgx-status,.cfgcard.cfgx>.cfgx-tiles,.cfgcard.cfgx>.cfgx-foot{grid-column:1/-1}
 .cfgcard.cfgx>.cfgx-menu{grid-column:1;grid-row:4/span 400;align-self:start;position:sticky;top:calc(var(--appbar-h,84px) + 16px);display:flex;flex-direction:column;gap:16px}
 .cfg-stage .cfgcard.cfgx>.cardhead{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;min-height:72px;padding:14px 20px;margin:0 0 14px;box-sizing:border-box}
@@ -1853,8 +1854,8 @@ table.fin th{border-bottom:1px solid var(--gold)}
 .cfgx-tile .n{font-size:12px;color:var(--k-tx3)}
 .cfgx-g{display:flex;flex-direction:column;gap:2px}
 .cfgx-gl,.cfgcard.cfgx .fsx-g,.cfgcard.cfgx .cacn-rsep{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8A7A5C;margin:0 0 4px 10px}
-.cfgx-si,.cfgcard.cfgx .fsx-it,.cfgcard.cfgx .cacn-ri{all:unset;box-sizing:border-box;display:flex;gap:10px;align-items:flex-start;width:100%;padding:8px 10px;border-radius:3px;cursor:pointer;color:var(--k-tx1);border-left:0}
-.cfgx-si:hover,.cfgcard.cfgx .fsx-it:hover,.cfgcard.cfgx .cacn-ri:hover:not(.on){background:#ECE9E2}
+.cfgx-si,.cfgcard.cfgx .fsx-it{all:unset;box-sizing:border-box;display:flex;gap:10px;align-items:flex-start;width:100%;padding:8px 10px;border-radius:3px;cursor:pointer;color:var(--k-tx1);border-left:0}
+.cfgx-si:hover,.cfgcard.cfgx .fsx-it:hover{background:#ECE9E2}
 .cfgx-si:focus-visible{outline:2px solid #1F5FBF;outline-offset:1px}
 .cfgx-si .nm,.cfgcard.cfgx .fsx-it i,.cfgcard.cfgx .cacn-ri .n{font:600 11.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:#8F6B30;padding-top:2px;min-width:18px}
 .cfgx-si .tx{display:flex;flex-direction:column;min-width:0}
@@ -1866,13 +1867,11 @@ table.fin th{border-bottom:1px solid var(--gold)}
 .cfgx-si.on .nm,.cfgcard.cfgx .fsx-focused .fsx-it.on i,.cfgcard.cfgx .cacn-ri.on .n{color:#DFB367}
 .cfgx-menu .cfgx-si.cfg-subtab{height:auto;min-width:0;padding:8px 10px;display:flex;justify-content:flex-start;align-items:flex-start;text-align:left;font-size:inherit;font-weight:inherit;background:transparent;color:var(--k-tx1)}
 .cfgx-menu .cfgx-si.cfg-subtab small{margin-left:0;font-size:12px;font-weight:400}
-.cfgcard.cfgx .cacn-ri{display:grid;grid-template-columns:26px minmax(0,1fr);gap:0 8px}
 .cfgx-menu .cfgx-si.cfg-subtab.on{background:#2C2C2C}
 .cfgx-menu .cfgx-si.cfg-subtab.on::after{display:none}
 .cfgx-tiles .cfg-kpi-scope>b{font-size:15px;white-space:normal;line-height:1.4;display:flex;flex-wrap:wrap;gap:2px 6px}
 .cfgx-add{all:unset;cursor:pointer;font-size:13px;font-weight:600;color:#8F6B30;padding:6px 10px}
 .cfgcard.cfgx .fsx-mi{display:none}
-.cfgcard.cfgx .cacn-rail{background:transparent}
 .cfgcard.cfgx .cacn-es{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;border:0;background:transparent;overflow:visible}
 .cfgcard.cfgx .cacn-es>div{background:#FFFFFF;border:1px solid #E3E0D8;border-radius:3px;padding:14px 16px}
 .cfgcard.cfgx .cacn-es>.dk{display:none}
@@ -1891,8 +1890,43 @@ table.fin th{border-bottom:1px solid var(--gold)}
 .cfg-stage #card-cap.cfgx .crow.fxs-cap-row>input,.cfg-stage #card-cap.cfgx .crow.fxs-cap-row>select{max-width:none}
 .cfg-stage #card-cap.cfgx .crow.fxs-cap-row>a.cx{width:24px;min-width:0;justify-self:center;box-sizing:border-box}
 .cfg-stage #card-cap.cfgx .fxs-cap-borrow{grid-template-columns:minmax(170px,1fr) 76px 112px 76px 76px 24px}
+/* r507: every section menu uses the Product menu card. Menu and open section share one white card; the menu column is
+   near-white with a rule beside it, items run to that rule, and the selected item carries a gold left edge. Nothing moves:
+   the card and the menu column are painted by the module card's own pseudo-elements, absolutely placed on the grid lines
+   that bound the menu (rows 4 to 404), so they never take a grid cell and sit behind everything in the card. */
+.cfggrid>.cfgcard.cfgx.cfgx-on:not(.cfgx-native):not(.cfgx-nomenu){position:relative;z-index:0}
+.cfggrid>.cfgcard.cfgx.cfgx-on:not(.cfgx-native):not(.cfgx-nomenu)::before{content:"";position:absolute;z-index:-1;grid-column:1/-1;grid-row:4/404;inset:0;background:#FFFFFF;border:1px solid #E3E1DC;border-radius:4px}
+.cfggrid>.cfgcard.cfgx.cfgx-on:not(.cfgx-native):not(.cfgx-nomenu)::after{content:"";position:absolute;z-index:-1;grid-column:1/2;grid-row:4/404;inset:1px 0 1px 1px;background:#FAFAF8;border-right:1px solid #E3E1DC;border-radius:3px 0 0 3px}
+.cfggrid>.cfgcard.cfgx.cfgx-on>.cfgx-menu{padding:12px 0 16px;gap:14px;max-height:calc(100vh - var(--appbar-h,84px) - 32px);overflow:auto;box-sizing:border-box}
+.cfgx-menu .cfgx-gl{margin:6px 0 4px 15px}
+.cfggrid>.cfgcard.cfgx .cfgx-menu .cfgx-si{border-radius:0;border-left:3px solid transparent;padding:8px 14px 8px 12px}
+.cfggrid>.cfgcard.cfgx .cfgx-menu .cfgx-si:hover:not(.on){background:#F2F1ED}
+.cfggrid>.cfgcard.cfgx .cfgx-menu .cfgx-si.on{background:#2C2C2C;border-left-color:#C9A04E}
+.cfggrid>.cfgcard.cfgx .cfgx-menu .cfgx-si.on .nm{color:#C9A04E}
+.cfgx-menu .cfgx-add{margin:0 0 0 15px}
+.cfggrid>.cfgcard.cfgx.cfgx-on:not(.cfgx-native):not(.cfgx-nomenu)>.cfgx-sh{margin-top:20px}
+.cfggrid>.cfgcard.cfgx.cfgx-on:not(.cfgx-native):not(.cfgx-nomenu)>:is(.nie-section,.sec-major-section,.cfg-panel),.cfggrid>.cfgcard.cfgx.cfgx-on:not(.cfgx-native):not(.cfgx-nomenu)>.ccols.tacct>div{border:0!important;box-shadow:none!important;background:transparent!important;padding-left:0!important;padding-right:0!important;padding-top:0!important}
+/* Securities & AOCI: its own menu, in the same card */
+#content .cfgcard.cfgx .fsx.fsx-focused{grid-template-columns:248px minmax(0,1fr);gap:0;padding:0;margin-top:0;background:#FFFFFF;border:1px solid #E3E1DC;border-radius:4px;align-items:stretch;justify-content:stretch}
+#content .cfgcard.cfgx .fsx-focused .fsx-rail{position:sticky;align-self:start;background:#FAFAF8;padding:12px 0 16px;max-height:calc(100vh - var(--appbar-h,84px) - 32px);overflow:auto;box-sizing:border-box}
+#content .cfgcard.cfgx .fsx-focused{background-image:linear-gradient(90deg,#FAFAF8 0,#FAFAF8 247px,#E3E1DC 247px,#E3E1DC 248px,transparent 248px)}
+#content .cfgcard.cfgx .fsx-focused .fsx-g{margin:14px 0 4px 15px}
+#content .cfgcard.cfgx .fsx-focused .fsx-rail>.fsx-g:nth-child(2){margin-top:6px}
+#content .cfgcard.cfgx .fsx-focused .fsx-it{border-radius:0;border-left:3px solid transparent;padding:8px 14px 8px 12px;display:grid;grid-template-columns:26px minmax(0,1fr);gap:0 6px}
+#content .cfgcard.cfgx .fsx-focused .fsx-it:hover:not(.on){background:#F2F1ED}
+#content .cfgcard.cfgx .fsx-focused .fsx-it.on{background:#2C2C2C;border-left-color:#C9A04E}
+#content .cfgcard.cfgx .fsx-focused .fsx-it.on i{color:#C9A04E}
+#content .cfgcard.cfgx .fsx-focused .fsx-it b{font-size:13.5px;font-weight:600;color:var(--k-tx1)}
+#content .cfgcard.cfgx .fsx-focused .fsx-it.on b{color:#FFFFFF}
+#content .cfgcard.cfgx .fsx-focused .fsx-it small{grid-column:2;font-size:12px;color:var(--k-tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#content .cfgcard.cfgx .fsx-focused .fsx-it small:empty{display:none}
+#content .cfgcard.cfgx .fsx-focused .fsx-it.on small{color:#C9C6BF}
+#content .cfgcard.cfgx .fsx-focused .fsx-main{padding:20px 24px 24px}
+#content .cfgcard.cfgx .fsx-focused .fsx-sec{border:0;border-radius:0;margin:0;background:transparent}
+#content .cfgcard.cfgx .fsx-focused .fsx-h{align-items:start;padding:4px 0 16px;grid-template-columns:auto minmax(0,1fr) auto 32px}
+#content .cfgcard.cfgx .fsx-focused .fsx-n{font-weight:600;color:#8F6B30;border:1px solid #DFB367;border-radius:3px;padding:2px 7px;margin-top:3px}
 .cfgx-foot{font-size:12.5px;color:var(--k-tx3);border-top:1px solid #DEDBD4;padding-top:14px;margin-top:28px}
-@media (max-width:900px){.cfggrid>.cfgcard.cfgx.cfgx-on{grid-template-columns:minmax(0,1fr)}.cfgcard.cfgx>*{grid-column:1/-1}.cfgcard.cfgx>.cfgx-menu{grid-column:1/-1;grid-row:auto;position:static;flex-direction:row;flex-wrap:wrap}.cfgx-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:900px){.cfggrid>.cfgcard.cfgx.cfgx-on{grid-template-columns:minmax(0,1fr)}.cfggrid>.cfgcard.cfgx.cfgx-on::before,.cfggrid>.cfgcard.cfgx.cfgx-on::after{display:none}#content .cfgcard.cfgx .fsx.fsx-focused{grid-template-columns:minmax(0,1fr);background-image:none}.cfgcard.cfgx>*{grid-column:1/-1}.cfgcard.cfgx>.cfgx-menu{grid-column:1/-1;grid-row:auto;position:static;flex-direction:row;flex-wrap:wrap}.cfgx-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .cfg-nav .mp-info{display:block;font-size:11.5px;line-height:1.5;color:var(--k-tx4);margin:10px 4px 4px;padding:10px 6px 2px;border-top:1px solid var(--k-line)}
 .cfg-stage{min-width:0;container-type:inline-size;container-name:stage;padding:22px 32px 64px}
 .cfggrid{display:block}
@@ -4152,7 +4186,7 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 .fxs-pane .lfx-grid .fld>label,.fxs-pane .lnc-rep>.lfx-f>label{white-space:normal!important;overflow:visible!important}
 .fxs-pane .fxs-liftlab>.sec-book-label{margin:0!important;min-width:0!important;font:inherit!important;color:inherit!important;text-transform:none!important;letter-spacing:0!important}
 /* a narrow step (Assumptions panel open, small screens): labels above their fields */
-@container lnvbody (max-width:470px){
+@container lnvbody (max-width:560px){   /* r507: was 470px; product content is wider now, so the side-label layout needs more room before it applies */
  .fxs-pane .lfx-grid .fld,.fxs-pane .deposit-pricing-method>.fld,.fxs-pane .lnc-rep>.lfx-f{grid-template-columns:minmax(0,1fr)!important}
  .fxs-pane .lfx-grid .fld>label,.fxs-pane .deposit-pricing-method>.fld>label,.fxs-pane .lnc-rep>.lfx-f>label{justify-content:flex-start!important;text-align:left!important}
  .fxs-pane .lfx-grid .fld>*,.fxs-pane .deposit-pricing-method>.fld>*,.fxs-pane .lnc-rep>.lfx-f>*{grid-column:1!important}
@@ -4162,6 +4196,7 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 .fxs-pane .lfx-grid .fld.loan-contract-panel{display:block!important;padding:0!important;border:0!important;background:none!important}
 .fxs-pane .loan-contract-grid{display:block!important;max-width:760px}
 .fxs-pane .loan-contract-field{display:grid!important;grid-template-columns:150px minmax(0,1fr);column-gap:20px;row-gap:6px;align-items:center;margin:0 0 12px!important;min-width:0}
+.fxs-pane .loan-contract-field>.lfx-in{max-width:100%;min-width:0}   /* r507: nested option fields shrink their input instead of running past the panel */
 .fxs-pane .loan-contract-field>label{grid-column:1;display:flex!important;justify-content:flex-end;align-items:center;gap:5px;text-align:right;margin:0!important;font-size:12px!important;font-weight:400!important;color:#4A4945!important;line-height:1.3!important;text-transform:none!important;letter-spacing:0!important;white-space:normal!important}
 .fxs-pane .loan-contract-field>:not(label){grid-column:2;justify-self:start;max-width:100%;min-width:0}
 .fxs-pane .loan-contract-field.full:not(:has(>label)),.fxs-pane .loan-contract-grid>details,.fxs-pane .loan-contract-grid>.full:not(.loan-contract-field){margin-left:170px!important;max-width:560px}
@@ -4169,7 +4204,7 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 .fxs-pane .loan-contract-series .sec-managed-series-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .fxs-pane .loan-contract-series .sec-book-label:empty{display:none!important}
 .fxs-pane .loan-contract-series .sec-managed-series-row>input{width:120px!important;height:32px!important;text-align:right}
-@container lnvbody (max-width:470px){.fxs-pane .loan-contract-field{grid-template-columns:minmax(0,1fr)!important}.fxs-pane .loan-contract-field>label{justify-content:flex-start!important;text-align:left!important}.fxs-pane .loan-contract-field>*{grid-column:1!important}.fxs-pane .loan-contract-grid>details,.fxs-pane .loan-contract-field.full:not(:has(>label)),.fxs-pane .loan-contract-grid>.full:not(.loan-contract-field){margin-left:0!important}}
+@container lnvbody (max-width:560px){.fxs-pane .loan-contract-field{grid-template-columns:minmax(0,1fr)!important}.fxs-pane .loan-contract-field>label{justify-content:flex-start!important;text-align:left!important}.fxs-pane .loan-contract-field>*{grid-column:1!important}.fxs-pane .loan-contract-grid>details,.fxs-pane .loan-contract-field.full:not(:has(>label)),.fxs-pane .loan-contract-grid>.full:not(.loan-contract-field){margin-left:0!important}}
 /* product schedules */
 .fxs-pane .fxs-fagrid,.fxs-cac .fxs-fagrid{margin-top:6px;flex-basis:100%}
 .fxs-pane .fxs-sched .fxs-link,.fxs-cac .fxs-sched .fxs-link{margin-left:auto;border:0!important;background:none!important;color:#9A7330!important;font:600 12px Inter,Arial,sans-serif!important;cursor:pointer;padding:0!important;height:auto!important;width:auto!important}
@@ -4448,8 +4483,22 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 #content .st-chart text{font-family:inherit;font-size:10.5px;fill:#666666}
 @media (max-width:900px){#content .st-defn,#content .st-egrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* r499: Stress Testing shell. One job per view, a purpose-labelled rail, summary first, detail behind disclosures */
-#content .st-shell{display:flex;flex-wrap:wrap;align-items:flex-start;gap:24px;margin:-4px 0 24px;min-height:640px}
-#content .st-rail{flex:0 0 276px;box-sizing:border-box;display:flex;flex-direction:column;gap:0}
+/* r507: entry-tab shell, the same frame as Configuration: a 300px full-height rail, content 32px beside it */
+#content.is-stress{background:var(--k-canvas);padding:0;overflow:visible}
+#content .st-shell{display:grid;grid-template-columns:300px minmax(0,1fr);gap:0;align-items:start;margin:0;min-height:calc(100vh - var(--appbar-h) - 44px)}
+#content .st-rail{position:sticky;top:var(--appbar-h);height:calc(100vh - var(--appbar-h));box-sizing:border-box;overflow-y:auto;background:#EFEFEF;border-right:1px solid var(--k-line2);padding:20px 14px 24px;display:flex;flex-direction:column;gap:0}
+#content .st-rhead{font-family:var(--k-disp);font-size:22px;font-weight:600;letter-spacing:-.02em;color:var(--k-tx1);margin:0 2px 14px}
+#content .st-stage{min-width:0;padding:22px 32px 64px;max-width:1880px}
+#content .st-stage>.pg-crumb{margin:0 0 12px}
+#content .st-vband{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;min-height:72px;padding:14px 20px;margin:0 0 12px;box-sizing:border-box;background:var(--k-graph);border-radius:3px;color:#FFFFFF}
+#content .st-vband .mi{flex:0 0 40px;width:40px;height:40px;border-radius:3px;display:grid;place-items:center;background:var(--k-graph2);color:#DFB367}
+#content .st-vband .mi svg{width:18px;height:18px}
+#content .st-vbt{flex:1 1 320px;min-width:0}
+#content .st-vbt h1{margin:0;font-size:19px;font-weight:600;color:#FFFFFF;line-height:1.3;border:0;padding:0;background:none}
+#content .st-vbt p{margin:0;font-size:13px;color:#C9C6BF;line-height:1.4}
+#content .st-vband .st-vact .btn-plain{background:transparent;border:1px solid rgba(255,255,255,.28);color:#F5F5F3}
+#content .st-vband .st-vact .btn-primary{background:#DFB367;border-color:#DFB367;color:#2C2C2C}
+#content .st-vband .st-vact .btn-primary[disabled]{background:transparent;border:1px solid rgba(255,255,255,.2);color:#A8A59D;opacity:1}
 #content .st-rcard{background:#FFFFFF;border:1px solid var(--k-line2);border-radius:3px;padding:8px;box-shadow:0 1px 2px rgba(20,20,20,.05);display:flex;flex-direction:column;gap:8px}
 #content .st-rs{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--k-tx3);padding:6px 10px 4px;margin:0}
 #content .st-ri{all:unset;box-sizing:border-box;width:100%;position:relative;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:3px;cursor:pointer;color:var(--k-tx1)}
@@ -4469,11 +4518,8 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 #content .st-rlink{all:unset;cursor:pointer;font-size:12px;color:#8F6B30;padding:4px 12px}
 #content .st-rlink.on,#content .st-rlink:hover{text-decoration:underline}
 #content .st-main2{flex:999 1 620px;min-width:0;box-sizing:border-box;padding:24px 36px 48px;gap:0!important;margin:0!important;background:#FFFFFF;border:1px solid #E3E3E3;border-radius:3px}
-#content .st-ribbon{display:flex;flex-wrap:wrap;gap:8px 24px;font-size:12.5px;color:#4A4A4A;padding-bottom:14px;border-bottom:1px solid #EFEFEF}
+#content .st-ribbon{display:flex;flex-wrap:wrap;gap:8px 24px;font-size:12.5px;color:#4A4A4A;padding:0 2px;margin:0 0 16px}
 #content .st-ribbon b{font-weight:600;color:#2C2C2C}
-#content .st-vh{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;margin:24px 0 28px}
-#content .st-vh h1{margin:0;font-size:24px;font-weight:600;color:#2C2C2C;line-height:1.2;border:0;padding:0;background:none}
-#content .st-vh p{margin:4px 0 0;font-size:13.5px;color:#666666}
 #content .st-vact{display:flex;gap:10px;flex-wrap:wrap}
 #content .st-vact .btn-plain,#content .st-vact .btn-primary{min-height:38px;padding:8px 16px;font-size:13px}
 #content .st-blk{margin:0 0 40px}
@@ -4619,7 +4665,8 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 #content .st-es-h span{font-size:12px;color:#666666}
 #content .st-es-v{font-size:15px;color:#2C2C2C;margin:12px 0 16px;max-width:820px}
 #content .st-es-f{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;margin-top:14px;font-size:12.5px;color:#666666}
-@media (max-width:820px){#content .st-rail{flex:1 1 100%}#content .st-rcard{flex-direction:row;flex-wrap:wrap}#content .st-rg{flex:1 1 200px}#content .st-main2{padding:20px 16px 40px}#content .st-grid{grid-template-columns:1fr!important}}
+@media (max-width:1020px){#content .st-shell{grid-template-columns:minmax(0,1fr)}#content .st-rail{position:static;height:auto;border-right:0;border-bottom:1px solid var(--k-line2)}}
+@media (max-width:820px){#content .st-rcard{flex-direction:row;flex-wrap:wrap}#content .st-rg{flex:1 1 200px}#content .st-main2{padding:20px 16px 40px}#content .st-grid{grid-template-columns:1fr!important}}
 </style>
 <style>.sw-panel{border:1px solid #ddd;padding:14px;margin:12px 0;background:#fff}.sw-panel table{width:100%;border-collapse:collapse}.sw-panel td,.sw-panel th{text-align:left;border-bottom:1px solid #eee;padding:7px}.sw-panel small,.sw-control small{display:block;color:#666}.sw-panel details label{display:block;padding:4px}.sw-control{display:inline-block;margin-right:12px}.sw-control button[aria-checked="false"]{background:#eee;color:#555}.sw-control button{border:1px solid #ad864b;border-radius:12px;padding:3px 12px;background:#f9f1df;color:#574321}.sw-panel select{max-width:260px}</style><style>
 /* r497: bounded annual tax form and aligned LTI controls. */
@@ -14910,7 +14957,7 @@ function _presentSecuritiesPage(){
   const active=_fsxActiveKey();
   const shell=document.createElement('div'); shell.className='fsx fsx-focused';
   let rail='<nav class="fsx-rail"><div class="fsx-mi">MODEL INPUTS</div>', g='';
-  _FSX.filter(x=>!['s4','s5'].includes(x[0])).forEach(([k,n,t,,grp])=>{ if(grp!==g){ rail+=`<div class="fsx-g">${grp}</div>`; g=grp; } rail+=`<a href="#" class="fsx-it${(active===k||k==='s7'&&['s4','s5'].includes(active))?' on':''}" aria-current="${(active===k||k==='s7'&&['s4','s5'].includes(active))?'page':'false'}" data-k="${k}" onclick="fsxGo('${k}');return false"><i>${n}</i>${esc(t)}</a>`; });
+  _FSX.filter(x=>!['s4','s5'].includes(x[0])).forEach(([k,n,t,,grp])=>{ if(grp!==g){ rail+=`<div class="fsx-g">${grp}</div>`; g=grp; } rail+=`<a href="#" class="fsx-it${(active===k||k==='s7'&&['s4','s5'].includes(active))?' on':''}" aria-current="${(active===k||k==='s7'&&['s4','s5'].includes(active))?'page':'false'}" data-k="${k}" onclick="fsxGo('${k}');return false"><i>${n}</i><b>${esc(t)}</b><small class="fsx-ms" data-k="${k}"></small></a>`; });
   rail+='</nav>';
   let main='<div class="fsx-main"><div class="fsx-top"><p class="fsx-intro">Amounts in $000s unless noted. Per-unit amounts are dollars. Series support flat values, growth paths and explicit schedules.</p></div>';
 
@@ -14940,11 +14987,20 @@ function _presentSecuritiesPage(){
   };
   Object.entries(postingNotes).forEach(([k,txt])=>{const note=document.createElement('p');note.className='cmut fsx-posting-note';note.style.cssText='margin:16px 0 0;padding-top:10px;border-top:1px solid var(--border,#ddd);line-height:1.5';note.textContent=txt;body(k).appendChild(note);});
   if(tst) tst.remove(); if(fp) fp.remove();
-  card.appendChild(shell);secInventoryFilter();
+  card.appendChild(shell);secInventoryFilter();_fsxMenuSubs(shell);
   try{ _fsxBands(card); }catch(e){ if(window.lastErrs) window.lastErrs.push(e); }   // r288: band layout (presentation only)
 }
 function _fsxRefresh(sec){ const k=sec&&sec.dataset.k, box=sec&&sec.querySelector('.fsx-sum'); if(!k||!box) return;
-  box.innerHTML=_fsxSummary(k,sec).map(([x,y])=>`<span><b>${esc(x)}</b>${esc(y)}</span>`).join(''); }
+  box.innerHTML=_fsxSummary(k,sec).map(([x,y])=>`<span><b>${esc(x)}</b>${esc(y)}</span>`).join(''); _fsxMenuSubs(sec.closest('.fsx')); }
+// r507: one short line under each Securities menu item, from the same summary the section header shows
+function _fsxMenuSub(k,P){const v=l=>{const x=P.find(([a])=>l.test(a));return x?String(x[1]).trim():'';},pct=x=>x.replace(/\s*%.*$/,'%');
+  if(k==='s1'){const fl=v(/^Cash floor/);return [v(/^Unallocated/),fl?'floor '+pct(fl):''].filter(Boolean).join(' \u00b7 ');}
+  if(k==='s2'){const c=v(/^Components/);return v(/^Status/)==='Modeled'?('Modeled'+(c?' \u00b7 '+c+' components':'')):'Not modeled';}
+  if(k==='s3'||k==='s6'){const c=+v(/^Components/)||0;return v(/^Mode/)+(c?' \u00b7 '+c+' component'+(c>1?'s':''):', no components');}
+  if(k==='s7')return v(/^Holdings/)+' holdings \u00b7 '+v(/^AFS/)+' AFS';
+  if(k==='s8')return 'AFS sensitivity '+v(/^AFS sensitivity/);
+  return P.slice(0,2).map(x=>x[1]).join(' \u00b7 ');}
+function _fsxMenuSubs(shell){if(!shell)return;shell.querySelectorAll('.fsx-ms').forEach(el=>{const k=el.dataset.k,sec=shell.querySelector('#fsx-'+k);try{el.textContent=_fsxMenuSub(k,_fsxSummary(k,sec));}catch(e){el.textContent='';}});}
 if(typeof document!=='undefined'&&typeof document.addEventListener==='function'){
   document.addEventListener('change',e=>{ const sec=e.target&&e.target.closest&&e.target.closest('.fsx-sec'); if(sec) setTimeout(()=>_fsxRefresh(sec),0); });   // r283: summaries follow edits
   document.addEventListener('click',e=>{ const sec=e.target&&e.target.closest&&e.target.closest('.fsx-sec'); if(sec&&e.target.closest('.nie-mode,button')) setTimeout(()=>_fsxRefresh(document.getElementById(sec.id)),0); });
@@ -15483,7 +15539,7 @@ function _lqHtml(){if(!LQ.meta)setTimeout(()=>lqLoadMeta(),0);else lqLoadMeta();
 function _stRailHtml(){const c=_stCounts(),L=_stScenarios(),pid=_stPrimaryId(),pr=_stRec(pid);
   const pb=!pid?'<span class="st-rb">not set</span>':(!pr||!_stIsCur(pr))?'<span class="st-rb warn">stale</span>':'';
   const it=(v,ic,name,sub,badge)=>`<button type="button" class="st-ri${ST.view===v?' on':''}"${ST.view===v?' aria-current="page"':''} onclick="stView('${v}')"><span class="mi">${_ST_IC[ic]}</span><span class="st-rt"><b>${name}</b><small>${sub}</small></span>${badge||''}</button>`;
-  return `<nav class="st-rail" aria-label="Stress Testing sections"><div class="st-rcard">
+  return `<nav class="st-rail" aria-label="Stress Testing sections"><div class="st-rhead">Stress Testing</div><div class="st-rcard">
   <div class="st-rg"><div class="st-rs">1 · Make a change</div>${it('scenarios','list','Scenarios','Your scenario library',`<span class="st-rb">${L.length}</span>`)}${it('builder','pen','Builder','Edit what a scenario changes')}</div>
   <div class="st-rg"><div class="st-rs">2 · Run</div>${it('runs','clock','Runs','Every run you have made',c.stale?`<span class="st-rb warn">${c.stale} stale</span>`:(c.all?`<span class="st-rb">${c.all}</span>`:''))}</div>
   <div class="st-rg"><div class="st-rs">3 · Understand</div>${it('results','bars','Results','Compare, explain, over time')}${it('liquidity','drop','Liquidity','Pay out today, through a run, LCR')}</div>
@@ -15508,10 +15564,14 @@ function _stActionHtml(){const v=ST.view;
 function stressWorkbenchHtml(){if(!ST.targets&&ST.view!=='templates')setTimeout(()=>stLoadTargets(),0);
   const slug=_stSlug();if(slug&&ST.loaded!==slug)setTimeout(stLoadRecords,0);
   const [t,sub]=_ST_VIEWS[ST.view]||_ST_VIEWS.scenarios;
-  let h=`<div class="prd-crumb pg-crumb">Analysis<span>/</span><b>Stress Testing</b></div><div class="h2 pg-band st-band">Stress Testing</div><div class="st-shell">${_stRailHtml()}<div class="st-main2 st-wrap">${_stRibbonHtml()}<div class="st-vh"><div><h1>${t}</h1><p>${sub}</p></div><div class="st-vact">${_stActionHtml()}</div></div>${ST.msg?`<p class="st-msg" role="status">${esc(ST.msg)}</p>`:''}`;
+  // r507: an entry tab like Configuration and Product. Full-height rail with the page heading; the content column opens
+  // with the breadcrumb, then a black band for the open view (its icon, name, purpose and actions), then the status line.
+  const vic=_ST_VIEW_IC[ST.view]||'list',act=_stActionHtml();
+  let h=`<div class="st-shell">${_stRailHtml()}<div class="st-stage"><div class="prd-crumb pg-crumb">Analysis<span>/</span><b>Stress Testing</b><span>/</span><b>${t}</b></div><div class="st-vband"><span class="mi">${_ST_IC[vic]||''}</span><div class="st-vbt"><h1>${t}</h1><p>${sub}</p></div>${act?`<div class="st-vact">${act}</div>`:''}</div>${_stRibbonHtml()}${ST.msg?`<p class="st-msg" role="status">${esc(ST.msg)}</p>`:''}<div class="st-main2 st-wrap">`;
   if(ST.view==='scenarios')h+=_stScenariosHtml();else if(ST.view==='builder')h+=_stBuilderHtml();else if(ST.view==='runs')h+=_stRunsHtml();else if(ST.view==='results')h+=_stResultsHtml();else if(ST.view==='reporting')h+=_stReportingHtml();else if(ST.view==='liquidity')h+=_lqHtml();
-  return h+(ST.view==='templates'?'':'</div></div>');}
-function stressTemplatesClose(){return '</div></div>';}
+  return h+(ST.view==='templates'?'':'</div></div></div>');}
+function stressTemplatesClose(){return '</div></div></div>';}
+const _ST_VIEW_IC={scenarios:'list',builder:'pen',runs:'clock',results:'bars',liquidity:'drop',reporting:'doc',templates:'doc'};
 
 // ----- Runs: where runs live
 function _stRunsHtml(){if(!ST.records.length)return `<p class="st-empty">No runs yet. Tick scenarios on <button type="button" class="st-inl" onclick="stView('scenarios')">Scenarios</button> and run them.</p>`;
@@ -15743,7 +15803,8 @@ function _renderContentBody(){
   if(currentTab==="index"){c.classList.remove("cover","is-config","is-products");refRender();return;}   // r394: Reference
   c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));
   c.classList.toggle("is-config", V3 && currentTab==="config");
-  c.classList.toggle("is-products", V3 && V31 && currentTab==="products");   // r204: Products workspace owns its own padding   // r199: lets the module navigator stick
+  c.classList.toggle("is-products", V3 && V31 && currentTab==="products");
+  c.classList.toggle("is-stress", V3 && currentTab==="stress");   // r507: Stress Testing owns its padding, like Configuration   // r204: Products workspace owns its own padding   // r199: lets the module navigator stick
   if(V3 && currentTab==="overview"){
     if(cfg && cfg._blank_canvas){
       const shell = [
