@@ -307,7 +307,8 @@ def applicability(cfg, proj=None, month=None) -> list[dict]:
     else:
         ap, note = ("management measure" if lcr.get("requested") else "not requested"), "The LCR rule does not apply below $100B in total assets."
     row("lcr", ap, "yes" if lcr.get("requested") or big else "no",
-        ([] if has_res else ["at least one liquid resource"]) + ([] if has_books else ["a redemption book"]), note)
+        [m for b in books for m in lcr_missing(b, sev)]
+        + ([] if has_res else ["at least one liquid resource"]) + ([] if has_books else ["a redemption book"]), note)
     coins = [b for b in books if b.get("type") == "stablecoin"]
     row("stablecoin_reserves", "applies" if coins else "not applicable", "yes" if coins else "no",
         [f"{b.get('name')}: reserve composition" for b in coins if not b.get("reserves")],
@@ -337,6 +338,27 @@ def missing_inputs(b, sev, test, days=30):
             out.append(f"{nm}: days 2 to 30 run-off ({sev})")
         if days > 30 and v.get("days31_plus") is None:
             out.append(f"{nm}: run-off after day 30 ({sev}), needed for a {days}-day run")
+    return out
+
+
+def lcr_missing(b, sev):
+    """Inputs the LCR needs from one book (r504). A run-off derived from the stress assumptions needs every
+    component (day 1 and days 2 to 30); an entered LCR override replaces them. The custody split needs its
+    operational share. Nothing missing is ever read as zero."""
+    nm, out = b.get("name") or "book", []
+    lc = b.get("lcr") or {}
+    if lc.get("rate") is not None:
+        if not 0 <= _n(lc["rate"], -1) <= 1:
+            out.append(f"{nm}: LCR run-off override must be between 0% and 100%")
+        if b.get("type") != "custody_cash":
+            return out
+    if b.get("type") == "custody_cash" and b.get("operational_share") is None:
+        out.append(f"{nm}: operational share, for the LCR")
+    if b.get("type") in ("fund_settlement", "stablecoin") and lc.get("rate") is None:
+        v = (b.get("severities") or {}).get(sev) or {}
+        for k, lab in (("day1", "day-1 run-off"), ("days2_30", "days 2 to 30 run-off")):
+            if v.get(k) is None:
+                out.append(f"{nm}: {lab} ({sev}), from which the LCR rate is derived (or enter an LCR override)")
     return out
 
 
@@ -564,7 +586,8 @@ def run(cfg, res, projection_label="Base", window=None) -> dict:
     if status["lcr"]["calculated"] == "yes" and status["lcr"]["inputs"] == "complete":
         out["lcr"] = _lcr_block(s, P, month, books, ladder, ln, LS)
     else:
-        out["lcr"] = dict(status="not calculated", applies=status["lcr"]["applies"], note=status["lcr"]["note"])
+        out["lcr"] = dict(status="inputs_missing" if status["lcr"]["inputs"] == "missing" and status["lcr"]["calculated"] == "yes" else "not calculated",
+                          applies=status["lcr"]["applies"], note=status["lcr"]["note"], missing=status["lcr"]["missing"])
 
     # stablecoin reserves
     coins = [b for b in s["books"] if b.get("type") == "stablecoin"]
@@ -573,6 +596,10 @@ def run(cfg, res, projection_label="Base", window=None) -> dict:
 
 
 def _lcr_block(s, P, month, books, ladder, ln, LS=None):
+    sev = (s.get("stress_day") or {}).get("severity", "severe")
+    gaps = [m for b in s["books"] for m in lcr_missing(b, sev)]
+    if gaps:   # guard: the caller only reaches here when inputs are complete
+        raise RuntimeError("LCR: missing inputs would be read as zero: " + "; ".join(gaps))
     rows, inflows = [], _n((s.get("lcr") or {}).get("other_inflows"))
     for b, row in zip(s["books"], books):
         bal = row["balance"]

@@ -239,30 +239,63 @@ ECON_LABELS = {"flow": "flow (new volume each period)", "stock": "stock (an outs
                "other": "other driver"}
 DELAY_FILL = {"flow": "zero", "stock": "hold", "quantity": "hold", "price": "hold", "rate": "hold", "other": None}
 FILL_LABELS = {"zero": "nothing during the delay (zero)", "hold": "held at the level before the delay"}
-_FLOW_LEAVES = ("new_customers", "new_accounts", "originations", "origination", "acquisitions", "additions", "gross_adds",
-                "spend", "flow", "flow_path", "new_volume", "volume", "events", "issuance", "draws", "purchases")
+# r504: classification reads the whole registered path, not the last name alone. A count of new loans in a loan
+# roll-forward is a flow; a role's headcount is a level; both are "count". Context rules come first; a generic
+# leaf ("count", "amount", "quantity", "volume") with no recognised context is "other" and the user must choose.
+_CONTEXT_RULES = (
+    (r"(^|\.)loan_rollforward\.count(_spec)?$", "flow", "new loans per period in a loan roll-forward"),
+    (r"(^|\.)loan_rollforward\.(loan_size|average_size)(_spec)?$", "price", "size of each new loan"),
+    (r"(^|\.)loan_rollforward\.deferred\.(cost|fee)(_spec)?$", "price", "deferred cost or fee per new loan"),
+    (r"origination", "flow", "originations (count or amount) per period"),
+    (r"(^|\.)workforce\.roles\.count(_spec)?$", "quantity", "active headcount in a role"),
+    (r"(^|\.)driver_specs\.ftes$", "quantity", "active relationship staff"),
+    (r"(^|\.)cac_feeds\..*\.(new_customers|new_accounts|spend)(_spec)?$", "flow", "acquisition volume or spend per period"),
+    (r"(^|\.)funded_flow_driver\.flow_path$", "flow", "funded flow per period"),
+    (r"(^|\.)(nie_detail\.categories|cost_pools\..*components)\.flow(_spec)?$", "flow", "expense flow per period"),
+    (r"(^|\.)linked_components\.amount(_spec)?$", "price", "amount per driver unit"),
+)
+_FLOW_LEAVES = ("new_customers", "new_accounts", "acquisitions", "additions", "gross_adds", "spend", "flow", "flow_path",
+                "new_volume", "events", "issuance", "draws", "purchases")
 _STOCK_LEAVES = ("balance", "base", "auc", "aum", "outstanding", "deposits", "capital", "intangibles", "level", "stock")
-_QTY_LEAVES = ("ftes", "fte", "count", "headcount", "pool", "accounts", "customers", "capacity", "quantity", "branches")
+_QTY_LEAVES = ("ftes", "fte", "headcount", "pool", "accounts", "customers", "capacity", "branches")
 _PRICE_LEAVES = ("comp_per_fte", "cost_per_customer", "unit_fee", "compensation", "avg_auc_per_customer", "cac",
-                 "hourly_rate", "per_fte", "amount", "salary", "price", "unit_cost")
+                 "hourly_rate", "per_fte", "salary", "price", "unit_cost", "loan_size", "average_balance_per_customer")
+_AMBIGUOUS = ("count", "amount", "quantity", "volume", "value", "spec")
 
 
-def econ_class(tokens, unit_kind) -> str:
+def _norm_path(tokens):
+    import re as _re
+    return ".".join(t for t in (str(x) for x in tokens) if not _re.fullmatch(r"\[(#\d+|id=.*)\]", t)).lower()
+
+
+def econ_classify(tokens, unit_kind) -> dict:
+    """{"class", "basis"}: the input's economic class and why, from its full registered path."""
+    import re as _re
+    path = _norm_path(tokens)
     leaf = str(tokens[-1] if tokens else "").lower()
     for suf in ("_spec", "_path"):
         if leaf.endswith(suf) and leaf not in ("flow_path",):
             leaf = leaf[: -len(suf)]
     if unit_kind in ("rate", "bp"):
-        return "rate"
-    if leaf in _FLOW_LEAVES or leaf.startswith("new_") or leaf.endswith("_originations"):
-        return "flow"
+        return dict(cls="rate", basis="a rate")
+    for rx, cls, why in _CONTEXT_RULES:
+        if _re.search(rx, path):
+            return dict(cls=cls, basis=why)
+    if leaf in _AMBIGUOUS:
+        return dict(cls="other", basis=f"'{leaf}' alone does not say whether this is new volume or a level")
+    if leaf in _FLOW_LEAVES or leaf.startswith("new_"):
+        return dict(cls="flow", basis="new volume per period")
     if leaf in _PRICE_LEAVES:
-        return "price"
+        return dict(cls="price", basis="a price or unit amount")
     if leaf in _QTY_LEAVES:
-        return "quantity"
+        return dict(cls="quantity", basis="a level count")
     if leaf in _STOCK_LEAVES or leaf.endswith("_balance"):
-        return "stock"
-    return "other"
+        return dict(cls="stock", basis="an outstanding level")
+    return dict(cls="other", basis="not in the classification contract")
+
+
+def econ_class(tokens, unit_kind) -> str:
+    return econ_classify(tokens, unit_kind)["cls"]
 
 
 def delay_fill(ov, cls):
@@ -286,6 +319,7 @@ def targets(cfg) -> list[dict]:
                          product_id=pid, product_index=idx, product_name=pname, field=".".join(tokens),
                          label=_named_label(label_root, tokens), unit_kind=_unit_kind(val if kind == "series" else {}, tokens),
                          econ_class=econ_class(tokens, _unit_kind(val if kind == "series" else {}, tokens)),
+                         econ_basis=econ_classify(tokens, _unit_kind(val if kind == "series" else {}, tokens))["basis"],
                          kind=kind, trajectory=val.get("trajectory") if kind == "series" else None,
                          value=val if kind == "scalar" else None, active=why is None, inactive_reason=why,
                          needs_id=not ok, locator=list(loc)))

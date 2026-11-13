@@ -437,7 +437,6 @@ def add_report_sheets(wb, rep, record):
                     continue
                 ws.append([case, x["label"], x["min"], x["min_period"], v["label"], v["floor"], v["source"],
                            v["min_cushion"], v["min_cushion_period"], v["first_breach_period"] or "none"])
-    return wb
 
     ws = wb.create_sheet("Reporting settings")
     ws.append(["Reporting settings used for this package"])
@@ -450,3 +449,4 @@ def add_report_sheets(wb, rep, record):
         ws.append([f"Deposit class: {k}", v])
     for k, v in sorted((snap.get("expense_classes") or {}).items()):
         ws.append([f"Expense class: {k}", v])
+    return wb
