@@ -44,7 +44,8 @@ await C.locator('.fxs-cfgrow',{has:page.locator('.fxs-cl',{hasText:'Amount'})}).
 assert.strictEqual((await cat()).flow_spec.trajectory,'flat','amount path written');
 assert.strictEqual(await vis('.cfg-md-detail .opex-item-card .fxs-cfgrow .fxs-cl').filter({hasText:/^Growth$/}).count(),0,'flat amount has no growth row');
 // 4. Capital raises and borrowings as tables; inputs keep editing their records.
-await mod('cap');const B=vis('#card-cap .fxs-cap-h.fxs-cap-borrow');assert.strictEqual(await B.count(),1);
+await mod('cap');await page.evaluate(()=>cfgxSection('cap','borrow'));await settle();   // r505: one section open at a time
+const B=vis('#card-cap .fxs-cap-h.fxs-cap-borrow');assert.strictEqual(await B.count(),1);
 assert.deepStrictEqual((await B.locator('span').allInnerTexts()).slice(0,5),['Borrowing','Month','Amount ($000s)','Rate (%)','Term (qtrs)']);
 const br=await page.evaluate(()=>{const r=document.querySelector('#card-cap .crow.fxs-cap-borrow');const box=r.getBoundingClientRect(),card=r.closest('.ccols>div').getBoundingClientRect();return {inside:[...r.children].filter(e=>e.offsetParent).every(e=>e.getBoundingClientRect().right<=card.right+1),h:box.height};});
 assert(br.inside&&br.h<40,'borrowing row on one line inside its card '+JSON.stringify(br));
