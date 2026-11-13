@@ -2054,6 +2054,26 @@ def v2_source_catalog(cfg: dict, _=Depends(gate)):
         return JSONResponse({"sources": [], "error": str(exc)}, status_code=422)
 
 
+@app.post("/api/v2/preview/jobs")
+async def v2_preview_submit(body: dict, user=Depends(gate)):
+    from foundry.v2.preview_jobs import jobs
+    try:
+        return JSONResponse(jobs.submit(user, body.get("session_id"), body.get("config"), body.get("scope", "base")), status_code=202)
+    except ValueError as exc:
+        return JSONResponse({"message": str(exc)}, status_code=422)
+    except OverflowError as exc:
+        return JSONResponse({"message": str(exc)}, status_code=429, headers={"Retry-After": "2"})
+
+
+@app.get("/api/v2/preview/jobs/{job_id}")
+async def v2_preview_status(job_id: str, user=Depends(gate)):
+    from foundry.v2.preview_jobs import jobs
+    try:
+        return JSONResponse(jobs.get(user, job_id))
+    except KeyError:
+        return JSONResponse({"message": "Calculation job not found; run the calculation again."}, status_code=404)
+
+
 @app.post("/api/v2/preview")
 def v2_preview(cfg: dict, _=Depends(gate)):
     """Preview IS the run (T-PRV): this calls exactly run_v2."""

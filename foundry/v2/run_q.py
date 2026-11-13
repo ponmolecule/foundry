@@ -515,7 +515,7 @@ def _constraint_tests(cfg, scen_results):
     return tests
 
 
-def run_v2(cfg):
+def run_v2(cfg, *, scope="full"):
     """Run; a strict-resolver schedule error is re-raised naming its component (r482)."""
     from .series import collecting_schedule_failures, stop_collecting_schedule_failures
     failures, token = collecting_schedule_failures()
@@ -523,8 +523,8 @@ def run_v2(cfg):
         if token is not None:
             # r484: outermost call tags every saved schedule with its path (on a private copy).
             from .schedule_completeness import tagged_config
-            return _run_v2(tagged_config(cfg))
-        return _run_v2(cfg)
+            return _run_v2(tagged_config(cfg), scope=scope)
+        return _run_v2(cfg, scope=scope)
     except ValueError as e:
         from .schedule_completeness import relabel
         new = relabel((cfg or {}).get("assumptions") or {}, str(e), failures)
@@ -539,7 +539,9 @@ def run_v2(cfg):
         stop_collecting_schedule_failures(token)
 
 
-def _run_v2(cfg):
+def _run_v2(cfg, *, scope="full"):
+    if scope not in ("base", "full"):
+        raise ValueError("Calculation scope must be base or full")
     cfg = validate_config_v2(cfg)
     # r498: stored stress scenarios sit beside the base and never change its identity.
     config_hash = _hash({k: v for k, v in cfg.items() if k not in ("stress_scenarios", "stress_reporting", "liquidity_stress")})
@@ -550,6 +552,8 @@ def _run_v2(cfg):
     _ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)  # 4=qtr,12=mo,1=yr
 
     scen_defs = scenarios_from(cfg)
+    if scope == "base":
+        scen_defs = {"base": scen_defs["base"]}
     scen_results, scen_labels = {}, {}
     base_exact = None
     for scen, (ov, label) in scen_defs.items():
@@ -1568,6 +1572,10 @@ def _run_v2(cfg):
     if _switches:
         results['component_inclusion'] = _switches
         results['component_inclusion']['comparison'] = comparison(_authored_switch_cfg, base_exact)
+    if scope == "base":
+        # A preview is explicitly partial; never present unrun stress tests as passed.
+        # Full runs and their hashes retain their existing contract.
+        results["calculation_scope"] = "base"
     results["run_hash"] = _hash(results)
     # Presentation only, attached after the run hash: the reporting manifest groups engine results for
     # exhibits and never feeds back into any engine value. See foundry/v2/reporting.py.

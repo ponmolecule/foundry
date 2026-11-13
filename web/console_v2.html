@@ -7064,51 +7064,77 @@ async function autosaveNow(){
 window.scheduleAutosave = scheduleAutosave;
 async function preview(){ const _h=(typeof _lcCleanNow==='function'&&typeof _lcHealDrift==='function'), _w=(typeof window!=='undefined')?window:{}, _wasClean=_h?_lcCleanNow():false, _seq=_w._userActSeq; try{ return await _previewInner.apply(this,arguments); } finally { if(_h&&_w._userActSeq===_seq) _lcHealDrift(_wasClean,'run'); } }   // r296: the deferred run; never when the user interacted meanwhile; inert where the lifecycle helpers are absent
 let _calculationState='unknown',_calculatedInputs=null;
-function calculationState(){if(window.SNAPSHOT&&lastRes)return 'Up to date';if(_calculationState==='failed')return 'Failed';if(_calculationState==='pending'||_calculationState==='running')return 'Calculating…';return lastRes&&_calculatedInputs===JSON.stringify(cfg)?'Up to date':'Results not current';}
-function updateCalculationStatus(){let badge=document.getElementById('calculation-state');if(!badge){badge=document.createElement('div');badge.id='calculation-state';badge.setAttribute('role','status');badge.style.cssText='position:fixed;right:18px;bottom:18px;z-index:10050;padding:8px 14px;background:#fff;border:1px solid #aaa;border-radius:6px;color:#333;font-size:12px;box-shadow:0 2px 8px #0002';document.body.appendChild(badge);}badge.textContent=calculationState();badge.dataset.state=_calculationState;
+function calculationState(){if(window.SNAPSHOT&&lastRes)return 'Up to date';if(_calculationState==='failed')return lastRes?'Update failed · previous results':'Calculation failed';if(_calculationState==='pending'||_calculationState==='running')return lastRes?'Updating · previous results':'Calculating…';return lastRes&&_calculatedInputs===JSON.stringify(cfg)?'Up to date':'Results not current';}
+function updateCalculationNotice(){
+  const content=document.getElementById('content');if(!content)return;
+  let n=document.getElementById('calculation-notice');
+  if(!n){n=document.createElement('div');n.id='calculation-notice';n.setAttribute('role','status');n.style.cssText='padding:12px 20px;background:#fff3d6;border-bottom:1px solid #cfad64;color:#493b22';content.before(n);}
+  const stale=lastRes&&_calculatedInputs!==JSON.stringify(cfg),failed=_calculationState==='failed';
+  n.hidden=!(stale||failed);
+  const detail=(lastRunFailure?.message)||(lastErrs||[]).map(e=>e.message||String(e)).join(' ');
+  n.textContent=failed?('Latest update failed. '+(lastRes?'Showing previous results; they do not reflect the latest inputs. ':'')+detail):stale?'Updating. Showing previous results until the latest inputs have been calculated.':'';
+  if(failed){const retry=document.createElement('button');retry.type='button';retry.className='btn-plain';retry.style.marginLeft='12px';retry.textContent='Retry update';retry.onclick=()=>preview();n.appendChild(retry);}
+}
+function updateCalculationStatus(){updateCalculationNotice();let badge=document.getElementById('calculation-state');if(!badge){badge=document.createElement('div');badge.id='calculation-state';badge.setAttribute('role','status');badge.style.cssText='position:fixed;right:18px;bottom:18px;z-index:10050;padding:8px 14px;background:#fff;border:1px solid #aaa;border-radius:6px;color:#333;font-size:12px;box-shadow:0 2px 8px #0002';document.body.appendChild(badge);}badge.textContent=calculationState();badge.dataset.state=_calculationState;
  const dlg=document.getElementById('result-numbers-dialog');if(dlg&&dlg._resultNumbers){const d=dlg._resultNumbers,old=d.inputKey!==JSON.stringify(cfg)||(!window.SNAPSHOT&&d.inputKey!==_calculatedInputs)||calculationState()!=='Up to date';let note=dlg.querySelector('[data-calculation-note]');if(!note){note=document.createElement('p');note.className='memo';note.dataset.calculationNote='';dlg.querySelector('.result-numbers-head').after(note);}note.textContent=old?'Older calculation snapshot. '+calculationState()+'. Close and reopen Numbers after calculation completes.':'Up to date when opened.';dlg.querySelectorAll('button[onclick^="resultNumbersCopy"]').forEach(b=>b.disabled=old);}}
-async function _previewInner(){
+// r508: short status requests; the engine runs independently of a browser request deadline.
+const _previewSession = globalThis.crypto?.randomUUID?.() || ('tab-'+Date.now()+'-'+Math.random());
+let _previewController=null;
+async function _previewJson(url, options, signal){
+  const ctl=new AbortController(), abort=()=>ctl.abort();
+  if(signal.aborted)throw new DOMException('Superseded','AbortError');
+  signal.addEventListener('abort',abort,{once:true});
+  const timeout=setTimeout(abort,15000);
+  try{
+    const r=await fetch(url,{...options,signal:ctl.signal});
+    let j;try{j=await r.json();}catch(_e){throw Error('Calculation service returned an unreadable response.');}
+    if(!r.ok){const e=Error(j.message||j.detail||`Calculation service failed (HTTP ${r.status}).`);e.status=r.status;throw e;}
+    return j;
+  }finally{clearTimeout(timeout);signal.removeEventListener('abort',abort);}
+}
+async function _previewJob(cfgText,scope,signal,onStatus){
+  let j=await _previewJson('/api/v2/preview/jobs',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({config:JSON.parse(cfgText),session_id:_previewSession,scope})},signal);
+  const deadline=Date.now()+10*60*1000;
+  while(j.status==='queued'||j.status==='running'){
+    onStatus(j);
+    if(Date.now()>deadline)throw Error('Calculation is taking unusually long. Retry once or contact support. Reference: '+j.job_id);
+    await new Promise((resolve,reject)=>{
+      const abort=()=>{clearTimeout(t);reject(new DOMException('Superseded','AbortError'));};
+      const t=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve();},800);
+      if(signal.aborted)abort();else signal.addEventListener('abort',abort,{once:true});
+    });
+    j=await _previewJson('/api/v2/preview/jobs/'+encodeURIComponent(j.job_id),{},signal);
+  }
+  if(j.status!=='completed'){
+    const e=Error(j.message||(j.status==='superseded'?'This update was replaced by newer inputs.':'The calculation could not complete.'));
+    e.errors=j.errors;e.status=j.http_status;throw e;
+  }
+  return j.result;
+}
+async function _previewInner(requestedScope){
   normalizeCfg(cfg);
   if(V31){ syncModules(); }
   loadSourceCatalog().catch(()=>{});
   const my = ++seq, cacInputKey=JSON.stringify(cfg.assumptions||{}), inputKey=JSON.stringify(cfg);
+  const scope=requestedScope==='full'||(currentTab==='stress'&&ST.view==='templates')?'full':'base';
+  _previewController?.abort();
+  const ctl=_previewController=new AbortController();
   _calculationState='running';updateCalculationStatus();
-  document.getElementById("status").textContent = "running engine…";
-  const ctl = new AbortController();
-  const timeout = setTimeout(()=>ctl.abort(), 60000);
+  document.getElementById('status').textContent='Calculating…';
   try{
-    const r = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg), signal:ctl.signal});
-    clearTimeout(timeout);
-    if(my !== seq || inputKey!==JSON.stringify(cfg)) return;
-    const raw = await r.text();
-    if(my !== seq || inputKey!==JSON.stringify(cfg)) return;
-    let payload = null;
-    try{ payload = raw ? JSON.parse(raw) : {}; }
-    catch(_e){ payload = null; }
-    if(r.status === 401){
-      lastErrs = [{message:"Session expired. Figures are from the last successful run. Sign in to refresh."}];
-      lastRunFailure = null;
-    } else if(r.status === 422){
-      lastErrs = (payload && Array.isArray(payload.errors)) ? payload.errors : [{message:"The engine rejected this configuration, but the validation response was unreadable."}];
-      lastRes = null; lastRunFailure = null;
-    } else if(!r.ok){
-      lastRes = null; lastErrs = null;
-      const detail = payload && (payload.detail || payload.error || payload.message);
-      lastRunFailure = {message:`Engine preview failed (HTTP ${r.status})${detail ? ": "+String(detail) : ""}`};
-    } else if(!payload || typeof payload !== "object"){
-      lastRes = null; lastErrs = null;
-      lastRunFailure = {message:"Engine preview returned an unreadable response."};
-    } else {
-      lastRes = payload; _cacRunInputs.set(payload,cacInputKey); lastErrs = null; lastRunFailure = null;
-      _calculatedInputs=inputKey;
-    }
+    const payload=await _previewJob(inputKey,scope,ctl.signal,j=>{
+      if(my!==seq)return;
+      document.getElementById('status').textContent=j.status==='queued'?`Calculation queued · position ${j.queue_position}`:`Calculating · ${Math.round(j.elapsed_seconds)}s`;
+    });
+    if(my!==seq||inputKey!==JSON.stringify(cfg))return;
+    if(!payload||!payload.financials)throw Error('Calculation returned no financial results.');
+    lastRes=payload;_cacRunInputs.set(payload,cacInputKey);lastErrs=null;lastRunFailure=null;_calculatedInputs=inputKey;
   }catch(e){
-    clearTimeout(timeout);
-    if(my !== seq || inputKey!==JSON.stringify(cfg)) return;
-    lastRes = null; lastErrs = null;
-    lastRunFailure = {message:(e && e.name === "AbortError")
-      ? "Engine preview timed out after 60 seconds."
-      : `Engine preview request failed${e && e.message ? ": "+e.message : "."}`};
+    if(my!==seq||inputKey!==JSON.stringify(cfg))return;
+    // Keep this engagement's previous successful result, labelled stale. Never show it as current.
+    lastErrs=e.errors||(e.status===401?[{message:'Session expired. Sign in to update the results.'}]:null);
+    lastRunFailure=lastErrs?null:{message:e.name==='AbortError'?'Could not reach the calculation service within 15 seconds. Retry the update.':e.message};
   }
   _calculationState=(lastErrs||lastRunFailure)?'failed':'complete';updateCalculationStatus();
   paintChrome();
@@ -7133,7 +7159,7 @@ async function _previewInner(){
 }
 function productValidationHtml(stale){
  const q=[...new Set((lastErrs||[]).map(e=>friendlyInputError(e.message||'')))];
- if(lastRes||(!q.length&&!lastRunFailure))return '';
+ if(!q.length&&!lastRunFailure)return '';
  return `<div class="prd-banner"><b>${q.length?q.length+' input'+(q.length===1?'':'s')+' to complete':'The latest run did not finish'}.</b> ${stale?'Figures are muted from the last complete run.':'Figures appear once inputs are complete.'}<ul>${q.slice(0,4).map(m=>'<li>'+esc(m)+'</li>').join('')}${lastRunFailure?'<li>'+esc(lastRunFailure.message||'')+'</li>':''}</ul></div>`;
 }
 function friendlyInputError(message){return String(message).replace(/obs_exposures\[(\d+)\]\.fee_streams\[(\d+)\]/g,(_,i,j)=>{const p=cfg?.assumptions?.obs_exposures?.[+i],st=p?.fee_streams?.[+j];return [p?.name,st?.name].filter(Boolean).join(' → ')||'Fee stream';});}
@@ -7155,7 +7181,7 @@ function paintChrome(){
  if(content&&!notice){notice=document.createElement('div');notice.id='fundingWarning';content.before(notice);}
  if(notice)notice.innerHTML=fundingWarningHtml(lastRes?.funding);
 
-  document.getElementById("status").textContent = lastRes ? "engine run " + lastRes.run_hash : (lastRunFailure ? "engine run failed" : "fail-closed: configuration incomplete");
+  document.getElementById("status").textContent = _calculationState==='failed' ? 'Latest update failed · '+(lastRes?'previous results shown':'no results') : lastRes ? "engine run " + lastRes.run_hash : (lastRunFailure ? "engine run failed" : "fail-closed: configuration incomplete");
   document.getElementById("rhash").innerHTML = lastRes ?
     `config <b>${lastRes.config_hash}</b> &nbsp; run <b>${lastRes.run_hash}</b>` : (lastRunFailure ? `<span style="color:#E2856D">run failed</span>` : `<span style="color:#DEAE61">validation pending</span>`);
   const wb = document.getElementById("warnBadge");
@@ -16448,6 +16474,10 @@ function _renderContentBody(){
 
   if(currentTab==="stress"){ h = stressWorkbenchHtml(); if(ST.view!=="templates"){ c.innerHTML = h; return; } }
   if(currentTab==="stress" && ST.view==="templates"){
+    if(r.calculation_scope==='base'){
+      h+='<p>The standard scenario pack runs separately from routine updates.</p><button class="btn-plain" onclick="preview(\'full\')">Run standard pack</button>';
+      c.innerHTML=h;return;
+    }
     const order = ["base","credit","rate","combined","dfast_severe"];
     const scens = order.map(k=>r.scenarios[k]).filter(Boolean);
     const levMin = G("constraints.0.value") * 100;
@@ -20484,23 +20514,12 @@ async function _calculationAuditSnapshot(){
   const cfgText = JSON.stringify(cfg);
   const snapCfg = JSON.parse(cfgText);
   const ctl = new AbortController();
-  const timeout = setTimeout(()=>ctl.abort(), 60000);
-  let pr;
-  try{
-    pr = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"}, body: cfgText, signal:ctl.signal});
-    clearTimeout(timeout);
-  }catch(e){
-    clearTimeout(timeout);
-    return {failed:true, error:(e && e.name === "AbortError") ? "Audit snapshot preview timed out after 60 seconds." : "Audit snapshot preview failed: could not reach the server. Check your connection and retry. Nothing was exported."};
-  }
-  if(JSON.stringify(cfg) !== cfgText) return {changed:true};
-  if(pr.status === 422)return {invalid:true,error:await _auditFailureMessage(pr,'preview')};
-  if(!pr.ok){
-    return {failed:true,error:await _auditFailureMessage(pr,'preview')};
-  }
   let snapRes;
-  try{ snapRes = await pr.json(); }
-  catch(_e){ return {failed:true, error:"Audit snapshot preview returned an unreadable response."}; }
+  try{
+    snapRes=await _previewJob(cfgText,'full',ctl.signal,()=>{});
+  }catch(e){
+    return {failed:true,error:'Audit snapshot could not complete. '+e.message};
+  }
   if(JSON.stringify(cfg) !== cfgText) return {changed:true};
 
   // Only after a successful, still-current snapshot do we invalidate any older normal preview.
