@@ -1883,6 +1883,14 @@ table.fin th{border-bottom:1px solid var(--gold)}
 .cfgx-off,.cfgx-gone,.cfgx-hidet,.cfgcard.cfgx .rws-hero,.cfgcard.cfgx .rws-status,.cfgcard.cfgx .rws-applied-state,.cfgcard.cfgx.cfgx-nie .nie-section-title{display:none!important}
 .cfg-stage .cfgcard.cfgx .ccols.tacct{display:block;margin-top:0}
 .cfgcard.cfgx .tacct>div{border-left:0;border-top:0}
+.cfg-stage #card-cap.cfgx .ccols.tacct>div{max-width:680px;box-sizing:border-box}
+.cfg-stage #card-cap.cfgx .ccols.tacct>div:first-child{max-width:420px}
+.cfg-stage #card-cap.cfgx .ccols.tacct>#fixedassets-editor{max-width:none}
+.cfg-stage #card-cap.cfgx .crow.fxs-cap-borrow{overflow:visible;flex-wrap:nowrap}
+.cfg-stage #card-cap.cfgx .crow.fxs-cap-row{width:100%;max-width:none;box-sizing:border-box;padding-right:0;margin-right:0}
+.cfg-stage #card-cap.cfgx .crow.fxs-cap-row>input,.cfg-stage #card-cap.cfgx .crow.fxs-cap-row>select{max-width:none}
+.cfg-stage #card-cap.cfgx .crow.fxs-cap-row>a.cx{width:24px;min-width:0;justify-self:center;box-sizing:border-box}
+.cfg-stage #card-cap.cfgx .fxs-cap-borrow{grid-template-columns:minmax(170px,1fr) 76px 112px 76px 76px 24px}
 .cfgx-foot{font-size:12.5px;color:var(--k-tx3);border-top:1px solid #DEDBD4;padding-top:14px;margin-top:28px}
 @media (max-width:900px){.cfggrid>.cfgcard.cfgx.cfgx-on{grid-template-columns:minmax(0,1fr)}.cfgcard.cfgx>*{grid-column:1/-1}.cfgcard.cfgx>.cfgx-menu{grid-column:1/-1;grid-row:auto;position:static;flex-direction:row;flex-wrap:wrap}.cfgx-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .cfg-nav .mp-info{display:block;font-size:11.5px;line-height:1.5;color:var(--k-tx4);margin:10px 4px 4px;padding:10px 6px 2px;border-top:1px solid var(--k-line)}
@@ -4442,7 +4450,6 @@ table.fcb-t{width:100%;border-collapse:collapse;margin-top:10px;font-variant-num
 /* r499: Stress Testing shell. One job per view, a purpose-labelled rail, summary first, detail behind disclosures */
 #content .st-shell{display:flex;flex-wrap:wrap;align-items:flex-start;gap:24px;margin:-4px 0 24px;min-height:640px}
 #content .st-rail{flex:0 0 276px;box-sizing:border-box;display:flex;flex-direction:column;gap:0}
-#content .st-rhead{font-family:var(--k-disp);font-size:22px;font-weight:600;letter-spacing:-.02em;color:var(--k-tx1);margin:0 2px 14px}
 #content .st-rcard{background:#FFFFFF;border:1px solid var(--k-line2);border-radius:3px;padding:8px;box-shadow:0 1px 2px rgba(20,20,20,.05);display:flex;flex-direction:column;gap:8px}
 #content .st-rs{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--k-tx3);padding:6px 10px 4px;margin:0}
 #content .st-ri{all:unset;box-sizing:border-box;width:100%;position:relative;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:3px;cursor:pointer;color:var(--k-tx1)}
@@ -15476,7 +15483,7 @@ function _lqHtml(){if(!LQ.meta)setTimeout(()=>lqLoadMeta(),0);else lqLoadMeta();
 function _stRailHtml(){const c=_stCounts(),L=_stScenarios(),pid=_stPrimaryId(),pr=_stRec(pid);
   const pb=!pid?'<span class="st-rb">not set</span>':(!pr||!_stIsCur(pr))?'<span class="st-rb warn">stale</span>':'';
   const it=(v,ic,name,sub,badge)=>`<button type="button" class="st-ri${ST.view===v?' on':''}"${ST.view===v?' aria-current="page"':''} onclick="stView('${v}')"><span class="mi">${_ST_IC[ic]}</span><span class="st-rt"><b>${name}</b><small>${sub}</small></span>${badge||''}</button>`;
-  return `<nav class="st-rail" aria-label="Stress Testing sections"><div class="st-rhead">Stress Testing</div><div class="st-rcard">
+  return `<nav class="st-rail" aria-label="Stress Testing sections"><div class="st-rcard">
   <div class="st-rg"><div class="st-rs">1 · Make a change</div>${it('scenarios','list','Scenarios','Your scenario library',`<span class="st-rb">${L.length}</span>`)}${it('builder','pen','Builder','Edit what a scenario changes')}</div>
   <div class="st-rg"><div class="st-rs">2 · Run</div>${it('runs','clock','Runs','Every run you have made',c.stale?`<span class="st-rb warn">${c.stale} stale</span>`:(c.all?`<span class="st-rb">${c.all}</span>`:''))}</div>
   <div class="st-rg"><div class="st-rs">3 · Understand</div>${it('results','bars','Results','Compare, explain, over time')}${it('liquidity','drop','Liquidity','Pay out today, through a run, LCR')}</div>
@@ -15501,7 +15508,7 @@ function _stActionHtml(){const v=ST.view;
 function stressWorkbenchHtml(){if(!ST.targets&&ST.view!=='templates')setTimeout(()=>stLoadTargets(),0);
   const slug=_stSlug();if(slug&&ST.loaded!==slug)setTimeout(stLoadRecords,0);
   const [t,sub]=_ST_VIEWS[ST.view]||_ST_VIEWS.scenarios;
-  let h=`<div class="prd-crumb pg-crumb">Analysis<span>/</span><b>Stress Testing</b></div><div class="st-shell">${_stRailHtml()}<div class="st-main2 st-wrap">${_stRibbonHtml()}<div class="st-vh"><div><h1>${t}</h1><p>${sub}</p></div><div class="st-vact">${_stActionHtml()}</div></div>${ST.msg?`<p class="st-msg" role="status">${esc(ST.msg)}</p>`:''}`;
+  let h=`<div class="prd-crumb pg-crumb">Analysis<span>/</span><b>Stress Testing</b></div><div class="h2 pg-band st-band">Stress Testing</div><div class="st-shell">${_stRailHtml()}<div class="st-main2 st-wrap">${_stRibbonHtml()}<div class="st-vh"><div><h1>${t}</h1><p>${sub}</p></div><div class="st-vact">${_stActionHtml()}</div></div>${ST.msg?`<p class="st-msg" role="status">${esc(ST.msg)}</p>`:''}`;
   if(ST.view==='scenarios')h+=_stScenariosHtml();else if(ST.view==='builder')h+=_stBuilderHtml();else if(ST.view==='runs')h+=_stRunsHtml();else if(ST.view==='results')h+=_stResultsHtml();else if(ST.view==='reporting')h+=_stReportingHtml();else if(ST.view==='liquidity')h+=_lqHtml();
   return h+(ST.view==='templates'?'':'</div></div>');}
 function stressTemplatesClose(){return '</div></div>';}

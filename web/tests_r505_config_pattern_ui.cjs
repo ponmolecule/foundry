@@ -50,6 +50,15 @@ assert.strictEqual(await page.evaluate(()=>document.querySelector('#card-cap .cf
 await page.evaluate(()=>cfgxSection('cap','raises'));await settle();
 const amt=page.locator('#card-cap .crow.fxs-cap-raise input').first();await amt.fill('12,345');await amt.press('Tab');await settle();
 assert.strictEqual(await page.evaluate(()=>cfg.assumptions.capital_raises[0].amount),12345000,'raise amount still writes its field');
+// r506: capital sections are sized to their content, not the page width
+for(const [sec,maxW] of [['raises',440],['borrow',700],['pre',700]]){await page.evaluate(x=>cfgxSection('cap',x),sec);await settle();
+  const w=await page.evaluate(()=>{const d=[...document.querySelectorAll('#card-cap .ccols.tacct>div')].find(e=>e.offsetParent!==null);return Math.round(d.getBoundingClientRect().width);});
+  assert(w<=maxW,'capital section '+sec+' width '+w);}
+await page.evaluate(()=>cfgxSection('cap','borrow'));await settle();
+const bw=await page.evaluate(()=>{const r=document.querySelector('#card-cap .crow.fxs-cap-borrow'),h=document.querySelector('#card-cap .fxs-cap-h.fxs-cap-borrow');const ins=[...r.children].filter(e=>e.offsetParent!==null&&e.tagName!=='A');
+  const hs=[...h.children].map(e=>e.getBoundingClientRect()),is=ins.map(e=>e.getBoundingClientRect());return {scroll:r.scrollWidth>r.clientWidth+1,overlap:is.some((b,i)=>i&&b.left<is[i-1].right-1),aligned:is.every((b,i)=>Math.abs(b.right-hs[i].right)<3||i===0),min:Math.min(...is.map(b=>b.width))};});
+assert(!bw.scroll&&!bw.overlap&&bw.aligned&&bw.min>=60,'borrowing row fits its card, inputs apart and under their headers '+JSON.stringify(bw));
+await page.evaluate(()=>cfgxSection('cap','raises'));await settle();
 // Rates: index sections switch the authored index
 await mod('rates');await page.locator('#card-rates .cfgx-si',{hasText:'SOFR'}).click();await settle();
 assert.strictEqual(await page.evaluate(()=>rwsIndex),'sofr','SOFR section authors SOFR');
@@ -67,9 +76,9 @@ assert.strictEqual(await page.evaluate(()=>document.querySelector('#card-nie .cf
 // Stress Testing rail: shared side-menu look
 await page.evaluate(()=>setTab('stress'));await settle();
 const r=await page.evaluate(()=>{const on=document.querySelector('.st-rail .st-ri.on'),mi=on&&on.querySelector('.mi'),cs=x=>getComputedStyle(x);
-  return {head:(document.querySelector('.st-rail .st-rhead')||{}).textContent,card:!!document.querySelector('.st-rail .st-rcard'),icons:document.querySelectorAll('.st-rail .st-ri .mi').length,items:document.querySelectorAll('.st-rail .st-ri').length,
+  return {head:(document.querySelector('#content .h2.pg-band.st-band')||{}).textContent,card:!!document.querySelector('.st-rail .st-rcard'),icons:document.querySelectorAll('.st-rail .st-ri .mi').length,items:document.querySelectorAll('.st-rail .st-ri').length,
     selBg:cs(on).backgroundColor,miBg:cs(mi).backgroundColor,bar:getComputedStyle(on,'::before').backgroundColor};});
-assert(r.head==='Stress Testing'&&r.card&&r.icons===r.items&&r.items>=6,'rail heading, card and icon squares '+JSON.stringify(r));
+assert(r.head==='Stress Testing'&&r.card&&r.icons===r.items&&r.items>=6,'graphite title band, rail card and icon squares '+JSON.stringify(r));
 assert(r.selBg==='rgb(245, 236, 221)'&&r.miBg==='rgb(44, 44, 44)'&&r.bar==='rgb(223, 179, 103)','selected item like the Configuration rail '+JSON.stringify(r));
 assert.deepStrictEqual(errors,[]);
 console.log('PASS r505 configuration pattern: band, status, figures, numbered menu with one section open, footer on all eight modules; config untouched; sections switch and controls still write; Stress Testing rail matches');
