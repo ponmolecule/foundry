@@ -9,7 +9,7 @@ Base balance sheet, income statement and capital calculations are unchanged. Two
 - Annual ROA is now annual net income over time-weighted average total assets (mean of each period's opening and closing balance). It was an average of monthly annualized ratios. Annual ROE is added on the same basis with equity.
 - Annual efficiency is now annual noninterest expense over annual revenue. It was an average of monthly ratios.
 
-These figures move slightly on the Executive Summary and peer views. They now equal the business-plan exhibit and the stress Tables exactly (tested). `stress_reporting` joins `stress_scenarios` outside the base: excluded from config_hash, run_hash and the base fingerprint.
+These figures move slightly on the Executive Summary and peer views. They now equal the business-plan exhibit and the stress Tables exactly (tested). A full output diff against r498 over the eleven pinned fixtures shows no other change (annual ROA, efficiency, ROE, the annual note, the quick-stats rows that mirror them, and run_hash); the r488 output-hash manifest is re-pinned accordingly. `stress_reporting` joins `stress_scenarios` outside the base: excluded from config_hash, run_hash and the base fingerprint.
 
 ## Evidence
 
@@ -31,6 +31,8 @@ These figures move slightly on the Executive Summary and peer views. They now eq
 A rail names each place by purpose: 1 Make a change (Scenarios, Builder), 2 Run (Runs), 3 Understand (Results), 4 Submit (Reporting). Every view opens with its name, one line on what it is for, and its main action. A status line shows the primary case, window and funding. Runs groups Current, Stale and Failed, with the next step when runs are stale. Results shows the comparison grid, the attribution waterfall and the line chart in the open; detail sits behind disclosures. The duplicate page band above the tab is gone.
 
 ## Validation
+
+- Full suite: 342 files; the 11 failures are the long-standing baseline. Two new failures in the first pass were fixed: duplicate CSS selectors (merged into the r498 rules) and the pinned output hashes (re-pinned after the diff above).
 
 - `foundry/v2/tests_r499_stress_reporting.py`: 47 checks (registry, bounds, hash exclusion, window, archive and immutability, reproduction, Table identities in both cases and every year, deposit and expense classification, ROAA/ROAE/efficiency equal to the engine, three tiers, cushions and dates, quarterly cadence, endpoints, export, stale primary).
 - `foundry/v2/tests_r498_stress.py`: 35 checks still pass.
