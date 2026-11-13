@@ -1,12 +1,29 @@
 """Explicit funding policy and non-posting liquidity diagnostics (dollars)."""
 
-POLICIES = ('show_shortfall', 'automatic_borrowing')
+POLICIES = ('show_shortfall', 'automatic_borrowing', 'contingency_facility')
+
+
+def facility(assumptions):
+    """r503: a committed contingency facility (dollars). Draws fund shortfalls only from ``available_from`` (model
+    period) and only up to ``capacity``; any remainder stays unfunded. Drawn balances are priced at ``rate_ann``."""
+    f = assumptions.get('contingency_facility') or {}
+    cap = float(f.get('capacity') or 0.0)
+    frm = int(f.get('available_from') or 1)
+    rate = float(f.get('rate_ann') if f.get('rate_ann') is not None else assumptions.get('borrow_rate_ann', 0.0))
+    if cap < 0 or frm < 1:
+        raise ValueError('contingency_facility needs a non-negative capacity and an availability period from 1')
+    return cap, frm, rate
+
+
+def facility_limit(assumptions, period):
+    cap, frm, _ = facility(assumptions)
+    return cap if period >= frm else 0.0
 
 
 def funding_policy(assumptions):
     policy = assumptions.get('funding_shortfall_policy', 'show_shortfall')
     if policy not in POLICIES:
-        raise ValueError('funding_shortfall_policy must be show_shortfall or automatic_borrowing')
+        raise ValueError('funding_shortfall_policy must be show_shortfall, automatic_borrowing or contingency_facility')
     return policy
 
 

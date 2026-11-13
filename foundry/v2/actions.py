@@ -4,10 +4,10 @@ Unmitigated stress stays as it was; actions are applied to a copy of that stress
 action states its timing and cost, and costs reach earnings and capital through the engine:
 
 - capital injection: a capital raise of an amount in a period;
-- contingency line: shortfalls are borrowed at the modeled borrowing rate plus a spread, a commitment fee
-  (annual basis points on the full commitment) and other facility costs (annual, collateral or covenant)
-  are charged as operating expense; the engine does not cap draws, so draws above the commitment are
-  reported, not hidden;
+- contingency line (r503): the engine draws on the line only from the period it is available and only up to
+  its commitment; any shortfall beyond that stays unfunded. Drawn balances are priced at the modeled
+  borrowing rate plus the line's spread, on the line's own balance. A commitment fee (annual basis points on
+  the full commitment) and other facility costs are charged as operating expense;
 - reduced growth: a supported input multiplied by a factor from a period (for example originations).
 """
 from __future__ import annotations
@@ -62,8 +62,12 @@ def apply(stress_cfg, actions):
             notes.append(f"Capital injection of {act['amount']:,.0f} ($000s) in period {act['period']}.")
         elif t == "contingency_line":
             frm = int(act.get("available_from") or 1)
-            a["funding_shortfall_policy"] = "automatic_borrowing"
-            a["borrow_rate_ann"] = float(a.get("borrow_rate_ann") or 0.0) + float(act.get("spread_bp") or 0) / 10000.0
+            prior = a.get("funding_shortfall_policy", "show_shortfall")
+            a["funding_shortfall_policy"] = "contingency_facility"
+            a["contingency_facility"] = dict(capacity=float(act["capacity"]) * 1000.0, available_from=frm,
+                                             rate_ann=float(a.get("borrow_rate_ann") or 0.0) + float(act.get("spread_bp") or 0) / 10000.0)
+            if prior == "automatic_borrowing":
+                notes.append("The stressed run borrowed without limit; with the line, funding is limited to the line and the rest is unfunded.")
             annual = float(act.get("commitment_fee_bp") or 0) / 10000.0 * float(act["capacity"]) + float(act.get("other_costs") or 0)
             for i in range(frm - 1, n):
                 fee_path[i] += annual * 1000.0 / ppy
@@ -102,7 +106,7 @@ def _measures(cfg, res, settings, win):
     unf = [float(x or 0) / 1000.0 for x in (fu.get("unfunded_cash") or [])][-len(is_["ni"]):][:W]
     return dict(capital=cap, cum_ni=round(sum(float(x or 0) for x in is_["ni"][:W]), 3),
                 borrowing_expense=round(sum(float(x or 0) for x in (is_.get("borrExp") or [])[:W]), 3),
-                peak_draw=round(max(auto, default=0.0), 3), draws=auto, peak_unfunded=round(max(unf, default=0.0), 3))
+                peak_draw=round(max(auto, default=0.0), 3), draws=auto, unfunded=unf, peak_unfunded=round(max(unf, default=0.0), 3))
 
 
 def run(cfg, parent, stress_cfg, stress_res, actions, label=None) -> dict:
@@ -115,17 +119,19 @@ def run(cfg, parent, stress_cfg, stress_res, actions, label=None) -> dict:
     pre, post = _measures(stress_cfg, stress_res, settings, win), _measures(post_cfg, post_res, settings, win)
     fees = round(sum(info["fee_path"][:win["periods"]]) / 1000.0, 3)
     line = next((x for x in actions if x["type"] == "contingency_line"), None)
-    exceeded = None
-    if line:
-        exceeded = next((i + 1 for i, d in enumerate(post["draws"]) if d > float(line["capacity"]) + 1e-9), None)
-        early = next((i + 1 for i, d in enumerate(post["draws"]) if d > 1e-9 and i + 1 < int(line.get("available_from") or 1)), None)
     costs = dict(facility_fees_and_other=fees, drawn_interest=round(post["borrowing_expense"] - pre["borrowing_expense"], 3))
     warn = []
-    if exceeded:
-        warn.append(f"Draws exceed the {line['capacity']:,.0f} commitment from period {exceeded}; the engine does not cap draws, so the excess is shown, not funded by the line.")
-    if line and early:
-        warn.append(f"Draws start in period {early}, before the line is available (period {line.get('available_from')}).")
-    for k in ("draws",):
+    if line:
+        cap, frm = float(line["capacity"]), int(line.get("available_from") or 1)
+        full = [i + 1 for i, d in enumerate(post["draws"]) if d >= cap - 1e-6 and cap > 0]
+        if post["peak_unfunded"] > 1e-6:
+            first = next((i + 1 for i, u in enumerate(post["unfunded"]) if u > 1e-6), None)
+            warn.append(f"The line does not cover every shortfall: {post['peak_unfunded']:,.0f} ($000s) stays unfunded at the peak"
+                        + (f", first in period {first}" if first else "") + (f"; the line is fully drawn from period {full[0]}" if full else "")
+                        + (f"; it is not available before period {frm}" if frm > 1 else "") + ".")
+        costs["line_limit"] = dict(capacity=cap, available_from=frm, peak_draw=post["peak_draw"],
+                                   draws_within_limits=all(d <= cap + 1e-6 for d in post["draws"]) and all(d <= 1e-9 for d in post["draws"][:frm - 1]))
+    for k in ("draws", "unfunded"):
         pre.pop(k), post.pop(k)
     return dict(record_type="actions", run_id=uuid.uuid4().hex[:12], parent_run_id=parent.get("run_id"), status="completed",
                 scenario_id=parent.get("scenario_id"), scenario_name=f"{parent.get('scenario_name')} · with actions",

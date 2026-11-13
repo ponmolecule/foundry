@@ -154,10 +154,13 @@ def run(cfg, spec, *, base_res=None, max_evals=60) -> dict:
             cap = capital_assessment(dict(c, stress_reporting=cfg.get("stress_reporting")), res, win)
             b = _criterion_margin(cap, crit, tiers)
             ni = sum(float(v or 0) for v in res["financials"]["is"]["ni"][:win["periods"]])
-            row = dict(x=round(float(x), 9), margin=None if b is None else b["margin"], breach=bool(b and b["margin"] < 0),
-                       binding=b, cum_ni=round(ni, 3))
-        except stress.StressError as e:
-            row = dict(x=round(float(x), 9), margin=None, breach=None, binding=None, error=str(e)[:200])
+            if b is None:   # no capital measure or no applicable threshold: this evaluation cannot say "no breach"
+                row = dict(x=round(float(x), 9), margin=None, breach=None, binding=None, cum_ni=round(ni, 3),
+                           error="no capital measure with an applicable threshold for the selected ratios and tiers")
+            else:
+                row = dict(x=round(float(x), 9), margin=b["margin"], breach=b["margin"] < 0, binding=b, cum_ni=round(ni, 3))
+        except Exception as e:   # any failed evaluation is recorded as failed, never as "no breach"
+            row = dict(x=round(float(x), 9), margin=None, breach=None, binding=None, error=(str(e) or type(e).__name__)[:200])
         evals.append(row)
         cache[key] = row
         return row
@@ -178,14 +181,27 @@ def run(cfg, spec, *, base_res=None, max_evals=60) -> dict:
                               direction="into breach" if far["breach"] else "out of breach", binding=brk["binding"]))
     into = [c for c in crossings if c["direction"] == "into breach"] or crossings
     first = min(into, key=lambda c: abs(c["x"] - x0)) if into else None
-    all_breach = all(r["breach"] for r in evals if r["breach"] is not None)
-    none_breach = not any(r["breach"] for r in evals)
-    status = ("no_breach_within_bounds" if none_breach else "breach_throughout_bounds" if all_breach and not crossings
-              else "multiple_crossings" if len(crossings) > 1 else "breach_found")
+    valid = [r for r in evals if r["breach"] is not None]
+    failed = [r for r in evals if r["breach"] is None]
+    all_breach = bool(valid) and all(r["breach"] for r in valid)
+    none_breach = bool(valid) and not any(r["breach"] for r in valid)
+    if not valid:
+        status = "search_failed"            # nothing was evaluated: no conclusion of any kind
+    elif none_breach and failed:
+        status = "inconclusive"             # no breach where it could be measured, but part of the range was not
+    elif none_breach:
+        status = "no_breach_within_bounds"
+    elif all_breach and not crossings:
+        status = "breach_throughout_bounds"
+    else:
+        status = "multiple_crossings" if len(crossings) > 1 else "breach_found"
     lim = [f"Searched {spec['lo']:g} to {spec['hi']:g} only; nothing is claimed outside these bounds.",
            f"Grid of {n} points, then bisection to {xtol:g}; a breach confined between two grid points could be missed."]
     if not monotonic(pts):
         lim.append("The response is not monotonic across the grid (for example slower asset growth can first raise leverage).")
+    if failed:
+        lim.insert(0, f"{len(failed)} of {len(evals)} evaluations failed or had no applicable threshold (first: {failed[0]['error']}); "
+                      f"no conclusion is drawn where nothing was measured.")
     if len(evals) >= max_evals:
         lim.append(f"Stopped at the evaluation budget of {max_evals} engine runs.")
     if stress._canon(base_cfg) != before:
@@ -193,7 +209,7 @@ def run(cfg, spec, *, base_res=None, max_evals=60) -> dict:
     return dict(spec=copy.deepcopy(spec), variable=describe(spec, cfg), criterion=crit, tiers=list(tiers),
                 window=dict(periods=win["periods"], label=win["label"]), grid_points=n, tolerance=xtol,
                 evaluations=sorted(evals, key=lambda r: r["x"]), crossings=sorted(crossings, key=lambda c: c["x"]),
-                breaking_point=first, status=status, monotonic=monotonic(pts), limitations=lim,
+                breaking_point=first, status=status, failed_evaluations=len(failed), valid_evaluations=len(valid), monotonic=monotonic(pts), limitations=lim,
                 engine_runs=len(evals) + 1, seconds=round(time.time() - t0, 2))
 
 
@@ -203,6 +219,7 @@ def record(cfg, result) -> dict:
     return dict(run_id=uuid.uuid4().hex[:12], record_type="reverse_stress", status="completed", scenario_name="Reverse stress: " + result["variable"], severity_id="reverse",
                 severity_label={"breach_found": "breaking point found", "multiple_crossings": "several crossings",
                                 "no_breach_within_bounds": "no breach within bounds",
+                                "inconclusive": "inconclusive: some evaluations failed", "search_failed": "search failed",
                                 "breach_throughout_bounds": "breached throughout bounds"}[result["status"]],
                 kind="reverse_stress", base_fingerprint=stress.base_fingerprint(cfg), engine=stress.engine_identity(),
                 started_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), checks=dict(structural="passed", zero_shock="not applicable"),

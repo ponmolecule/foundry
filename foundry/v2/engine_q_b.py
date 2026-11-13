@@ -209,7 +209,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
     _aoci_sens = float(a.get("aoci_sensitivity_annual") or 0.0)
     aoci_cum = 0.0
 
-    from .funding import funding_policy, funding_diagnostics
+    from .funding import funding_policy, funding_diagnostics, facility as _facility
     _funding_policy = funding_policy(a)
     def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end, extra_liab=0.0, other_liab_level=None, opening=False):
         uses = gross_end - alll_end + sec_prod_end + _ne[0] - _sched_t[_ne_q[0]]
@@ -222,6 +222,13 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
                 return max(0.,net_cash),ref_sec,max(0.,-net_cash)
             return net_cash,ref_sec,0.
         borrow = 0.0
+        if liquid < 0 and _funding_policy == "contingency_facility":   # limited to availability and capacity
+            from .funding import facility_limit as _facility_limit
+            borrow = min(-liquid, _facility_limit(a, _ne_q[0]))
+            liquid += borrow
+            if liquid < 0:
+                return liquid, 0.0, borrow
+            return liquid * (1 - alloc), liquid * alloc, borrow
         if liquid < 0 and _funding_policy != "automatic_borrowing":
             return liquid, 0.0, 0.0
         if liquid < 0:
@@ -270,7 +277,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False, _switch_capture_opening
         int_dep = sum(p['_interest_expense'][qi] if '_minimum_interest' in p else p["_avg"][qi] * _deposit_rate(p, q, _rate) / 4.0 for p in dep)
         from .source_catalog import financial_observations
         _financial_obs=financial_observations(dep,qi,_curves,profile_b=True,rate_fn=lambda p: _deposit_rate(p,q,_rate),ppy=4)
-        int_borrow = borrow * a["borrow_rate_ann"] / 4.0 + _sched_int[qi]   # beginning balance + scheduled
+        int_borrow = borrow * (_facility(a)[2] if _funding_policy == "contingency_facility" else a["borrow_rate_ann"]) / 4.0 + _sched_int[qi]   # beginning balance + scheduled
         nii = int_loans + int_sec_prod + int_sweep + int_cash - int_dep - int_borrow
 
         fees = (sum(p["_avg"][qi] * (p.get("fee_yield_ann") or 0.0) / 4.0 for p in lend + dep + obs + afs_p + htm_p)

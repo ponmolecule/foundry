@@ -205,8 +205,8 @@ def main():
     q = json.loads((ROOT / "foundry/fixtures/parity/configs/pf_b_htm_securities.json").read_text())
     qr = stress._engine_run(copy.deepcopy(q))
     sq = R.statements(q, qr)
-    Xq = {t[0].split(":")[-1]: t[2] for t in sq["X"] if t[0] != "g"}
-    Yq = {t[0].split(":")[-1]: t[2] for t in sq["Y"] if t[0] != "g"}
+    Xq = {t[0].split(":")[-1].lstrip("?"): t[2] for t in sq["X"] if not t[0].startswith("g:")}
+    Yq = {t[0].split(":")[-1].lstrip("?"): t[2] for t in sq["Y"] if not t[0].startswith("g:")}
     ck("quarterly model: years are four quarters; stocks at Q4, Q8, Q12",
        [y["label"] for y in sq["years"]] == ["Year 1", "Year 2", "Year 3"]
        and near(Xq["total_assets"][1], qr["financials"]["bs"]["totalAssets"][8 if len(qr["financials"]["bs"]["totalAssets"]) == 13 else 7], 1e-6))

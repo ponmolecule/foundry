@@ -89,7 +89,7 @@ def main():
     ck("a six-month acquisition delay runs with the zero-shock check passed", dres["status"] == "completed" and dres["checks"]["zero_shock"] == "passed", dres.get("errors"))
     disc = dres["resolved_overrides"][0].get("delay") or {}
     ck("the delay names its driver type, fill rule and what was shifted past the horizon",
-       disc.get("periods") == 6 and disc.get("driver") in ("new-volume flow", "level path") and disc.get("fill") and "committed costs" in disc.get("note", ""), disc)
+       disc.get("periods") == 6 and disc.get("driver") in stress.ECON_LABELS.values() and disc.get("fill") and "committed costs" in disc.get("note", ""), disc)
     mode = dres["resolved_overrides"][0]["mode"]
     base_path = stress._resolve_path(stress.resolve_target(dd["base_cfg"], k_ch)[2], mode, 36, 12)
     new_path = stress._resolve_path(stress.resolve_target(dd["stress_cfg"], k_ch)[2], mode, 36, 12)

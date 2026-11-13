@@ -217,8 +217,14 @@ def _validate_config_v2(cfg):
             FeeLinkPlan(a)
         except (ValueError, TypeError, KeyError) as exc:
             errs.append("Fee quantity links: " + str(exc))
-    if a.get("funding_shortfall_policy", "show_shortfall") not in ("show_shortfall", "automatic_borrowing"):
-        errs.append("funding_shortfall_policy must be show_shortfall or automatic_borrowing")
+    if a.get("funding_shortfall_policy", "show_shortfall") not in ("show_shortfall", "automatic_borrowing", "contingency_facility"):
+        errs.append("funding_shortfall_policy must be show_shortfall, automatic_borrowing or contingency_facility")
+    if a.get("funding_shortfall_policy") == "contingency_facility":
+        f = a.get("contingency_facility") or {}
+        if not isinstance(f.get("capacity"), (int, float)) or f["capacity"] < 0:
+            errs.append("contingency_facility needs a non-negative capacity")
+        if not isinstance(f.get("available_from", 1), int) or f.get("available_from", 1) < 1:
+            errs.append("contingency_facility availability is a model period from 1")
     if a.get("surplus_allocation_policy") not in (None, "cash", "residual_securities", "legacy_split"):
         errs.append("surplus_allocation_policy must be cash or residual_securities")
     if a.get("surplus_allocation_policy") == "legacy_split" and cfg.get("parity_profile") != "pf_b":

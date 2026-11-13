@@ -1139,7 +1139,10 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     from .funding import funding_policy, funding_diagnostics
     _funding_policy = funding_policy(a)
     if _bcm:
-        _bcm.allow_cash_shortfall = _funding_policy == "show_shortfall"
+        _bcm.allow_cash_shortfall = _funding_policy != "automatic_borrowing"
+    if _funding_policy == "contingency_facility":
+        from .funding import facility as _facility, facility_limit as _facility_limit
+        _fac_rate = _facility(a)[2]
     _required_cash_t = [0.0] * (Q + 1)
     ne_q = [0]
     def plug(dep_carry, dep_bal, net_loans_end, equity_end, msr_end, sec_books_end=0.0, ne=None,
@@ -1165,6 +1168,9 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
             return req_cash, investable - req_cash, 0.0
         if _funding_policy == "automatic_borrowing":
             return req_cash, 0.0, req_cash - investable
+        if _funding_policy == "contingency_facility":   # draws limited to availability and capacity; the rest stays unfunded
+            draw = min(req_cash - investable, _facility_limit(a, ne_q[0]))
+            return investable + draw, 0.0, draw
         # A negative cash position exposes an unfunded plan; it is not new debt.
         return investable, 0.0, 0.0
 
@@ -1744,7 +1750,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 _affiliated_cash = c
                 affiliated_cash_int = operating_cash_int = fiduciary_aua_int = frb_stock_int = 0.0
                 cash_int = ((max(0.0, beg_c) + max(0.0, c)) / 2.0) * a["cash_yield"] / ppyf
-            borr_exp = ((beg_b + b) / 2.0) * a.get("borrow_rate_ann", 0.0) / ppyf + sched_int_t[q]
+            borr_exp = ((beg_b + b) / 2.0) * (_fac_rate if _funding_policy == "contingency_facility" else a.get("borrow_rate_ann", 0.0)) / ppyf + sched_int_t[q]
             nii = loan_int + sec_int + cash_int - dep_exp - borr_exp
             _wf_add_values = []
             if _nie_d and _wf_runtime is not None and _wf_runtime.additive_components:

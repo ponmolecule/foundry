@@ -27,6 +27,22 @@ def settings(cfg) -> dict:
     return s
 
 
+def settings_snapshot(cfg) -> dict:
+    """The reporting settings that shape a package (classifications, policy minimums, window), without the
+    primary-case pointer. Stored with each run and each issued package so a package can be reproduced."""
+    s = settings(cfg)
+    s.pop("primary_run_id", None)
+    return s
+
+
+def settings_fingerprint(snapshot) -> str:
+    """Fingerprint of a settings snapshot (from ``settings_snapshot``)."""
+    import hashlib
+    import json as _json
+    s = {k: v for k, v in (snapshot or {}).items() if k != "primary_run_id"}
+    return hashlib.sha256(_json.dumps(s, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
 def _n(x):
     try:
         v = float(x)
@@ -262,18 +278,18 @@ def statements(cfg, res, window=None) -> dict:
     capr = _cap_series(res)
     ye = lambda r: [None if y["stock_idx"] >= len(capr[r][0]) else capr[r][0][y["stock_idx"]] for y in Y]
     X = [
-        ("g", "Assets"),
+        ("g:assets", "Assets"),
         ("cash", "Cash and Balances Due from Banks", st(bs.get("cash"))),
         ("afs", "AFS Debt Securities", st(afs)),
-        *([("htm", "HTM Debt Securities", st(htm))] if htm and any(abs(_n(x)) > 1e-9 for x in htm) else []),
-        *([("hfs", "Loans Held for Sale", st(hfs))] if hfs and any(abs(_n(x)) > 1e-9 for x in hfs) else []),
+        ("?htm", "HTM Debt Securities", st(htm) if htm else [0.0] * len(Y)),     # shown when either case holds any
+        ("?hfs", "Loans Held for Sale", st(hfs) if hfs else [0.0] * len(Y)),
         ("hfi", "Loans Held for Investment", st(hfi)),
         ("acl", "Allowance for Credit Losses", st(alll)),
         ("premises", "Premises and Fixed Assets", st(prem)),
         ("intangibles", "Intangible Assets", st(intang)),
         ("other_assets", "Other Assets", st(other_a)),
         ("t:total_assets", "Total Assets", st(bs.get("totalAssets"))),
-        ("g", "Liabilities and Equity"),
+        ("g:liabilities", "Liabilities and Equity"),
         ("nib", "Noninterest-Bearing Deposits", st(_sum(*nib)) if dep_ok else None),
         ("ib", "Interest-Bearing Deposits", st(_sum(*ib)) if dep_ok else None),
         *([] if dep_ok else [("deposits", "Deposits (classification incomplete)", st(bs.get("deposits")))]),
@@ -281,7 +297,7 @@ def statements(cfg, res, window=None) -> dict:
         ("other_liab", "Other Liabilities", st(other_l)),
         ("t:total_liab", "Total Liabilities", st(tl)),
         ("t:equity", "Equity", st(bs.get("equity"))),
-        ("g", "Capital Ratios"),
+        ("g:capital", "Capital Ratios"),
         ("%:leverage", "Tier 1 Leverage Ratio", ye("leverage")),
         ("%:cet1_rwa", "CET 1 Capital Ratio", ye("cet1_rwa")),
         ("%:tier1_rwa", "Tier 1 Capital Ratio", ye("tier1_rwa")),
@@ -307,7 +323,7 @@ def statements(cfg, res, window=None) -> dict:
         ("t:pretax", "Pre-Tax Net Income", fl(is_.get("pretax"))),
         ("tax", "Taxes", fl(is_.get("tax"))),
         ("t:ni", "Net Income", ni_y),
-        ("g", "Performance"),
+        ("g:performance", "Performance"),
         ("%:roaa", "ROAA", [div(None if v is None else v * f, d) for v, f, d in zip(ni_y, ann, ata)]),
         ("%:roae", "ROAE", [div(None if v is None else v * f, d) for v, f, d in zip(ni_y, ann, aeq)]),
         ("%:eff", "Efficiency Ratio", [div(e, _n(a) + _n(b)) for e, a, b in zip(nie_y, nii_y, nonii_y)]),
@@ -318,15 +334,32 @@ def statements(cfg, res, window=None) -> dict:
 
 
 def _rows(base_rows, stress_rows):
+    """Join base and stressed rows by their reporting key, never by position, keeping the union of rows.
+
+    A conditional row (key starting with "?") appears when either case holds a balance; the other case then
+    shows its own computed zero. A row present on one side only is unavailable on the other, not zero."""
+    bmap = {r[0]: r for r in base_rows}
+    smap = {r[0]: r for r in stress_rows}
+    order = [r[0] for r in base_rows]
+    for i, r in enumerate(stress_rows):           # stress-only rows go after their predecessor in stress order
+        if r[0] not in bmap:
+            prev = next((stress_rows[j][0] for j in range(i - 1, -1, -1) if stress_rows[j][0] in order), None)
+            order.insert(order.index(prev) + 1 if prev else 0, r[0])
     out = []
-    for b, s in zip(base_rows, stress_rows):
-        if b[0] == "g":
-            out.append({"kind": "group", "label": b[1]})
+    for key in order:
+        b, s = bmap.get(key), smap.get(key)
+        ref = b or s
+        if key.startswith("g:"):
+            out.append({"kind": "group", "label": ref[1]})
             continue
-        key = b[0]
-        style, k = (key.split(":", 1) if ":" in key else ("", key))
+        cond = key.startswith("?")
+        k0 = key[1:] if cond else key
+        bv, sv = (b[2] if b else None), (s[2] if s else None)
+        if cond and all(abs(_n(x)) <= 1e-9 for x in (bv or []) + (sv or [])):
+            continue
+        style, k = (k0.split(":", 1) if ":" in k0 else ("", k0))
         pct = style == "%"
-        bv, sv = b[2], s[2]
+        b = ref
         if bv is None or sv is None:
             out.append({"key": k, "label": b[1], "style": style, "available": False, "note": NA})
             continue
@@ -347,7 +380,9 @@ def report(base_cfg, base_res, stress_cfg, stress_res, settings_cfg=None) -> dic
     rep_cfg_s = dict(base_only(stress_cfg), stress_reporting=settings(sc))
     win = report_window(rep_cfg_b)
     sb, ss = statements(rep_cfg_b, base_res, win), statements(rep_cfg_s, stress_res, win)
-    return {"window": {k: win[k] for k in ("periods", "label", "basis")}, "years": sb["years"],
+    snap = settings_snapshot(sc)
+    return {"settings_used": snap, "settings_fingerprint": settings_fingerprint(snap),
+            "window": {k: win[k] for k in ("periods", "label", "basis")}, "years": sb["years"],
             "X": _rows(sb["X"], ss["X"]), "Y": _rows(sb["Y"], ss["Y"]),
             "deposits_classified": sb["deposits_classified"] and ss["deposits_classified"],
             "unclassified_deposits": sb["unclassified_deposits"],
@@ -371,7 +406,7 @@ def add_report_sheets(wb, rep, record):
         ws = wb.create_sheet(title)
         yl = [y["label"] + (" (partial)" if y["partial"] else "") for y in rep["years"]]
         ws.append([f"{title.split(' ', 2)[0]} {title.split(' ', 2)[1]}: {name}"])
-        ws.append([cap + f" · window {rep['window']['label']}"])
+        ws.append([cap + f" · window {rep['window']['label']} · reporting settings {rep.get('settings_fingerprint', '')}"])
         ws.append(["", *(["Stressed"] * len(yl)), *(["Change relative to base"] * len(yl)), *(["Base"] * len(yl))])
         ws.append(["", *yl, *yl, *yl])
         for c in ws[4]:
@@ -403,3 +438,15 @@ def add_report_sheets(wb, rep, record):
                 ws.append([case, x["label"], x["min"], x["min_period"], v["label"], v["floor"], v["source"],
                            v["min_cushion"], v["min_cushion_period"], v["first_breach_period"] or "none"])
     return wb
+
+    ws = wb.create_sheet("Reporting settings")
+    ws.append(["Reporting settings used for this package"])
+    ws.append(["Fingerprint", rep.get("settings_fingerprint", "")])
+    snap = rep.get("settings_used") or {}
+    ws.append(["Window (periods)", snap.get("window_periods") or "full horizon"])
+    for r, v in sorted((snap.get("policy_minimums") or {}).items()):
+        ws.append([f"Policy minimum: {r}", (v or {}).get("value"), (v or {}).get("source")])
+    for k, v in sorted((snap.get("deposit_classes") or {}).items()):
+        ws.append([f"Deposit class: {k}", v])
+    for k, v in sorted((snap.get("expense_classes") or {}).items()):
+        ws.append([f"Expense class: {k}", v])

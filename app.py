@@ -1647,6 +1647,10 @@ def v31_stress_run(body: dict, user=Depends(gate)):
     except (ValueError, TypeError, KeyError) as e:
         return JSONResponse({"error": str(e)}, status_code=422)
     results = {r["run_id"]: r.pop("_results", None) for r in out}
+    from foundry.v2.stress_report import settings_snapshot, settings_fingerprint
+    snap = settings_snapshot(cfg)
+    for r in out:   # the reporting settings in force when the run was made, kept with the record
+        r["reporting_settings"], r["reporting_settings_fingerprint"] = snap, settings_fingerprint(snap)
     if slug:
         try:
             for i, r in enumerate(out):
@@ -1702,6 +1706,9 @@ def v31_stress_reverse(body: dict, user=Depends(gate)):
     if body.get("formal"):
         if not slug:
             return JSONResponse({"error": "save the engagement first: a formal record is stored with it"}, status_code=422)
+        if result["status"] == "search_failed":
+            return JSONResponse({"error": "the search failed at every point, so there is nothing to record; see the evaluations",
+                                 "result": result}, status_code=422)
         rec = RS.record(cfg, result)
         store.save_stress_run(slug, rec, user=user, results=dict(base_cfg=base_cfg, base_res=base_res))
         rec = store.load_stress_run(slug, rec["run_id"], user=user)
@@ -1811,8 +1818,14 @@ def v31_stress_report(body: dict, user=Depends(gate)):
         return JSONResponse({"error": "failed runs have no results to report"}, status_code=422)
     if not all(parts.values()):
         return JSONResponse({"error": "this run has no archived results (it ran before r499); rerun it to report"}, status_code=409)
-    rep = stress_report.report(parts["baseline"], parts["base_result"], parts["stress_cfg"], parts["stress_result"], settings_cfg=cfg)
+    as_run = body.get("basis") == "as_run" and rec.get("reporting_settings") is not None
+    scfg = dict(cfg, stress_reporting=rec["reporting_settings"]) if as_run else cfg
+    rep = stress_report.report(parts["baseline"], parts["base_result"], parts["stress_cfg"], parts["stress_result"], settings_cfg=scfg)
+    cur = stress_report.settings_fingerprint(stress_report.settings_snapshot(cfg))
     return JSONResponse({"report": rep, "state": stress.run_state(rec, cfg), "run_id": rid,
+                         "settings_basis": "as_run" if as_run else "current", "current_settings_fingerprint": cur,
+                         "run_settings_fingerprint": rec.get("reporting_settings_fingerprint"),
+                         "settings_changed_since_run": bool(rec.get("reporting_settings_fingerprint")) and rec.get("reporting_settings_fingerprint") != cur,
                          "classification": {"deposits": stress_report.deposit_classification(cfg),
                                             "expenses": stress_report.expense_classification(cfg)}})
 
@@ -1869,6 +1882,12 @@ def v31_stress_export(body: dict, user=Depends(gate)):
             if all(parts.values()):
                 rep = stress_report.report(parts["baseline"], parts["base_result"], parts["stress_cfg"], parts["stress_result"], settings_cfg=cfg)
                 stress_report.add_report_sheets(wb, rep, rec)
+                import time as _t
+                import uuid as _uuid
+                store.save_report_issue(slug, dict(issue_id=_uuid.uuid4().hex[:12], run_id=rid, issued_at=_t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime()),
+                                                   issued_by=user, settings=rep["settings_used"], settings_fingerprint=rep["settings_fingerprint"],
+                                                   base_fingerprint=rec.get("base_fingerprint"), engine=rec.get("engine"),
+                                                   scenario_fingerprint=rec.get("scenario_fingerprint")), user=user)
         except (OSError, ValueError):
             pass
     buf = _io.BytesIO()

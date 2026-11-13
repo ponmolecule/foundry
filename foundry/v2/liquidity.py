@@ -128,6 +128,11 @@ def validate(cfg) -> list[str]:
                     errs.append(f"{nm}: {sev} {k.replace('_', ' to ')} must be between 0% and 100%")
             if v and v.get("day1") is not None and v.get("days2_30") is not None and _n(v["day1"]) + _n(v["days2_30"]) > 1 + 1e-9:
                 errs.append(f"{nm}: {sev} run-off over 30 days cannot exceed 100% of the balance")
+            if v and v.get("days31_plus") is not None:
+                if not 0 <= _n(v["days31_plus"], -1) <= 1:
+                    errs.append(f"{nm}: {sev} run-off after day 30 must be between 0% and 100%")
+                elif _n(v.get("day1")) + _n(v.get("days2_30")) + _n(v["days31_plus"]) > 1 + 1e-9 and b.get("type") != "fund_settlement":
+                    errs.append(f"{nm}: {sev} run-off over the whole run cannot exceed 100% of the balance")
         h = b.get("hourly")
         if h is not None and (len(h) != len(HOURS) or any(_n(x, -1) < 0 for x in h) or sum(_n(x) for x in h) <= 0):
             errs.append(f"{nm}: the day-1 timing needs {len(HOURS)} non-negative hourly weights, 08:00 to 17:00")
@@ -151,6 +156,7 @@ def validate(cfg) -> list[str]:
             errs.append(f"{nm}: the haircut is between 0% and 100%")
         if r.get("hqla") not in (None, "", "1", "2A", "2B"):
             errs.append(f"{nm}: HQLA level is 1, 2A, 2B or none")
+    errs += _static_allocation_errors(s)
     ln = s.get("line")
     if ln:
         if not _n(ln.get("capacity")) > 0:
@@ -172,6 +178,53 @@ def validate(cfg) -> list[str]:
     if not 2 <= int(sd.get("run_days") or 30) <= 90:
         errs.append("stress day: the run lasts 2 to 90 days")
     return errs
+
+
+def _static_allocation_errors(s):
+    """The same balance cannot be counted twice: shares of one balance-sheet line sum to at most 100%, a deposit
+    product belongs to at most one book, and a book drawing on total deposits cannot also name products."""
+    errs, shares = [], {}
+    for r in s.get("resources") or []:
+        b = r.get("balance") or {}
+        if "bs" in b:
+            shares[b["bs"]] = shares.get(b["bs"], 0.0) + _n(b.get("share"), 1.0)
+        if "entered" in b and b.get("within") not in (None, "", "cash", "sec"):
+            errs.append(f"{r.get('name')}: an entered resource is either outside projected cash and securities, or part of one of them")
+    lab = {"cash": "projected cash", "sec": "projected securities", "deposits": "projected deposits"}
+    for line, tot in shares.items():
+        if tot > 1 + 1e-9:
+            errs.append(f"resources claim {tot:.0%} of {lab.get(line, line)}; the same balance cannot be counted twice")
+    owner, dep_share = {}, 0.0
+    for b in s.get("books") or []:
+        src = b.get("balance") or {}
+        for k in src.get("deposit_keys") or []:
+            if k in owner:
+                errs.append(f"{b.get('name')}: deposit product {k} is already in {owner[k]}; a balance belongs to one book")
+            owner[k] = b.get("name")
+        if src.get("bs") == "deposits":
+            dep_share += _n(src.get("share"), 1.0)
+    if dep_share and owner:
+        errs.append("a book on total projected deposits overlaps books on individual deposit products; use one or the other")
+    if dep_share > 1 + 1e-9:
+        errs.append(f"books claim {dep_share:.0%} of projected deposits; the same balance cannot be counted twice")
+    return errs
+
+
+def _check_allocations(s, P, month):
+    """At the stress month: entered resources that are part of projected cash or securities, plus the shares
+    resources take of those lines, cannot exceed the line itself."""
+    used = {"cash": 0.0, "sec": 0.0}
+    for r in s.get("resources") or []:
+        b = r.get("balance") or {}
+        if b.get("bs") in used:
+            used[b["bs"]] += P.bs_at(b["bs"], month) * _n(b.get("share"), 1.0)
+        elif "entered" in b and b.get("within") in used:
+            used[b["within"]] += _n(b["entered"])
+    for line, u in used.items():
+        have = P.bs_at(line, month)
+        if u > have + 1e-6:
+            raise LiquidityError(f"resources take {u:,.0f} of projected {'cash' if line == 'cash' else 'securities'} "
+                                 f"({have:,.0f} at the stress month); the same balance cannot be counted twice")
 
 
 def _src_errors(src, keys):
@@ -230,9 +283,7 @@ def applicability(cfg, proj=None, month=None) -> list[dict]:
     books = s.get("books") or []
     sev = (s.get("stress_day") or {}).get("severity", "severe")
     has_books, has_res = bool(books), bool(s.get("resources"))
-    day1_missing = [b.get("name") for b in books if ((b.get("severities") or {}).get(sev) or {}).get("day1") is None]
-    run_missing = [b.get("name") for b in books if ((b.get("severities") or {}).get(sev) or {}).get("days2_30") is None]
-    hourly_missing = [b.get("name") for b in books if not b.get("hourly")]
+    days = int((s.get("stress_day") or {}).get("run_days") or 30)
     rows = []
 
     def row(test, applies, calc, missing, note=""):
@@ -242,10 +293,11 @@ def applicability(cfg, proj=None, month=None) -> list[dict]:
                          missing=missing if needed else [], note=note))
 
     row("intraday", "applies" if has_books else "not set up", "yes",
-        ([f"{x}: day-1 run-off ({sev})" for x in day1_missing] + [f"{x}: day-1 timing" for x in hourly_missing]
+        ([m for b in books for m in missing_inputs(b, sev, "intraday", days)]
          + ([] if has_res else ["at least one liquid resource"])) if has_books else ["a redemption book"])
     row("run_30", "applies" if has_books else "not set up", "yes",
-        ([f"{x}: days 2 to 30 run-off ({sev})" for x in run_missing] + ([] if has_res else ["at least one liquid resource"])) if has_books else ["a redemption book"])
+        ([m for b in books for m in missing_inputs(b, sev, "run", days)]
+         + ([] if has_res else ["at least one liquid resource"])) if has_books else ["a redemption book"])
     lcr = s.get("lcr") or {}
     big = None
     if proj is not None and month is not None:
@@ -269,6 +321,37 @@ def applicability(cfg, proj=None, month=None) -> list[dict]:
 def _book_rates(b, sev):
     v = (b.get("severities") or {}).get(sev) or {}
     return v.get("day1"), v.get("days2_30")
+
+
+def missing_inputs(b, sev, test, days=30):
+    """Every input a book needs for one test. A test runs only when every book has every input it needs;
+    an incomplete book is never skipped while the aggregate is reported as complete."""
+    v = (b.get("severities") or {}).get(sev) or {}
+    nm, out = b.get("name") or "book", []
+    if v.get("day1") is None:
+        out.append(f"{nm}: day-1 run-off ({sev})")
+    if test == "intraday" and not b.get("hourly"):
+        out.append(f"{nm}: day-1 timing")
+    if test == "run":
+        if v.get("days2_30") is None:
+            out.append(f"{nm}: days 2 to 30 run-off ({sev})")
+        if days > 30 and v.get("days31_plus") is None:
+            out.append(f"{nm}: run-off after day 30 ({sev}), needed for a {days}-day run")
+    return out
+
+
+def line_state(ln, month, month_label=None):
+    """One facility-eligibility answer shared by the intraday test, the daily run and the LCR."""
+    if not ln:
+        return dict(configured=False, eligible=False, intraday=False, capacity=0.0, reason="No line set up.")
+    cap = _n(ln.get("capacity"))
+    frm = int(ln.get("available_from") or 1)
+    lu, lc = _hm(ln.get("available"), OPEN), _hm(ln.get("cutoff"), CLOSE)
+    if frm > month:
+        return dict(configured=True, eligible=False, intraday=False, capacity=cap, available_from=frm,
+                    reason=f"The line is available from period {frm}, after the stress month{f' ({month_label})' if month_label else ''}.")
+    return dict(configured=True, eligible=True, intraday=lu < lc, capacity=cap, available_from=frm, usable=lu, cutoff=lc,
+                reason=f"Usable from {_fmt(lu)} until the {_fmt(lc)} cutoff.")
 
 
 def _weights(b):
@@ -341,13 +424,19 @@ def intraday(books_out, steps, line=None):
 
 
 def run_30(book_flows, resources_total, line_cap, days):
-    """Daily closing liquidity over the run. ``book_flows``: [(day-1 out, days 2 to 30 cumulative out, repay days or None)]."""
+    """Daily closing liquidity over the run.
+
+    ``book_flows``: [(day-1 out, days 2 to 30 cumulative out, after-day-30 cumulative out or None, repay days or None)].
+    The days 2 to 30 amount is spread evenly over those 29 days and stops at day 30; days after 30 use their own
+    assumption, spread evenly over the rest of the run. A shorter run takes only its share of the 30-day path."""
     out = [0.0] * (days + 1)
     inflow = [0.0] * (days + 1)
-    for d1, d30, repay in book_flows:
-        per = d30 / 29.0
+    for flow in book_flows:
+        d1, d30, d31, repay = flow if len(flow) == 4 else (flow[0], flow[1], None, flow[2])
+        if days > 30 and d31 is None:
+            raise LiquidityError("a run longer than 30 days needs a run-off assumption after day 30 for every book")
         for d in range(1, days + 1):
-            amt = d1 if d == 1 else per
+            amt = d1 if d == 1 else (d30 / 29.0 if d <= 30 else d31 / (days - 30))
             out[d] += amt
             if repay:
                 if d + repay <= days:
@@ -424,10 +513,12 @@ def run(cfg, res, projection_label="Base", window=None) -> dict:
                    day1_outflow=None if d1 is None else round(bal * _n(d1), 3),
                    days2_30_outflow=None if d30 is None else round(bal * _n(d30), 3), repaid_after_days=repay)
         books.append(row)
-        if d1 is not None and b.get("hourly"):
+        d31 = ((b.get("severities") or {}).get(sev) or {}).get("days31_plus")
+        row["days31_plus_rate"] = d31
+        if not missing_inputs(b, sev, "intraday", days):
             b_out.append((bal * _n(d1), _weights(b)))
-        if d1 is not None and d30 is not None:
-            flows.append((bal * _n(d1), bal * _n(d30), repay))
+        if not missing_inputs(b, sev, "run", days):
+            flows.append((bal * _n(d1), bal * _n(d30), None if d31 is None else bal * _n(d31), repay))
 
     # resources
     ladder, steps = [], []
@@ -440,17 +531,22 @@ def run(cfg, res, projection_label="Base", window=None) -> dict:
                            usable=round(use, 3), hqla=r.get("hqla") or None, source=src))
         steps.append((at, use, r.get("name")))
     ln = s.get("line")
-    line_ok = bool(ln) and int(ln.get("available_from") or 1) <= month
-    line = (_hm(ln.get("available"), OPEN), _hm(ln.get("cutoff"), CLOSE), _n(ln.get("capacity"))) if line_ok else None
+    LS = line_state(ln, month, period_label(base, month))
+    line_ok = LS["eligible"]
+    line = (LS["usable"], LS["cutoff"], LS["capacity"]) if line_ok else None
+    _check_allocations(s, P, month)
 
     out = dict(record_type="liquidity_result", month=month, month_label=period_label(base, month), severity=sev,
                projection=projection_label, applicability=app, books=books, ladder=ladder,
-               line=None if not ln else dict(ln, usable_this_month=line_ok), total_assets=round(P.bs_at("totalAssets", month), 3))
+               line=None if not ln else dict(ln, usable_this_month=line_ok), line_state={k: v for k, v in LS.items() if k not in ("usable", "cutoff")},
+               total_assets=round(P.bs_at("totalAssets", month), 3))
     if ln and not line_ok:
-        out["line_note"] = f"The line is available from {period_label(base, int(ln.get('available_from') or 1))}, after the stress month."
+        out["line_note"] = LS["reason"]
 
     # intraday
     if status["intraday"]["inputs"] == "complete":
+        if len(b_out) != len(books):
+            raise RuntimeError("intraday: a book would be left out of a test reported as complete")
         out["intraday"] = intraday(b_out, steps, line)
     else:
         out["intraday"] = dict(status="inputs_missing", missing=status["intraday"]["missing"])
@@ -458,13 +554,15 @@ def run(cfg, res, projection_label="Base", window=None) -> dict:
     # 30-day run: intraday timing is irrelevant here; everything usable on the day counts
     total_res = sum(x["usable"] for x in ladder)
     if status["run_30"]["inputs"] == "complete":
+        if len(flows) != len(books):
+            raise RuntimeError("daily run: a book would be left out of a test reported as complete")
         out["run_30"] = run_30(flows, total_res, line[2] if line else 0.0, days)
     else:
         out["run_30"] = dict(status="inputs_missing", missing=status["run_30"]["missing"])
 
     # LCR
     if status["lcr"]["calculated"] == "yes" and status["lcr"]["inputs"] == "complete":
-        out["lcr"] = _lcr_block(s, P, month, books, ladder, ln)
+        out["lcr"] = _lcr_block(s, P, month, books, ladder, ln, LS)
     else:
         out["lcr"] = dict(status="not calculated", applies=status["lcr"]["applies"], note=status["lcr"]["note"])
 
@@ -474,7 +572,7 @@ def run(cfg, res, projection_label="Base", window=None) -> dict:
     return out
 
 
-def _lcr_block(s, P, month, books, ladder, ln):
+def _lcr_block(s, P, month, books, ladder, ln, LS=None):
     rows, inflows = [], _n((s.get("lcr") or {}).get("other_inflows"))
     for b, row in zip(s["books"], books):
         bal = row["balance"]
@@ -505,7 +603,10 @@ def _lcr_block(s, P, month, books, ladder, ln):
                counts=round(x["amount"] * HQLA_FACTOR[x["hqla"]], 3)) for x in ladder if x["hqla"] in HQLA_FACTOR]
     non = [dict(name=x["name"], amount=x["amount"]) for x in ladder if x["hqla"] not in HQLA_FACTOR]
     before = lcr(rows, hq, inflows)
-    blk = dict(status="calculated", outflow_rows=rows, hqla_rows=hq, not_hqla=non, before=before)
+    blk = dict(status="calculated", outflow_rows=rows, hqla_rows=hq, not_hqla=non, before=before,
+               method="Simplified management calculation. Eligibility, operational-deposit qualification, collateral and "
+                      "transaction-level treatment under the rule are not validated here. A rule rate means the engagement "
+                      "chose the rule's category for that balance, not that the balance has been shown to qualify.")
     if ln:
         draw = _n(ln.get("capacity"))
         pledged = min(_n(ln.get("collateral_hqla")), before["level1"])
@@ -522,12 +623,18 @@ def _lcr_block(s, P, month, books, ladder, ln):
         lev0 = t1 / avg if t1 is not None and avg else None
         lev1 = t1 / (avg + draw) if t1 is not None and avg else None
         c0 = cet1 / rwa if cet1 is not None and rwa else None
-        blk["line_draw"] = dict(draw=round(draw, 3), pledged_hqla=round(pledged, 3), term=ln.get("term") or "over_30",
+        LS = LS or line_state(ln, month)
+        blk["line_draw"] = dict(basis="feasible" if LS["eligible"] else "hypothetical", eligible=LS["eligible"], eligibility=LS["reason"],
+                                draw=round(draw, 3), pledged_hqla=round(pledged, 3), term=ln.get("term") or "over_30",
                                 lcr=dict(before=before["lcr"], over_30=term["lcr"], within_30=short["lcr"]),
                                 leverage=dict(before=lev0, after=lev1), cet1_rwa=dict(before=c0, after=c0),
-                                notes=["Drawn cash is Level 1; collateral pledged to the line leaves the HQLA stock.",
+                                notes=(["Hypothetical: the line cannot be drawn at the stress month, so this is a sensitivity, not an available source."]
+                                       if not LS["eligible"] else [])
+                                      + ["Drawn cash is Level 1; collateral pledged to the line leaves the HQLA stock.",
                                        "A draw repayable within 30 days is also a 100% outflow.",
-                                       "Leverage: the draw is held through the averaging period. Cash carries no risk weight, so CET1 / RWA does not move."])
+                                       "Leverage: the draw is held through the averaging period. Cash carries no risk weight, so CET1 / RWA does not move.",
+                                       "Capital figures are a balance-sheet illustration of the draw, not a rerun: fees and drawn interest are not in them. "
+                                       "Results › Management actions runs the line through earnings, tax and capital."])
     return blk
 
 

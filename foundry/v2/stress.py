@@ -231,6 +231,46 @@ def _unit_kind(spec, tokens) -> str:
     return "number"
 
 
+# ---------------------------------------------------------------- economic class (r503): what an input means
+# Delay behavior comes from what an input is, never from which rewrite reproduces the base. The contract is
+# explicit, keyed on the field's own name; anything not listed is "other" and a delay must state its fill.
+ECON_LABELS = {"flow": "flow (new volume each period)", "stock": "stock (an outstanding level)",
+               "quantity": "quantity (a level count)", "price": "price or unit amount", "rate": "rate",
+               "other": "other driver"}
+DELAY_FILL = {"flow": "zero", "stock": "hold", "quantity": "hold", "price": "hold", "rate": "hold", "other": None}
+FILL_LABELS = {"zero": "nothing during the delay (zero)", "hold": "held at the level before the delay"}
+_FLOW_LEAVES = ("new_customers", "new_accounts", "originations", "origination", "acquisitions", "additions", "gross_adds",
+                "spend", "flow", "flow_path", "new_volume", "volume", "events", "issuance", "draws", "purchases")
+_STOCK_LEAVES = ("balance", "base", "auc", "aum", "outstanding", "deposits", "capital", "intangibles", "level", "stock")
+_QTY_LEAVES = ("ftes", "fte", "count", "headcount", "pool", "accounts", "customers", "capacity", "quantity", "branches")
+_PRICE_LEAVES = ("comp_per_fte", "cost_per_customer", "unit_fee", "compensation", "avg_auc_per_customer", "cac",
+                 "hourly_rate", "per_fte", "amount", "salary", "price", "unit_cost")
+
+
+def econ_class(tokens, unit_kind) -> str:
+    leaf = str(tokens[-1] if tokens else "").lower()
+    for suf in ("_spec", "_path"):
+        if leaf.endswith(suf) and leaf not in ("flow_path",):
+            leaf = leaf[: -len(suf)]
+    if unit_kind in ("rate", "bp"):
+        return "rate"
+    if leaf in _FLOW_LEAVES or leaf.startswith("new_") or leaf.endswith("_originations"):
+        return "flow"
+    if leaf in _PRICE_LEAVES:
+        return "price"
+    if leaf in _QTY_LEAVES:
+        return "quantity"
+    if leaf in _STOCK_LEAVES or leaf.endswith("_balance"):
+        return "stock"
+    return "other"
+
+
+def delay_fill(ov, cls):
+    """The fill for a delay: the override's explicit choice, else the class default; None when undefined."""
+    f = ov.get("fill")
+    return f if f in FILL_LABELS else DELAY_FILL.get(cls)
+
+
 def targets(cfg) -> list[dict]:
     """Every entered Series input and numeric setting a scenario can shock, with stable identity.
 
@@ -245,6 +285,7 @@ def targets(cfg) -> list[dict]:
         rows.append(dict(key=f"{fam}:{pid}:{'.'.join(tokens)}" if ok else None, family=fam, family_label=fam_label,
                          product_id=pid, product_index=idx, product_name=pname, field=".".join(tokens),
                          label=_named_label(label_root, tokens), unit_kind=_unit_kind(val if kind == "series" else {}, tokens),
+                         econ_class=econ_class(tokens, _unit_kind(val if kind == "series" else {}, tokens)),
                          kind=kind, trajectory=val.get("trajectory") if kind == "series" else None,
                          value=val if kind == "scalar" else None, active=why is None, inactive_reason=why,
                          needs_id=not ok, locator=list(loc)))
@@ -350,6 +391,7 @@ def registry(cfg) -> list[dict]:
             continue
         lo, hi = BOUNDS.get(r["unit_kind"], (None, None))
         out.append(dict(key=r["key"], label=f"{r['product_name']} · {r['label']}", unit_kind=r["unit_kind"], kind=r["kind"],
+                        econ_class=r.get("econ_class") or "rate", delay_fill=DELAY_FILL.get(r.get("econ_class") or "rate"),
                         ops=list(OPS), window=r["kind"] == "series", bounds=[lo, hi]))
     return out
 
@@ -452,6 +494,13 @@ def check_scenario(cfg, scenario) -> dict:
                     errors.append(f"{where}: delay by a whole number of periods from 1 to {n - 1}")
                 if ov.get("end") not in (None, "", n):
                     errors.append(f"{where}: a delay runs to the horizon; values shifted past it are dropped and disclosed")
+                if isinstance(spec, dict):
+                    cls = econ_class(tokens, _unit_kind(spec, tokens))
+                    if ov.get("fill") not in (None, "") and ov.get("fill") not in FILL_LABELS:
+                        errors.append(f"{where}: the fill during a delay is zero or held at the prior level")
+                    elif delay_fill(ov, cls) is None:
+                        errors.append(f"{where}: this input is not classed as a flow, stock, quantity, price or rate; "
+                                      f"choose what fills the delay (zero, or held at the prior level)")
             if ov.get("op") not in OPS:
                 errors.append(f"{where}: operation must be multiply, add or replace")
             v = ov.get("value")
@@ -571,14 +620,19 @@ def build_config(cfg, scenario, severity_id, *, identity=False, modes=None):
         else:
             mode = (modes or {}).get(ov["target"], "level")
             base = _resolve_path(spec, mode, n, ppy)
-            fill = 0.0 if mode == "flow" else (base[s - 2] if s >= 2 else base[0])
+            cls = econ_class(tokens, _unit_kind(spec, tokens))
+            fp = delay_fill(ov, cls) if ov["op"] == "delay" else None
+            if ov["op"] == "delay" and fp is None and not identity:
+                raise StressError(f"{(product or {}).get('name') or 'Bank-level'} · {_named_label(product or c['assumptions'], tokens)}: "
+                                  f"choose what fills the delay (zero, or held at the prior level)")
+            fill = 0.0 if fp == "zero" else (base[s - 2] if s >= 2 else base[0])
             stressed = list(base) if identity else _apply(base, ov["op"], float(ov["value"]), s, ov.get("end"), fill=fill)
             if ov["op"] == "delay" and not identity:
                 k = int(ov["value"])
                 tail = base[len(base) - k:] if k else []
-                dropped = dict(periods=k, fill="zero" if mode == "flow" else "held at the level before the delay",
-                               shifted_past_horizon=round(sum(tail), 6) if mode == "flow" else None,
-                               driver="new-volume flow" if mode == "flow" else "level path",
+                dropped = dict(periods=k, fill=FILL_LABELS[fp], fill_policy=fp, fill_source="chosen" if ov.get("fill") in FILL_LABELS else "class default",
+                               econ_class=cls, driver=ECON_LABELS[cls],
+                               shifted_past_horizon=round(sum(tail), 6) if cls == "flow" else None,
                                note="values shifted past the horizon are dropped; committed costs are unchanged and move only through existing links")
             parent[field] = _rewrite(spec, mode, stressed, ppy)
         lo, hi = BOUNDS.get(_unit_kind(spec if isinstance(spec, dict) else {}, tokens), (None, None))

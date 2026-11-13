@@ -383,6 +383,33 @@ def load_stress_archive(slug, record, part, user=None):
         return json.load(f)
 
 
+def save_report_issue(slug, issue, user=None):
+    """r503: keep what an issued submission package was built from (run, reporting settings and fingerprint)."""
+    d = os.path.join(_stress_dir(slug, user), "issued")
+    os.makedirs(d, exist_ok=True)
+    iid = re.sub(r"[^a-z0-9]", "", str(issue.get("issue_id") or "").lower())
+    if not iid:
+        raise ValueError("an issued package needs an issue_id")
+    path = os.path.join(d, iid + ".json")
+    if os.path.exists(path):
+        raise ValueError("issued packages are never overwritten")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(issue, f, default=str)
+    return issue
+
+
+def list_report_issues(slug, user=None):
+    d = os.path.join(_stress_dir(slug, user), "issued")
+    if not os.path.isdir(d):
+        return []
+    out = []
+    for name in sorted(os.listdir(d)):
+        if name.endswith(".json"):
+            with open(os.path.join(d, name), encoding="utf-8") as f:
+                out.append(json.load(f))
+    return sorted(out, key=lambda r: r.get("issued_at") or "", reverse=True)
+
+
 def list_stress_runs(slug, user=None):
     d = _stress_dir(slug, user)
     out = []
