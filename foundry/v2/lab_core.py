@@ -189,22 +189,9 @@ def goal_seek(cfg, run_fn, lever_path, metric_id, target,
                 "achievable_min": (rng[0] if rng else None),
                 "achievable_max": (rng[1] if rng else None)}
 
-    # bisection to tolerance
-    a, b, fa = lo, hi, f_lo
-    sol = None
-    while evals["n"] < max_evals:
-        mid = 0.5 * (a + b)
-        fm = f(mid)
-        if fm is None:
-            break
-        if abs(fm) <= tol or (b - a) < tol * max(1.0, abs(mid)) * 1e-3:
-            sol = mid
-            break
-        if fa * fm < 0:
-            b = mid
-        else:
-            a, fa = mid, fm
-        sol = mid
+    # bisection to tolerance (shared with reverse stress: foundry/v2/solver.py)
+    from .solver import bisect
+    sol = bisect(f, lo, hi, f_lo, tol=tol, budget=lambda: evals["n"] < max_evals)
 
     res_metric = metric_value(run_fn(set_path(cfg, lever_path, sol)), metric_id) if sol is not None else None
     residual = (res_metric - target) if res_metric is not None else None

@@ -35,9 +35,10 @@ from pathlib import Path
 
 FAMILIES = {"deposit_products": "Deposit", "lending_products": "Lending", "obs_exposures": "Fee product"}
 OPS = ("multiply", "add", "replace", "delay")
-KINDS = ("macro", "idiosyncratic", "combined", "sensitivity", "economic", "method_comparison")
+KINDS = ("macro", "idiosyncratic", "combined", "sensitivity", "economic", "method_comparison", "design", "design_stress")
 KIND_LABELS = {"macro": "Macroeconomic", "idiosyncratic": "Idiosyncratic", "combined": "Combined",
-               "sensitivity": "Sensitivity", "economic": "Unclassified stress", "method_comparison": "Method comparison"}
+               "sensitivity": "Sensitivity", "economic": "Unclassified stress", "method_comparison": "Method comparison",
+               "design": "Design alternative", "design_stress": "Design alternative under stress"}
 APPROVAL = ("draft", "reviewed", "approved")
 # r500: the reference rate path, shifted in parallel through the engine's own rate-shock overlay, so every
 # floating product reprices through its index and spread and fixed-rate contracts keep their rates.
@@ -834,6 +835,10 @@ def run_state(record, cfg) -> str:
         return record.get("status") or "failed"
     if record.get("base_fingerprint") != base_fingerprint(cfg) or record.get("engine") != engine_identity():
         return "stale"
+    if record.get("record_type") == "reverse_stress":
+        spec = (record.get("reverse") or {}).get("spec") or {}
+        if spec.get("kind") != "scale":
+            return "current"
     sc = next((s for s in (cfg.get("stress_scenarios") or []) if s.get("id") == record.get("scenario_id")), None)
     if sc is None or scenario_fingerprint(sc) != record.get("scenario_fingerprint"):
         return "stale"

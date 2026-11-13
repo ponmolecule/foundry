@@ -1683,6 +1683,56 @@ def v31_stress_registry(body: dict, user=Depends(gate)):
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+@app.post("/api/v31/stress/reverse")
+def v31_stress_reverse(body: dict, user=Depends(gate)):
+    """Reverse stress: search one named variable for the first breach of the selected thresholds.
+
+    Exploration (formal false) returns the evidence without storing it. Promote to formal (formal true)
+    reruns the same search deterministically on the current base and stores the record and its baseline."""
+    from foundry import store
+    from foundry.v2 import reverse_stress as RS, stress, stress_report
+    cfg, slug, spec = body.get("cfg") or {}, body.get("slug"), body.get("spec") or {}
+    try:
+        base_cfg = stress_report.base_only(cfg)
+        base_res = stress._engine_run(base_cfg)
+        result = RS.run(cfg, spec, base_res=base_res)
+    except (ValueError, TypeError, KeyError) as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    out = {"result": result, "formal": False}
+    if body.get("formal"):
+        if not slug:
+            return JSONResponse({"error": "save the engagement first: a formal record is stored with it"}, status_code=422)
+        rec = RS.record(cfg, result)
+        store.save_stress_run(slug, rec, user=user, results=dict(base_cfg=base_cfg, base_res=base_res))
+        rec = store.load_stress_run(slug, rec["run_id"], user=user)
+        rec["state"] = stress.run_state(rec, cfg)
+        out.update(formal=True, record=rec)
+    return JSONResponse(out)
+
+
+@app.post("/api/v31/stress/actions")
+def v31_stress_actions(body: dict, user=Depends(gate)):
+    """Management actions against a stored stress run: the same stress with actions, compared before and after."""
+    from foundry import store
+    from foundry.v2 import actions as ACT, stress
+    cfg, slug, rid = body.get("cfg") or {}, body.get("slug"), body.get("run_id")
+    try:
+        parent, parts = _stress_archived(slug, rid, user)
+    except (OSError, ValueError):
+        return JSONResponse({"error": "the stress run is not stored; save the engagement and rerun it"}, status_code=404)
+    if parent.get("status") != "completed" or not (parts.get("stress_cfg") and parts.get("stress_result")):
+        return JSONResponse({"error": "this run has no archived stressed result to act on"}, status_code=409)
+    try:
+        rec = ACT.run(cfg, parent, parts["stress_cfg"], parts["stress_result"], body.get("actions") or [], body.get("label"))
+    except (ValueError, TypeError, KeyError) as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    res = rec.pop("_results")
+    store.save_stress_run(slug, rec, user=user, results=res)
+    rec = store.load_stress_run(slug, rec["run_id"], user=user)
+    rec["state"] = stress.run_state(rec, cfg)
+    return JSONResponse({"record": rec})
+
+
 @app.post("/api/v31/stress/coverage")
 def v31_stress_coverage(body: dict, user=Depends(gate)):
     """Macroeconomic, idiosyncratic and combined coverage with design warnings. Read-only."""
