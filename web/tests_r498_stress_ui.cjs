@@ -43,24 +43,24 @@ await page.evaluate(()=>{ST.checked={s1:true,s2:true};return stRunSelected();});
 await page.waitForFunction(()=>ST.view==='results'&&!ST.running);
 assert.deepStrictEqual(posts[0].runs.map(x=>x.scenario_id).sort(),['s1','s2']);
 assert(posts[0].cfg.stress_scenarios.length===2,'scenarios sent with the run request');
-const res=await page.evaluate(()=>{const c=document.getElementById('content');const th=[...c.querySelectorAll('.st-cmp thead th')].map(x=>x.innerText.replace(/\s+/g,' '));
- return {th,alert:[...c.querySelectorAll('.st-failed[role=alert]')].map(x=>x.innerText),
+const res=await page.evaluate(()=>{const c=document.getElementById('content');
+ return {th:[...c.querySelectorAll('.st-colh')].map(x=>x.innerText.replace(/\s+/g,' ')),
   wf:[...c.querySelectorAll('.st-wf:not(.st-wftot) .st-wfv')].map(x=>x.innerText),tot:(c.querySelector('.st-wftot .st-wfv')||{}).innerText,
   svg:c.querySelectorAll('svg.st-chart polyline').length,serCols:c.querySelectorAll('.st-ser thead th').length,
-  cum:[...c.querySelectorAll('.st-cmp tbody tr')].map(r=>[...r.cells].map(x=>x.innerText)).find(r=>/^Cumulative net income/.test(r[0]))};});
-assert(res.th.some(x=>x.includes('CRE losses')),'completed run is a column');assert(!res.th.some(x=>x.includes('Broken')),'failed run is not a column');
-assert(res.alert.length===1&&res.alert[0].includes('Broken')&&res.alert[0].includes('failed'),'failed run shown as an alert '+JSON.stringify(res.alert));
+  cells:[...c.querySelectorAll('.st-cell')].map(x=>[...x.querySelectorAll('.st-cg b')].map(y=>y.innerText))};});
+// r499: results are a grid of cells (Unstressed plus each current run); failed runs live in Runs, not in Results
+assert(res.th.some(x=>/CRE losses/i.test(x)),'completed run is a column '+JSON.stringify(res.th));assert(!res.th.some(x=>/Broken/i.test(x)),'failed run is not a column');
 const num=s=>{s=String(s).replace(/,/g,'');return s.startsWith('(')?-parseFloat(s.slice(1)):parseFloat(s);};
 const a=F.ok.attribution;assert(Math.abs(num(res.tot)-a.total)<=1,'waterfall total matches the record');
 assert(Math.abs(res.wf.map(num).reduce((x,y)=>x+y,0)-a.total)<=res.wf.length,'waterfall parts reconcile to the total');
 const n=F.ok.base.series.ni.length,bm=F.ok.base.series.ni.reduce((x,y)=>x+y,0),sm=F.ok.stress.series.ni.reduce((x,y)=>x+y,0);
-assert(Math.abs(num(res.cum[1])-bm)<=1&&Math.abs(num(res.cum[2])-sm)<=1&&Math.abs(num(res.cum[3])-(sm-bm))<=1,'cumulative NI row: base, stress, delta '+JSON.stringify(res.cum));
+assert(Math.abs(num(res.cells[0][1])-bm)<=1&&Math.abs(num(res.cells[1][1])-sm)<=1,'net income over the window: base and stress cells match the record '+JSON.stringify(res.cells));
 assert(res.svg>=2,'series chart draws base and stress');assert.strictEqual(res.serCols,n+1,'series table has every period');
-// run record: current, then stale after an edit to the scenario
-await page.evaluate(()=>stView('record'));t=await txt();assert(/Current/.test(t)&&/passed/.test(t),'record current with checks passed');
-await page.evaluate(()=>{stOpen('s1');ST.row=0;stRowSet('value',3);stView('record');});t=await txt();assert(/Stale/.test(t),'editing the scenario marks the record stale');
-assert(/failed/.test(t),'failed run kept in the record');
+// Runs: current, failed, then stale after an edit to the scenario
+await page.evaluate(()=>stView('runs'));t=await txt();assert(/Current/.test(t)&&/passed/.test(t),'run current with checks passed');
+assert(/Failed/.test(t)&&/Broken/.test(t),'failed run kept in Runs');
+await page.evaluate(()=>{stOpen('s1');ST.row=0;stRowSet('value',3);stView('runs');});t=await txt();assert(/Stale/.test(t)&&/Next step/.test(t),'editing the scenario marks the run stale and offers the rerun');
 assert.deepStrictEqual(errors,[]);
-console.log('PASS r498 stress workbench: scenarios, builder labels, run request, results table matches engine records, failed runs as alerts, waterfall reconciles, series chart and table, record stale after edit');
+console.log('PASS r498/r499 stress workbench: scenarios, builder labels, run request, results grid matches engine records, failed runs kept in Runs, waterfall reconciles, series chart and table, stale after edit');
 }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});
