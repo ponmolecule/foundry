@@ -542,7 +542,7 @@ def run_v2(cfg):
 def _run_v2(cfg):
     cfg = validate_config_v2(cfg)
     # r498: stored stress scenarios sit beside the base and never change its identity.
-    config_hash = _hash({k: v for k, v in cfg.items() if k not in ("stress_scenarios", "stress_reporting")})
+    config_hash = _hash({k: v for k, v in cfg.items() if k not in ("stress_scenarios", "stress_reporting", "liquidity_stress")})
     # Single authoritative reporting horizon, threaded through the whole consumer layer (the T34 lesson:
     # derive once from the config, never re-probe per function). _NP = number of projection periods;
     # engine BS vectors are (_NP + 1) long (slot 0 = opening), IS/ratios are _NP long.

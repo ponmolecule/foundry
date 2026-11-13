@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 
-STRESS_KEYS = ("stress_scenarios", "stress_reporting")
+STRESS_KEYS = ("stress_scenarios", "stress_reporting", "liquidity_stress")
 RATIOS = (("leverage", "Tier 1 leverage"), ("cet1_rwa", "CET1 / RWA"), ("tier1_rwa", "Tier 1 / RWA"),
           ("total_rwa", "Total capital / RWA"))
 TIERS = (("regulatory", "Regulatory"), ("commitment", "Charter commitment"), ("policy", "Bank policy"))

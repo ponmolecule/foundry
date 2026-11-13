@@ -37,8 +37,8 @@ await page.waitForFunction(()=>ST.records.length===1&&ST.targets&&ST.targets.len
 const q=s=>page.evaluate(s=>[...document.querySelectorAll(s)].map(x=>x.innerText.replace(/\s+/g,' ').trim()),s);
 // rail: four steps, purpose lines, current view marked
 const rail=await q('.st-rail .st-ri');
-assert.deepStrictEqual(rail.map(x=>x.split(' ')[0]),['Scenarios','Builder','Runs','Results','Reporting']);
-assert(rail[2].includes('Every run you have made')&&rail[4].includes('Primary case'),'each place says what it is for');
+assert.deepStrictEqual(rail.map(x=>x.split(' ')[0]),['Scenarios','Builder','Runs','Results','Liquidity','Reporting']);   // r502 adds Liquidity under Understand
+assert(rail[2].includes('Every run you have made')&&rail[5].includes('Primary case'),'each place says what it is for');
 assert.deepStrictEqual(await q('.st-rs'),['1 · MAKE A CHANGE','2 · RUN','3 · UNDERSTAND','4 · SUBMIT'].map(x=>x),'step labels');
 assert.strictEqual((await q('.st-ri[aria-current="page"]')).length,1);
 assert.strictEqual(await page.evaluate(()=>!!document.querySelector('.pg-band-new')),false,'no duplicate dark page band');

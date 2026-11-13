@@ -47,7 +47,7 @@ FUNDING = ("inherit", "show_shortfall", "automatic_borrowing")
 _TRAJ = ("flat", "growth", "explicit")
 _SKIP_BANK_KEYS = set(FAMILIES) | {"n_periods", "periods_per_year", "balance_components_model"}
 _MODEL_PERIOD = {12: "month", 4: "quarter", 1: "year"}
-STRESS_KEYS = ("stress_scenarios", "stress_reporting")   # stored beside the base, never part of it
+STRESS_KEYS = ("stress_scenarios", "stress_reporting", "liquidity_stress")   # stored beside the base, never part of it
 # Supported-input registry bounds by unit kind: a stressed path outside these is rejected by name.
 BOUNDS = {"rate": (-1.0, 1.0), "count": (0.0, None)}
 
@@ -847,6 +847,12 @@ def run_state(record, cfg) -> str:
     if record.get("record_type") == "reverse_stress":
         spec = (record.get("reverse") or {}).get("spec") or {}
         if spec.get("kind") != "scale":
+            return "current"
+    if record.get("record_type") == "liquidity":
+        from .liquidity import fingerprint as _lfp
+        if record.get("liquidity_fingerprint") != _lfp(cfg):
+            return "stale"
+        if not record.get("scenario_id"):
             return "current"
     sc = next((s for s in (cfg.get("stress_scenarios") or []) if s.get("id") == record.get("scenario_id")), None)
     if sc is None or scenario_fingerprint(sc) != record.get("scenario_fingerprint"):

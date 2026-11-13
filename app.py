@@ -1733,6 +1733,60 @@ def v31_stress_actions(body: dict, user=Depends(gate)):
     return JSONResponse({"record": rec})
 
 
+@app.post("/api/v31/stress/liquidity/setup")
+def v31_stress_liquidity_setup(body: dict, user=Depends(gate)):
+    """Liquidity settings support: a draft template, the deposit products a book can draw on, structural checks
+    and applicability. Read-only; nothing is stored."""
+    from foundry.v2 import liquidity as LQ, stress_report
+    cfg = body.get("cfg") or {}
+    try:
+        deps = [dict(key=d["key"], name=d["name"]) for d in stress_report.deposit_classification(cfg)]
+        return JSONResponse({"template": LQ.template(cfg), "deposit_products": deps, "charter_type": LQ.charter_type(cfg),
+                             "errors": LQ.validate(cfg) if cfg.get(LQ.KEY) else [], "applicability": LQ.applicability(cfg),
+                             "lcr_categories": {k: dict(rate=v[0], label=v[1]) for k, v in LQ.LCR_RULE.items()}})
+    except (ValueError, TypeError, KeyError) as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+
+@app.post("/api/v31/stress/liquidity")
+def v31_stress_liquidity(body: dict, user=Depends(gate)):
+    """Liquidity stress on a projection: the base, or a stored stress run's archived result (run_id).
+
+    With store true the result is kept as a liquidity record that goes stale with the base, the liquidity
+    settings and, on a stress projection, its scenario. The projection itself is never changed."""
+    from foundry import store
+    from foundry.v2 import liquidity as LQ, stress, stress_report
+    cfg, slug, rid = body.get("cfg") or {}, body.get("slug"), body.get("run_id")
+    parent, archive = None, None
+    try:
+        if rid:
+            try:
+                parent, parts = _stress_archived(slug, rid, user)
+            except (OSError, ValueError):
+                return JSONResponse({"error": "the stress run is not stored; save the engagement and rerun it"}, status_code=404)
+            if not (parts.get("stress_cfg") and parts.get("stress_result")):
+                return JSONResponse({"error": "this run has no archived stressed result to test"}, status_code=409)
+            pcfg = dict(parts["stress_cfg"], **{LQ.KEY: cfg.get(LQ.KEY)})
+            res, label = parts["stress_result"], f"{parent.get('scenario_name')} · {parent.get('severity_label')}"
+        else:
+            base_cfg = stress_report.base_only(cfg)
+            pcfg, res, label = dict(base_cfg, **{LQ.KEY: cfg.get(LQ.KEY)}), stress._engine_run(base_cfg), "Base"
+            archive = dict(base_cfg=base_cfg, base_res=res)
+        result = LQ.run(pcfg, res, projection_label=label)
+    except (ValueError, TypeError, KeyError) as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    out = {"result": result, "stored": False}
+    if body.get("store"):
+        if not slug:
+            return JSONResponse({"error": "save the engagement first: a liquidity run is stored with it"}, status_code=422)
+        rec = LQ.record(cfg, result, parent)
+        store.save_stress_run(slug, rec, user=user, results=archive)   # on a stress run, the parent's archive is the evidence
+        rec = store.load_stress_run(slug, rec["run_id"], user=user)
+        rec["state"] = stress.run_state(rec, cfg)
+        out.update(stored=True, record=rec)
+    return JSONResponse(out)
+
+
 @app.post("/api/v31/stress/coverage")
 def v31_stress_coverage(body: dict, user=Depends(gate)):
     """Macroeconomic, idiosyncratic and combined coverage with design warnings. Read-only."""
