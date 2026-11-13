@@ -31,7 +31,7 @@ def add_stress_sheets(wb, records, state_of=None):
     from openpyxl.styles import Font
     bold = Font(bold=True)
     ws = wb.create_sheet("Stress Runs")
-    ws.append(["Scenario", "Severity", "Kind", "Status", "State", "Run ID", "Started (UTC)", "Base fingerprint",
+    ws.append(["Scenario", "Severity", "Class", "Status", "State", "Run ID", "Started (UTC)", "Base fingerprint",
                "Engine", "Scenario fingerprint", "Funding setting", "Funding policy applied", "Structural check",
                "Zero-shock check", "Errors"])
     for c in ws[1]:
@@ -44,14 +44,18 @@ def add_stress_sheets(wb, records, state_of=None):
                    "; ".join(r.get("errors") or [])])
     ov = wb.create_sheet("Stress Overrides")
     ov.append(["Run ID", "Scenario", "Severity", "Input", "Target (stable ID)", "Operation", "Value (engine units)",
-               "From period", "To period", "Resolution", "Base at start", "Stressed at start"])
+               "From period", "To period", "Resolution", "Base at start", "Stressed at start",
+               "Rationale", "Data source", "Data period", "Applicability", "Approval", "Delay disclosure"])
     for c in ov[1]:
         c.font = bold
     for r in records:
         for o in r.get("resolved_overrides") or []:
             ov.append([r.get("run_id"), r.get("scenario_name"), r.get("severity_label"), o.get("label"), o.get("target"),
                        o.get("op"), o.get("value"), o.get("start"), o.get("end") or "horizon", o.get("mode"),
-                       o.get("base_at_start"), o.get("stressed_at_start")])
+                       o.get("base_at_start"), o.get("stressed_at_start"),
+                       *[(o.get("calibration") or {}).get(k) for k in ("rationale", "source", "period", "applicability", "approval")],
+                       (lambda d: "" if not d else f"{d.get('periods')} periods; vacated periods {d.get('fill')}; "
+                                  f"shifted past horizon {d.get('shifted_past_horizon')}; {d.get('note')}")(o.get("delay"))])
     me = wb.create_sheet("Stress Metrics")
     done = [r for r in records if r.get("status") == "completed"]
     me.append(["Measure", "Units"] + sum(([f"{r.get('scenario_name')} · {r.get('severity_label')} · base",
@@ -75,6 +79,19 @@ def add_stress_sheets(wb, records, state_of=None):
                    "Interaction", a.get("interaction"), ""])
         at.append([r.get("run_id"), r.get("scenario_name"), r.get("severity_label"), a.get("method"), a.get("metric"),
                    "Total change", a.get("total"), ""])
+    rd = [r for r in done if r.get("rate_direction")]
+    if rd:
+        ws2 = wb.create_sheet("Stress Rate Direction")
+        ws2.append(["Run ID", "Scenario", "Severity", "Shift applied (bp)", "Mirrored (bp)", "Net income, applied", "Net income, mirrored",
+                    "Lowest Tier 1 leverage %, applied", "Lowest Tier 1 leverage %, mirrored", "Adverse for earnings (bp)",
+                    "Adverse for capital (bp)", "Directions agree"])
+        for c in ws2[1]:
+            c.font = bold
+        for r in rd:
+            d = r["rate_direction"]
+            ws2.append([r.get("run_id"), r.get("scenario_name"), r.get("severity_label"), d["applied_bp"], d["mirrored_bp"],
+                        d["applied"]["cum_ni"], d["mirrored"]["cum_ni"], d["applied"]["min_leverage"], d["mirrored"]["min_leverage"],
+                        d["adverse_for_earnings"], d["adverse_for_capital"], "yes" if d["agree"] else "no"])
     se = wb.create_sheet("Stress Series")
     n = max((len((r["base"]["series"] or {}).get("ni") or []) for r in done), default=0)
     se.append(["Run ID", "Scenario", "Severity", "Series", "Units", "Case"] + [f"P{i + 1}" for i in range(n)])

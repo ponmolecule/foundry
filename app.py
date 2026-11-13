@@ -1683,6 +1683,16 @@ def v31_stress_registry(body: dict, user=Depends(gate)):
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+@app.post("/api/v31/stress/coverage")
+def v31_stress_coverage(body: dict, user=Depends(gate)):
+    """Macroeconomic, idiosyncratic and combined coverage with design warnings. Read-only."""
+    from foundry.v2 import stress
+    try:
+        return JSONResponse(stress.coverage(body.get("cfg") or {}))
+    except (ValueError, TypeError, KeyError) as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+
 @app.post("/api/v31/stress/report")
 def v31_stress_report(body: dict, user=Depends(gate)):
     """Tables X and Y and the capital assessment for one stored run, from its archive, with the current

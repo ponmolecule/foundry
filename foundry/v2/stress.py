@@ -34,7 +34,14 @@ import uuid
 from pathlib import Path
 
 FAMILIES = {"deposit_products": "Deposit", "lending_products": "Lending", "obs_exposures": "Fee product"}
-OPS = ("multiply", "add", "replace")
+OPS = ("multiply", "add", "replace", "delay")
+KINDS = ("macro", "idiosyncratic", "combined", "sensitivity", "economic", "method_comparison")
+KIND_LABELS = {"macro": "Macroeconomic", "idiosyncratic": "Idiosyncratic", "combined": "Combined",
+               "sensitivity": "Sensitivity", "economic": "Unclassified stress", "method_comparison": "Method comparison"}
+APPROVAL = ("draft", "reviewed", "approved")
+# r500: the reference rate path, shifted in parallel through the engine's own rate-shock overlay, so every
+# floating product reprices through its index and spread and fixed-rate contracts keep their rates.
+RATE_KEY = "bank:rates:parallel_shift_bp"
 FUNDING = ("inherit", "show_shortfall", "automatic_borrowing")
 _TRAJ = ("flat", "growth", "explicit")
 _SKIP_BANK_KEYS = set(FAMILIES) | {"n_periods", "periods_per_year", "balance_components_model"}
@@ -255,6 +262,10 @@ def targets(cfg) -> list[dict]:
             found.append(((k,), v, "scalar", ("assumptions", k), True))
     for tokens, val, kind, loc, stable in found:
         row("bank", "Bank", "assumptions", None, "Bank-level", tokens, val, kind, loc, stable, None, label_root=a)
+    rows.append(dict(key=RATE_KEY, family="bank", family_label="Bank", product_id="rates", product_index=None,
+                     product_name="Rates", field="parallel_shift_bp", label="Reference rate path, parallel shift",
+                     unit_kind="bp", kind="rate_shift", trajectory=None, value=0, active=True, inactive_reason=None,
+                     needs_id=False, locator=[]))
     return rows
 
 
@@ -274,6 +285,8 @@ def resolve_target(cfg, key):
     """Return (parent, field, spec, product, family, tokens) for a target key, or raise."""
     fam, pid, field = _split_key(key)
     a = cfg["assumptions"]
+    if key == RATE_KEY:
+        return None, None, "rate_shift", None, "bank", ["parallel_shift_bp"]
     if fam == "bank" and (field.split(".")[0] in _SKIP_BANK_KEYS or field.startswith("_") or field.split(".")[0] in _SCALAR_SKIP
                           or (len(field.split(".")) == 1 and _is_timing(field))):
         raise StressError(f"{field} is not a supported stress input (structural or timing setting)")
@@ -351,10 +364,16 @@ def _rewrite(spec, mode, path, ppy):
     return out
 
 
-def _apply(path, op, value, start, end):
+def _apply(path, op, value, start, end, fill=0.0):
     n = len(path)
     lo, hi = max(1, int(start or 1)), min(n, int(end) if end not in (None, "") else n)
     out = list(path)
+    if op == "delay":   # shift the path right by `value` periods from `start`; vacated periods take `fill`
+        k = int(value)
+        for i in range(lo - 1, n):
+            j = i - k
+            out[i] = path[j] if j >= lo - 1 else fill
+        return out
     for i in range(lo - 1, hi):
         if op == "multiply":
             out[i] = path[i] * value
@@ -372,8 +391,8 @@ def check_scenario(cfg, scenario) -> dict:
     a = cfg.get("assumptions") or {}
     n = int(a.get("n_periods") or 12)
     name = scenario.get("name") or "Scenario"
-    if scenario.get("kind", "economic") not in ("economic", "method_comparison"):
-        errors.append(f"{name}: kind must be economic or method_comparison")
+    if scenario.get("kind", "economic") not in KINDS:
+        errors.append(f"{name}: kind must be one of {', '.join(KIND_LABELS[k] for k in KINDS)}")
     if scenario.get("funding", "inherit") not in FUNDING:
         errors.append(f"{name}: funding must be inherit, show_shortfall or automatic_borrowing")
     sevs = scenario.get("severities") or []
@@ -396,8 +415,33 @@ def check_scenario(cfg, scenario) -> dict:
             except StressError as e:
                 errors.append(f"{where}: {e}")
                 continue
-            lab = f"{(product or {}).get('name') or 'Bank-level'} · {_named_label(product or a, tokens)}"
+            lab = "Rates · Reference rate path, parallel shift" if spec == "rate_shift" else \
+                f"{(product or {}).get('name') or 'Bank-level'} · {_named_label(product or a, tokens)}"
             where = f"{name} · {sl} · {lab}"
+            cal = ov.get("calibration") or {}
+            if not (str(cal.get("rationale") or "").strip() and str(cal.get("source") or "").strip()):
+                warnings.append(f"{where}: add a rationale and a data source to the calibration record")
+            if cal.get("approval") not in (None, "") and cal.get("approval") not in APPROVAL:
+                errors.append(f"{where}: approval must be draft, reviewed or approved")
+            if spec == "rate_shift":
+                if ov.get("op") not in ("add", "replace"):
+                    errors.append(f"{where}: shift the rate path by a number of basis points (add)")
+                if (ov.get("start") or 1) != 1 or ov.get("end") not in (None, "", n):
+                    errors.append(f"{where}: the rate path shifts for the whole horizon in this release; a partial window is not available yet")
+                v = ov.get("value")
+                if not isinstance(v, (int, float)) or isinstance(v, bool) or abs(v) > 1000:
+                    errors.append(f"{where}: enter a shift between -1000 and 1000 basis points")
+                windows.setdefault(ov.get("target"), []).append((1, n, j)) if not windows.get(ov.get("target")) else \
+                    errors.append(f"{where}: overlaps override {windows[ov.get('target')][0][2]} on the same input; combine them into one")
+                continue
+            if ov.get("op") == "delay":
+                v = ov.get("value")
+                if not isinstance(spec, dict):
+                    errors.append(f"{where}: a single value for the whole horizon cannot be delayed")
+                elif not isinstance(v, int) or isinstance(v, bool) or v < 1 or v >= n:
+                    errors.append(f"{where}: delay by a whole number of periods from 1 to {n - 1}")
+                if ov.get("end") not in (None, "", n):
+                    errors.append(f"{where}: a delay runs to the horizon; values shifted past it are dropped and disclosed")
             if ov.get("op") not in OPS:
                 errors.append(f"{where}: operation must be multiply, add or replace")
             v = ov.get("value")
@@ -417,7 +461,65 @@ def check_scenario(cfg, scenario) -> dict:
                 if lo <= phi and plo <= hi:
                     errors.append(f"{where}: overlaps override {pj} on the same input; combine them into one")
             windows.setdefault(ov.get("target"), []).append((lo, hi, j))
+    if scenario.get("kind") == "combined":
+        warnings += combined_warnings(cfg, scenario)
     return dict(ok=not errors, errors=errors, warnings=warnings)
+
+
+COMPOSITION_RULE = ("A combined scenario carries frozen copies of its parts' overrides. Two parts may not change the same "
+                    "input over overlapping periods: that is a conflict to resolve, never silently summed or overwritten.")
+_CREDIT_WORDS = ("charge_off", "loss", "provision", "default", "reserve", "pd", "lgd", "nco")
+
+
+def combined_warnings(cfg, scenario) -> list:
+    """A combined scenario's parts are frozen copies; say when a part has changed or gone since it was frozen."""
+    out, name = [], scenario.get("name") or "Scenario"
+    parts = scenario.get("parts") or []
+    if len(parts) < 2:
+        out.append(f"{name}: a combined scenario should reference a macroeconomic and an idiosyncratic part")
+    by_id = {s.get("id"): s for s in (cfg.get("stress_scenarios") or [])}
+    for p in parts:
+        cur = by_id.get(p.get("scenario_id"))
+        if cur is None:
+            out.append(f"{name}: part {p.get('name') or p.get('scenario_id')} no longer exists; its frozen copy is still used")
+        elif cur.get("version") != p.get("version"):
+            out.append(f"{name}: part {cur.get('name')} changed since it was frozen (v{p.get('version')} to v{cur.get('version')}); refreeze to include the change")
+    return out
+
+
+def _is_credit_target(key) -> bool:
+    return any(w in str(key or "").lower().split(":")[-1] for w in _CREDIT_WORDS)
+
+
+def coverage(cfg) -> dict:
+    """Macroeconomic, idiosyncratic and combined coverage, with design warnings."""
+    L = [s for s in (cfg.get("stress_scenarios") or []) if isinstance(s, dict)]
+    by = {k: [s for s in L if s.get("kind", "economic") == k] for k in KINDS}
+    warn = []
+    targets_of = lambda s: {o.get("target") for v in s.get("severities") or [] for o in v.get("overrides") or []}
+    for s in by["macro"]:
+        t = targets_of(s)
+        if not any(_is_credit_target(x) for x in t):
+            warn.append(f"{s.get('name')}: a macroeconomic scenario needs a calibrated credit deterioration, not rates alone")
+    macro_t = set().union(*[targets_of(s) for s in by["macro"]]) if by["macro"] else set()
+    for s in by["idiosyncratic"]:
+        dup = targets_of(s) & macro_t
+        if dup:
+            warn.append(f"{s.get('name')}: changes {len(dup)} input(s) the macroeconomic scenario already changes; an idiosyncratic scenario should complement it")
+    for s in by["combined"]:
+        warn += combined_warnings(cfg, s)
+    for s in L:
+        for v in s.get("severities") or []:
+            for o in v.get("overrides") or []:
+                cal = o.get("calibration") or {}
+                if not (str(cal.get("rationale") or "").strip() and str(cal.get("source") or "").strip()):
+                    warn.append(f"{s.get('name')} · {v.get('label') or v.get('id')}: calibration records are incomplete")
+                    break
+            else:
+                continue
+            break
+    return dict(counts={k: len(by[k]) for k in KINDS}, warnings=warn, rule=COMPOSITION_RULE,
+                complete=bool(by["macro"] and by["idiosyncratic"] and by["combined"]))
 
 
 # ---------------------------------------------------------------- building stressed configs
@@ -438,6 +540,18 @@ def build_config(cfg, scenario, severity_id, *, identity=False, modes=None):
     for ov in sev.get("overrides") or []:
         parent, field, spec, product, fam, tokens = resolve_target(c, ov["target"])
         s = int(ov.get("start") or 1)
+        if spec == "rate_shift":
+            bp = 0.0 if identity else float(ov["value"])
+            if bp:
+                c["scenario_overlays"] = dict(c.get("scenario_overlays") or {})
+                c["scenario_overlays"]["rate_shock_bp"] = float(c["scenario_overlays"].get("rate_shock_bp") or 0) + bp
+            resolved.append(dict(target=ov["target"], label="Rates · Reference rate path, parallel shift", op=ov["op"],
+                                 value=ov["value"], start=1, end=None, mode="rate", base_at_start=0.0, stressed_at_start=bp,
+                                 calibration=copy.deepcopy(ov.get("calibration") or {}),
+                                 note="floating products reprice through their index and spread; cash, securities and borrowing "
+                                      "yields move with the path; fixed-rate contracts keep their rates", exposure=rate_exposure(c)))
+            continue
+        dropped = None
         if not isinstance(spec, dict):   # numeric setting: one value for the whole horizon
             base = [float(spec)] * n
             new = float(spec) if identity else _apply([float(spec)], ov["op"], float(ov["value"]), 1, 1)[0]
@@ -447,7 +561,15 @@ def build_config(cfg, scenario, severity_id, *, identity=False, modes=None):
         else:
             mode = (modes or {}).get(ov["target"], "level")
             base = _resolve_path(spec, mode, n, ppy)
-            stressed = list(base) if identity else _apply(base, ov["op"], float(ov["value"]), s, ov.get("end"))
+            fill = 0.0 if mode == "flow" else (base[s - 2] if s >= 2 else base[0])
+            stressed = list(base) if identity else _apply(base, ov["op"], float(ov["value"]), s, ov.get("end"), fill=fill)
+            if ov["op"] == "delay" and not identity:
+                k = int(ov["value"])
+                tail = base[len(base) - k:] if k else []
+                dropped = dict(periods=k, fill="zero" if mode == "flow" else "held at the level before the delay",
+                               shifted_past_horizon=round(sum(tail), 6) if mode == "flow" else None,
+                               driver="new-volume flow" if mode == "flow" else "level path",
+                               note="values shifted past the horizon are dropped; committed costs are unchanged and move only through existing links")
             parent[field] = _rewrite(spec, mode, stressed, ppy)
         lo, hi = BOUNDS.get(_unit_kind(spec if isinstance(spec, dict) else {}, tokens), (None, None))
         bad = [v for v in stressed if (lo is not None and v < lo - 1e-12) or (hi is not None and v > hi + 1e-12)]
@@ -457,7 +579,9 @@ def build_config(cfg, scenario, severity_id, *, identity=False, modes=None):
                               f"{'' if lo is None else lo:}{' to ' if hi is not None else ' or more'}{'' if hi is None else hi}")
         resolved.append(dict(target=ov["target"], label=f"{(product or {}).get('name') or 'Bank-level'} · {_named_label(product or c['assumptions'], tokens)}",
                              op=ov["op"], value=ov["value"], start=s, end=ov.get("end"), mode=mode,
-                             base_at_start=base[s - 1], stressed_at_start=stressed[s - 1]))
+                             base_at_start=base[s - 1], stressed_at_start=stressed[s - 1],
+                             calibration=copy.deepcopy(ov.get("calibration") or {}),
+                             **({"delay": dropped} if dropped else {})))
     if not identity:
         _set_funding(c, scenario.get("funding", "inherit"))
     return c, resolved
@@ -588,6 +712,9 @@ def run_scenario(cfg, scenario, severity_ids=None, *, base_res=None, attribution
             rec["checks"]["zero_shock"] = "passed"
             sc, resolved = build_config(cfg, scenario, sev["id"], modes=modes)
             sr = _engine_run(sc)
+            rd = rate_direction(cfg, scenario, sev["id"], modes, sr) if any(o.get("target") == RATE_KEY for o in sev.get("overrides") or []) else None
+            if rd:
+                rec["rate_direction"] = rd
             if attribution and len(sev.get("overrides") or []) > 0:
                 rec["attribution"] = attribute(cfg, scenario, sev["id"], modes, base_res=base_res)
             rec.update(status="completed", resolved_overrides=resolved,
@@ -646,6 +773,10 @@ def probe_target(cfg, key) -> dict:
         _p, _f, spec, *_ = resolve_target(cfg, key)
     except StressError as e:
         return dict(ok=False, mode=None, reason=str(e))
+    if spec == "rate_shift":
+        out = dict(ok=True, mode="rate", reason=None, exposure=rate_exposure(cfg))
+        _PROBE_CACHE[ck] = out
+        return dict(out)
     if not isinstance(spec, dict):
         out = dict(ok=True, mode="scalar", reason=None)
         _PROBE_CACHE[ck] = out
@@ -707,6 +838,54 @@ def run_state(record, cfg) -> str:
     if sc is None or scenario_fingerprint(sc) != record.get("scenario_fingerprint"):
         return "stale"
     return "current"
+
+
+# ---------------------------------------------------------------- rates
+def rate_exposure(cfg) -> dict:
+    """Which entered rates move with a parallel shift of the reference path, and which do not."""
+    a = (cfg or {}).get("assumptions") or {}
+    rep_, fixed = [], []
+    for fam, lab in (("lending_products", "Lending"), ("deposit_products", "Deposit")):
+        for p in a.get(fam) or []:
+            if not isinstance(p, dict):
+                continue
+            nm = f"{lab} · {p.get('name') or 'product'}"
+            (rep_ if p.get("rate_type") == "float" else fixed).append(nm)
+    bank = [lab for k, lab in (("cash_yield", "Cash yield"), ("securities_yield", "Securities yield"),
+                               ("borrow_rate_ann", "Borrowing rate")) if a.get(k) is not None]
+    return dict(reprice=rep_, fixed=fixed, bank_yields_shifted=bank,
+                note="Fixed-rate contracts keep their entered rates. Rates are floored at zero after the shift.")
+
+
+def _window_measures(res, cfg):
+    from .stress_report import report_window
+    W = report_window(cfg)["periods"]
+    ni = [float(x or 0.0) for x in ((res.get("financials") or {}).get("is") or {}).get("ni") or []][:W]
+    lev = [x for x in (((res.get("capital") or {}).get("rows") or {}).get("leverage") or [])[:W] if x is not None]
+    return dict(cum_ni=round(sum(ni), 6), min_leverage=round(min(lev) * 100, 6) if lev else None)
+
+
+def rate_direction(cfg, scenario, severity_id, modes, applied_res):
+    """Run the mirrored rate shift and say which direction is adverse for earnings and for capital.
+
+    Adverse is judged per measure over the reporting window; when the two measures disagree both are reported."""
+    sev = next(s for s in scenario["severities"] if s.get("id") == severity_id)
+    ov = next((o for o in sev.get("overrides") or [] if o.get("target") == RATE_KEY), None)
+    if ov is None or not float(ov.get("value") or 0):
+        return None
+    mir = dict(scenario, severities=[dict(sev, overrides=[dict(o, value=-float(o["value"])) if o.get("target") == RATE_KEY else o
+                                                          for o in sev.get("overrides") or []])])
+    mc, _ = build_config(cfg, mir, severity_id, modes=modes)
+    mres = _engine_run(mc)
+    rc = dict(cfg, stress_reporting=cfg.get("stress_reporting"))
+    a, m = _window_measures(applied_res, rc), _window_measures(mres, rc)
+    bp = float(ov["value"])
+    earn = "applied" if a["cum_ni"] <= m["cum_ni"] else "mirrored"
+    cap = None if a["min_leverage"] is None or m["min_leverage"] is None else ("applied" if a["min_leverage"] <= m["min_leverage"] else "mirrored")
+    return dict(applied_bp=bp, mirrored_bp=-bp, applied=a, mirrored=m,
+                adverse_for_earnings=bp if earn == "applied" else -bp,
+                adverse_for_capital=None if cap is None else (bp if cap == "applied" else -bp),
+                agree=cap is None or earn == cap, extra_runs=1)
 
 
 # ---------------------------------------------------------------- reproducibility
