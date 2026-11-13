@@ -57,9 +57,18 @@ def _canon(obj):
     return json.dumps(obj, sort_keys=True, default=str, separators=(",", ":"))
 
 
+def _strip_ids(o):
+    if isinstance(o, dict):
+        return {k: _strip_ids(v) for k, v in o.items() if k != "stable_id"}
+    if isinstance(o, list):
+        return [_strip_ids(v) for v in o]
+    return o
+
+
 def base_fingerprint(cfg) -> str:
-    """Fingerprint of the base configuration, excluding stored stress scenarios."""
-    c = {k: v for k, v in (cfg or {}).items() if k not in STRESS_KEYS}
+    """Fingerprint of the base configuration, excluding stored stress settings and the stable IDs that
+    stress and the Lab assign (inert to every calculation), so giving an input an ID never stales a run."""
+    c = _strip_ids({k: v for k, v in (cfg or {}).items() if k not in STRESS_KEYS})
     return hashlib.sha256(_canon(c).encode()).hexdigest()[:16]
 
 
