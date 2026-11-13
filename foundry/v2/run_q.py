@@ -542,7 +542,7 @@ def run_v2(cfg):
 def _run_v2(cfg):
     cfg = validate_config_v2(cfg)
     # r498: stored stress scenarios sit beside the base and never change its identity.
-    config_hash = _hash({k: v for k, v in cfg.items() if k != "stress_scenarios"})
+    config_hash = _hash({k: v for k, v in cfg.items() if k not in ("stress_scenarios", "stress_reporting")})
     # Single authoritative reporting horizon, threaded through the whole consumer layer (the T34 lesson:
     # derive once from the config, never re-probe per function). _NP = number of projection periods;
     # engine BS vectors are (_NP + 1) long (slot 0 = opening), IS/ratios are _NP long.
@@ -1416,13 +1416,34 @@ def _run_v2(cfg):
             out.append(round(sum(float(x or 0.0) for x in nii[start:end]) / den * 100.0, 2)
                        if den > 0 else None)
         return out
+    def _twavg(key):
+        # Time-weighted average balance per model year: mean of each engine period's (open + close) / 2.
+        v = list(bsw.get(key) or [])
+        per = ([((float(v[i] or 0.0) + float(v[i + 1] or 0.0)) / 2.0) for i in range(_NP)] if len(v) == _NP + 1
+               else [float(x or 0.0) for x in v[:_NP]])
+        return [(sum(per[y * _ppy:(y + 1) * _ppy]) / _ppy) if len(per) >= (y + 1) * _ppy else None for y in range(_NP // _ppy)]
+    def _annual_return(key):
+        den = _twavg(key)
+        return [round(n / d * 100.0, 2) if d else None for n, d in zip(ann_ni, den)]
+    def _annual_eff():
+        nie = list(_dv.get("nie") or [])[:_NP]
+        nii = list(isw.get("nii") or [])[:_NP]
+        rev = [float(nii[i] or 0.0) + sum(float((isw.get(k) or [0.0] * _NP)[i] or 0.0) for k in ("fees", "gos", "servNet", "fvPnl", "otherIncome") if isw.get(k))
+               for i in range(len(nii))]
+        out = []
+        for y in range(_NP // _ppy):
+            sl = slice(y * _ppy, (y + 1) * _ppy)
+            r_ = sum(rev[sl])
+            out.append(round(sum(float(x or 0.0) for x in nie[sl]) / r_ * 100.0, 2) if r_ else None)
+        return out
     results["annual"] = {
-        "note": "stocks at year-end, flows summed; NIM is annual NII over the average of the first and last reported total-asset balances in each model year",
+        "note": "stocks at year-end, flows summed; NIM is annual NII over the average of the first and last reported total-asset balances in each model year; "
+                "ROA and ROE are annual net income over time-weighted average total assets and equity (r499); efficiency is annual noninterest expense over annual revenue",
         "total_assets_eop": [ta_w[i] for i in range(_ppy - 1, _NP, _ppy)],
         "net_loans_eop": [_sw("netLoans")[i] for i in range(_ppy - 1, _NP, _ppy)],
         "deposits_eop": [dep_w[i] for i in range(_ppy - 1, _NP, _ppy)],
         "ni": [round(x, 2) for x in ann_ni],
-        "nim": _annual_nim_source_convention(), "roa": _annR(roa_w), "eff": _annR(eff_w),
+        "nim": _annual_nim_source_convention(), "roa": _annual_return("totalAssets"), "roe": _annual_return("equity"), "eff": _annual_eff(),
         "lev_eop": [(lambda s: [(s[i] if i < len(s) else None) for i in range(_ppy - 1, _NP, _ppy)])(
                        lev_w[1:_NP + 1] if len(lev_w) == _NP + 1 else lev_w[:_NP])][0],
     }

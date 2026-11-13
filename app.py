@@ -1637,24 +1637,83 @@ def v31_stress_run(body: dict, user=Depends(gate)):
     slug = body.get("slug")
     out, stored = [], False
     try:
-        base_cfg = {k: v for k, v in cfg.items() if k != "stress_scenarios"}
+        from foundry.v2 import stress_report
+        base_cfg = stress_report.base_only(cfg)
         base_res = stress._engine_run(base_cfg)
         for item in body.get("runs") or []:
             sc = _stress_scenario(cfg, item.get("scenario_id"))
             out += stress.run_scenario(cfg, sc, item.get("severities"), base_res=base_res,
-                                       attribution=bool(body.get("attribution", True)))
+                                       attribution=bool(body.get("attribution", True)), keep_results=True)
     except (ValueError, TypeError, KeyError) as e:
         return JSONResponse({"error": str(e)}, status_code=422)
+    results = {r["run_id"]: r.pop("_results", None) for r in out}
     if slug:
         try:
-            for r in out:
-                store.save_stress_run(slug, r, user=user)
+            for i, r in enumerate(out):
+                store.save_stress_run(slug, r, user=user, results=results.get(r["run_id"]))
+                out[i] = store.load_stress_run(slug, r["run_id"], user=user)
             stored = True
         except (OSError, ValueError):
             stored = False
     for r in out:
         r["state"] = stress.run_state(r, cfg)
+        res = results.get(r["run_id"])
+        if res and r.get("status") == "completed":   # the reporting view for this run, computed once here
+            try:
+                r["report"] = stress_report.report(res["base_cfg"], res["base_res"], res["stress_cfg"], res["stress_res"], settings_cfg=cfg)
+            except Exception as e:  # reporting never fails a run; the view says why
+                r["report_error"] = str(e)[:300]
     return JSONResponse({"records": out, "stored": stored})
+
+
+def _stress_archived(slug, run_id, user):
+    from foundry import store
+    rec = store.load_stress_run(slug, run_id, user=user)
+    parts = {k: store.load_stress_archive(slug, rec, k, user=user) for k in ("baseline", "base_result", "stress_cfg", "stress_result")}
+    return rec, parts
+
+
+@app.post("/api/v31/stress/registry")
+def v31_stress_registry(body: dict, user=Depends(gate)):
+    """The supported-input registry: identity, units, bounds and permitted operations."""
+    from foundry.v2 import stress
+    try:
+        return JSONResponse({"registry": stress.registry(body.get("cfg") or {})})
+    except (ValueError, TypeError, KeyError) as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+
+@app.post("/api/v31/stress/report")
+def v31_stress_report(body: dict, user=Depends(gate)):
+    """Tables X and Y and the capital assessment for one stored run, from its archive, with the current
+    reporting settings (classifications, policy minimums, window). Never re-runs the engine."""
+    from foundry.v2 import stress, stress_report
+    cfg, slug, rid = body.get("cfg") or {}, body.get("slug"), body.get("run_id")
+    try:
+        rec, parts = _stress_archived(slug, rid, user)
+    except (OSError, ValueError):
+        return JSONResponse({"error": "this run record is not stored"}, status_code=404)
+    if rec.get("status") != "completed":
+        return JSONResponse({"error": "failed runs have no results to report"}, status_code=422)
+    if not all(parts.values()):
+        return JSONResponse({"error": "this run has no archived results (it ran before r499); rerun it to report"}, status_code=409)
+    rep = stress_report.report(parts["baseline"], parts["base_result"], parts["stress_cfg"], parts["stress_result"], settings_cfg=cfg)
+    return JSONResponse({"report": rep, "state": stress.run_state(rec, cfg), "run_id": rid,
+                         "classification": {"deposits": stress_report.deposit_classification(cfg),
+                                            "expenses": stress_report.expense_classification(cfg)}})
+
+
+@app.post("/api/v31/stress/reproduce")
+def v31_stress_reproduce(body: dict, user=Depends(gate)):
+    """Rerun a stored record from its archived baseline and confirm it reproduces the same result."""
+    from foundry.v2 import stress
+    try:
+        rec, parts = _stress_archived(body.get("slug"), body.get("run_id"), user)
+    except (OSError, ValueError):
+        return JSONResponse({"error": "this run record is not stored"}, status_code=404)
+    if rec.get("status") != "completed" or not parts.get("baseline"):
+        return JSONResponse({"error": "no archived baseline for this run"}, status_code=409)
+    return JSONResponse(stress.rerun_from_archive(parts["baseline"], rec))
 
 
 @app.post("/api/v31/stress/runs")
@@ -1687,8 +1746,19 @@ def v31_stress_export(body: dict, user=Depends(gate)):
             return JSONResponse({"error": "a selected run record is not stored"}, status_code=404)
     else:
         recs = [r for r in (body.get("records") or []) if not ids or r.get("run_id") in ids]
+    wb = stress_workbook(recs, lambda r: stress.run_state(r, cfg))
+    rid = body.get("report_run_id")
+    if slug and rid:   # submission tables for the primary case, from its archive
+        from foundry.v2 import stress_report
+        try:
+            rec, parts = _stress_archived(slug, rid, user)
+            if all(parts.values()):
+                rep = stress_report.report(parts["baseline"], parts["base_result"], parts["stress_cfg"], parts["stress_result"], settings_cfg=cfg)
+                stress_report.add_report_sheets(wb, rep, rec)
+        except (OSError, ValueError):
+            pass
     buf = _io.BytesIO()
-    stress_workbook(recs, lambda r: stress.run_state(r, cfg)).save(buf)
+    wb.save(buf)
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": f'attachment; filename="{_engagement_slug(cfg)}_stress_runs.xlsx"'})

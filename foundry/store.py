@@ -7,6 +7,7 @@ to load rather than being coerced. Save stamps the current version onto
 configs that predate the pin (the nine goldens and fixtures), which the run
 path has been verified to tolerate hash-neutrally.
 """
+import gzip
 import json
 import os
 import re
@@ -336,13 +337,50 @@ def _stress_dir(slug, user=None):
     return d
 
 
-def save_stress_run(slug, record, user=None):
-    """Store one stress run record (evidence is kept automatically, independent of exports)."""
+def save_stress_run(slug, record, user=None, results=None):
+    """Store one stress run record (evidence is kept automatically, independent of exports).
+
+    Records are immutable: an existing run ID is never overwritten. ``results`` (base and stressed
+    configuration and full engine results) go to the archive: the baseline configuration and its
+    result once per base fingerprint and engine, the stressed pair once per run."""
     rid = re.sub(r"[^a-z0-9]", "", str(record.get("run_id") or "").lower())
     if not rid:
         raise ValueError("run record needs a run_id")
-    _atomic_json(os.path.join(_stress_dir(slug, user), rid + ".json"), record)
+    d = _stress_dir(slug, user)
+    path = os.path.join(d, rid + ".json")
+    if os.path.exists(path):
+        raise ValueError(f"run record {rid} already exists; records are never overwritten")
+    if results:
+        ad = os.path.join(d, "archive")
+        os.makedirs(ad, exist_ok=True)
+        fp = re.sub(r"[^a-z0-9]", "", str(record.get("base_fingerprint") or "").lower())
+        eng = re.sub(r"[^A-Za-z0-9._-]", "", str(record.get("engine") or "unknown"))
+        files = {f"baseline_{fp}.json.gz": results.get("base_cfg"), f"base_result_{fp}_{eng}.json.gz": results.get("base_res"),
+                 f"{rid}.stress_cfg.json.gz": results.get("stress_cfg"), f"{rid}.stress_result.json.gz": results.get("stress_res")}
+        for name, obj in files.items():
+            fpath = os.path.join(ad, name)
+            if obj is None or os.path.exists(fpath):
+                continue
+            tmp = fpath + ".tmp"
+            with gzip.open(tmp, "wt", encoding="utf-8") as f:
+                json.dump(obj, f, default=str)
+            os.replace(tmp, fpath)
+        record = dict(record, archive={"baseline": f"baseline_{fp}.json.gz", "base_result": f"base_result_{fp}_{eng}.json.gz",
+                                       "stress_cfg": f"{rid}.stress_cfg.json.gz", "stress_result": f"{rid}.stress_result.json.gz"})
+    _atomic_json(path, record)
     return rid
+
+
+def load_stress_archive(slug, record, part, user=None):
+    """One archived object of a record: baseline, base_result, stress_cfg or stress_result (None if absent)."""
+    name = ((record or {}).get("archive") or {}).get(part)
+    if not name or "/" in name or ".." in name:
+        return None
+    fpath = os.path.join(_stress_dir(slug, user), "archive", name)
+    if not os.path.exists(fpath):
+        return None
+    with gzip.open(fpath, "rt", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def list_stress_runs(slug, user=None):

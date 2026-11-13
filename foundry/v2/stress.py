@@ -39,6 +39,9 @@ FUNDING = ("inherit", "show_shortfall", "automatic_borrowing")
 _TRAJ = ("flat", "growth", "explicit")
 _SKIP_BANK_KEYS = set(FAMILIES) | {"n_periods", "periods_per_year", "balance_components_model"}
 _MODEL_PERIOD = {12: "month", 4: "quarter", 1: "year"}
+STRESS_KEYS = ("stress_scenarios", "stress_reporting")   # stored beside the base, never part of it
+# Supported-input registry bounds by unit kind: a stressed path outside these is rejected by name.
+BOUNDS = {"rate": (-1.0, 1.0), "count": (0.0, None)}
 
 
 # ---------------------------------------------------------------- identity and fingerprints
@@ -48,7 +51,7 @@ def _canon(obj):
 
 def base_fingerprint(cfg) -> str:
     """Fingerprint of the base configuration, excluding stored stress scenarios."""
-    c = {k: v for k, v in (cfg or {}).items() if k != "stress_scenarios"}
+    c = {k: v for k, v in (cfg or {}).items() if k not in STRESS_KEYS}
     return hashlib.sha256(_canon(c).encode()).hexdigest()[:16]
 
 
@@ -271,6 +274,9 @@ def resolve_target(cfg, key):
     """Return (parent, field, spec, product, family, tokens) for a target key, or raise."""
     fam, pid, field = _split_key(key)
     a = cfg["assumptions"]
+    if fam == "bank" and (field.split(".")[0] in _SKIP_BANK_KEYS or field.startswith("_") or field.split(".")[0] in _SCALAR_SKIP
+                          or (len(field.split(".")) == 1 and _is_timing(field))):
+        raise StressError(f"{field} is not a supported stress input (structural or timing setting)")
     if fam == "bank":
         node, product = a, None
     elif fam in FAMILIES:
@@ -303,7 +309,26 @@ def resolve_target(cfg, key):
     why = _inactive(a, fam, product, tokens)
     if why:
         raise StressError(f"{field} is not active: {why}")
+    if key not in registry_keys(cfg):
+        raise StressError(f"{field} is not in the supported-input registry")
     return parent, last, node, product, fam, tokens
+
+
+def registry_keys(cfg) -> set:
+    """The supported-input registry: every key the catalog offers. Backend resolution accepts nothing else."""
+    return {r["key"] for r in targets(cfg) if r.get("key") and r.get("active")}
+
+
+def registry(cfg) -> list[dict]:
+    """Registry entries with units, bounds and permitted operations."""
+    out = []
+    for r in targets(cfg):
+        if not (r.get("key") and r.get("active")):
+            continue
+        lo, hi = BOUNDS.get(r["unit_kind"], (None, None))
+        out.append(dict(key=r["key"], label=f"{r['product_name']} · {r['label']}", unit_kind=r["unit_kind"], kind=r["kind"],
+                        ops=list(OPS), window=r["kind"] == "series", bounds=[lo, hi]))
+    return out
 
 
 def _resolve_path(spec, mode, n, ppy):
@@ -403,7 +428,7 @@ def _set_funding(c, funding):
 
 def build_config(cfg, scenario, severity_id, *, identity=False, modes=None):
     """Deep copy of the base with one severity's overrides applied (identity=True: zero shock)."""
-    c = copy.deepcopy({k: v for k, v in cfg.items() if k != "stress_scenarios"})
+    c = copy.deepcopy({k: v for k, v in cfg.items() if k not in STRESS_KEYS})
     a = c["assumptions"]
     n, ppy = int(a.get("n_periods") or 12), int(a.get("periods_per_year") or 4)
     sev = next((s for s in scenario.get("severities") or [] if s.get("id") == severity_id), None)
@@ -424,6 +449,12 @@ def build_config(cfg, scenario, severity_id, *, identity=False, modes=None):
             base = _resolve_path(spec, mode, n, ppy)
             stressed = list(base) if identity else _apply(base, ov["op"], float(ov["value"]), s, ov.get("end"))
             parent[field] = _rewrite(spec, mode, stressed, ppy)
+        lo, hi = BOUNDS.get(_unit_kind(spec if isinstance(spec, dict) else {}, tokens), (None, None))
+        bad = [v for v in stressed if (lo is not None and v < lo - 1e-12) or (hi is not None and v > hi + 1e-12)]
+        if bad and not identity:
+            raise StressError(f"{(product or {}).get('name') or 'Bank-level'} · {_named_label(product or c['assumptions'], tokens)}: "
+                              f"stressed value {bad[0]:g} is outside the supported range "
+                              f"{'' if lo is None else lo:}{' to ' if hi is not None else ' or more'}{'' if hi is None else hi}")
         resolved.append(dict(target=ov["target"], label=f"{(product or {}).get('name') or 'Bank-level'} · {_named_label(product or c['assumptions'], tokens)}",
                              op=ov["op"], value=ov["value"], start=s, end=ov.get("end"), mode=mode,
                              base_at_start=base[s - 1], stressed_at_start=stressed[s - 1]))
@@ -456,7 +487,10 @@ def metrics(res, cfg) -> dict:
     sc = (res.get("scenarios") or {}).get("base") or {}
     a = cfg.get("assumptions") or {}
     ppy = int(a.get("periods_per_year") or 4)
-    ni = [float(x or 0.) for x in (is_.get("ni") or [])]
+    ni_full = [float(x or 0.) for x in (is_.get("ni") or [])]
+    from .stress_report import report_window
+    W = report_window(cfg)["periods"]
+    ni = ni_full[:W]
     cum, run = [], 0.
     for x in ni:
         run += x
@@ -475,7 +509,7 @@ def metrics(res, cfg) -> dict:
     lab = lambda p: period_label(p, ppy) if p else None
     floor = next((c2.get("value") for c2 in (cfg.get("constraints") or []) if c2.get("key") == "leverage_min"), None)
     return dict(
-        cum_ni=round(sum(ni), 6), peak_cum_loss=round(peak_loss, 6), peak_cum_loss_period=lab(peak_loss_p),
+        cum_ni=round(sum(ni), 6), cum_ni_full=round(sum(ni_full), 6), window_periods=W, peak_cum_loss=round(peak_loss, 6), peak_cum_loss_period=lab(peak_loss_p),
         first_profitable=lab(first_profit), sustained_profitable=lab(sustained),
         min_tier1_leverage=sc.get("min_leverage_full"), min_tier1_leverage_period=sc.get("min_leverage_full_label"),
         leverage_floor=floor, capital_shortfall_diagnostic=sc.get("capital_shortfall_est"),
@@ -507,13 +541,13 @@ def series(res) -> dict:
     return out
 
 
-def run_scenario(cfg, scenario, severity_ids=None, *, base_res=None, attribution=True) -> list[dict]:
+def run_scenario(cfg, scenario, severity_ids=None, *, base_res=None, attribution=True, keep_results=False) -> list[dict]:
     """Zero-shock check, then each severity. Returns one run record per severity.
 
     The base configuration is never modified; failures are recorded with the named input.
     """
     a = cfg.get("assumptions") or {}
-    base_cfg = {k: v for k, v in cfg.items() if k != "stress_scenarios"}
+    base_cfg = {k: v for k, v in cfg.items() if k not in STRESS_KEYS}
     fp, eng, sfp = base_fingerprint(cfg), engine_identity(), scenario_fingerprint(scenario)
     before = _canon(base_cfg)
     sevs = [s for s in (scenario.get("severities") or []) if not severity_ids or s.get("id") in severity_ids]
@@ -521,7 +555,9 @@ def run_scenario(cfg, scenario, severity_ids=None, *, base_res=None, attribution
     t0 = time.time()
     base_res = base_res or _engine_run(base_cfg)
     base_cmp = _comparable(base_res)
-    base_metrics, base_series = metrics(base_res, base_cfg), series(base_res)
+    base_metrics, base_series = metrics(base_res, cfg), series(base_res)
+    from .stress_report import report_window
+    win = report_window(cfg)
     chk = check_scenario(cfg, scenario)
     for sev in sevs:
         rec = dict(run_id=uuid.uuid4().hex[:12], scenario_id=scenario.get("id"), scenario_name=scenario.get("name"),
@@ -557,9 +593,12 @@ def run_scenario(cfg, scenario, severity_ids=None, *, base_res=None, attribution
             rec.update(status="completed", resolved_overrides=resolved,
                        funding_policy=(sr.get("funding") or {}).get("policy"),
                        base=dict(metrics=base_metrics, series=base_series),
-                       stress=dict(metrics=metrics(sr, sc), series=series(sr)),
+                       stress=dict(metrics=metrics(sr, dict(sc, stress_reporting=cfg.get("stress_reporting"))), series=series(sr)),
+                       window=dict(periods=win["periods"], label=win["label"]),
                        base_run_hash=base_res.get("run_hash"), stress_run_hash=sr.get("run_hash"),
                        no_effect=_comparable(sr) == base_cmp)
+            if keep_results:   # evidence for the archive; the caller removes it before storing the record
+                rec["_results"] = dict(base_cfg=base_cfg, base_res=base_res, stress_cfg=sc, stress_res=sr)
         except Exception as e:  # recorded, never a healthy column
             rec.update(status="failed", errors=[str(e)])
         rec["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -611,7 +650,7 @@ def probe_target(cfg, key) -> dict:
         out = dict(ok=True, mode="scalar", reason=None)
         _PROBE_CACHE[ck] = out
         return dict(out)
-    base_cfg = {k: v for k, v in cfg.items() if k != "stress_scenarios"}
+    base_cfg = {k: v for k, v in cfg.items() if k not in STRESS_KEYS}
     base_cmp = _comparable(_engine_run(base_cfg))
     sc = dict(id="probe", severities=[dict(id="p", overrides=[dict(target=key, op="multiply", value=1, start=1)])])
     reasons = []
@@ -638,20 +677,22 @@ def attribute(cfg, scenario, severity_id, modes, base_res=None) -> dict:
     Each override runs alone against the base, so order does not matter. Effects that travel through
     links stay inside the override that caused them; they are not separate contributions.
     """
-    base_cfg = {k: v for k, v in cfg.items() if k != "stress_scenarios"}
+    base_cfg = {k: v for k, v in cfg.items() if k not in STRESS_KEYS}
     base_res = base_res or _engine_run(base_cfg)
-    b = metrics(base_res, base_cfg)["cum_ni"]
+    b = metrics(base_res, cfg)["cum_ni"]
     sev = next(s for s in scenario["severities"] if s.get("id") == severity_id)
     rows = []
     for ov in sev.get("overrides") or []:
         one = dict(scenario, severities=[dict(sev, overrides=[ov])])
         c1, res = build_config(cfg, one, severity_id, modes=modes)
         r1 = _engine_run(c1)
-        rows.append(dict(target=ov["target"], label=res[0]["label"], effect=round(metrics(r1, c1)["cum_ni"] - b, 6),
+        rows.append(dict(target=ov["target"], label=res[0]["label"], effect=round(metrics(r1, dict(c1, stress_reporting=cfg.get("stress_reporting")))["cum_ni"] - b, 6),
                          no_effect=_comparable(r1) == _comparable(base_res)))
     ca, _ = build_config(cfg, scenario, severity_id, modes=modes)
-    total = metrics(_engine_run(ca), ca)["cum_ni"] - b
-    return dict(method="isolated one-at-a-time, interaction residual", metric="cumulative net income, full horizon, $000s",
+    total = metrics(_engine_run(ca), dict(ca, stress_reporting=cfg.get("stress_reporting")))["cum_ni"] - b
+    from .stress_report import report_window
+    wl = report_window(cfg)["label"]
+    return dict(method="isolated one-at-a-time, interaction residual", metric=f"cumulative net income, {wl}, $000s",
                 extra_runs=len(rows), rows=rows, interaction=round(total - sum(r["effect"] for r in rows), 6),
                 total=round(total, 6))
 
@@ -666,3 +707,21 @@ def run_state(record, cfg) -> str:
     if sc is None or scenario_fingerprint(sc) != record.get("scenario_fingerprint"):
         return "stale"
     return "current"
+
+
+# ---------------------------------------------------------------- reproducibility
+def scenario_from_record(record) -> dict:
+    """The exact scenario a record ran: its frozen severity definition and funding setting."""
+    return dict(id=record.get("scenario_id"), name=record.get("scenario_name"), kind=record.get("kind", "economic"),
+                funding=record.get("funding_setting", "inherit"), version=record.get("scenario_version"),
+                severities=[copy.deepcopy(record.get("definition") or {})])
+
+
+def rerun_from_archive(baseline_cfg, record) -> dict:
+    """Rebuild and rerun a completed record from its archived baseline. Returns {"reproduced", "run_hash"}."""
+    sc = scenario_from_record(record)
+    modes = {o["target"]: o["mode"] for o in (record.get("resolved_overrides") or []) if o.get("mode") != "scalar"}
+    c, _ = build_config(baseline_cfg, sc, (record.get("definition") or {}).get("id"), modes=modes)
+    r = _engine_run(c)
+    return dict(reproduced=r.get("run_hash") == record.get("stress_run_hash"), run_hash=r.get("run_hash"),
+                expected=record.get("stress_run_hash"))
